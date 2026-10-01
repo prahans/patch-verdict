@@ -1,0 +1,12 @@
+{
+  "name": "divide-by-zero-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}
