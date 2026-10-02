@@ -149,19 +149,28 @@ async function main() {
      * STEP 6
      * Interpret the result.
      */
+
     console.log("");
     console.log("────────────────────────────");
 
-    if (before.exitCode !== 0) {
+    const output = `${before.stdout}\n${before.stderr}`;
+
+    const expectedFailureObserved =
+      before.exitCode !== 0 &&
+      output.includes("rejects division by zero") &&
+      output.includes("expected function to throw");
+
+    if (expectedFailureObserved) {
       console.log("✓ BUG REPRODUCED");
-      console.log("");
-      console.log(`Test exit code: ${before.exitCode}`);
-      console.log(`Duration: ${before.durationMs}ms`);
     } else {
       console.log("✗ BUG NOT REPRODUCED");
-      console.log("The test passed before applying a patch.");
-    }
 
+      if (before.exitCode !== 0) {
+        console.log("The command failed, but not for the expected bug.");
+      } else {
+        console.log("The test unexpectedly passed.");
+      }
+    }
     console.log("────────────────────────────");
   } finally {
     /*
