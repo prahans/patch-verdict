@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { divide } from "../src/divide";
+import { divide } from "../src/divide.js";
 
 describe("divide", () => {
   it("divides two numbers", () => {
