@@ -9,6 +9,10 @@ export async function createSandbox() {
   return sandbox;
 }
 
+export async function readSandboxFile(sandbox: Sandbox, path: string) {
+  return sandbox.files.read(path);
+}
+
 export async function writeSandboxFile(
   sandbox: Sandbox,
   path: string,

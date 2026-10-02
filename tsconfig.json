@@ -39,6 +39,9 @@
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+    "skipLibCheck": true
+  },
+
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "fixtures", "output"]
 }
