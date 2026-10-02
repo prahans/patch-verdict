@@ -135,7 +135,7 @@ async function main() {
 
     const before = await runSandboxCommand(
       sandbox,
-      "npm test",
+      'npx vitest run tests/divide.test.ts -t "rejects division by zero"',
       SANDBOX_PROJECT,
     );
 
