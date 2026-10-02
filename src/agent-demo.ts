@@ -12,6 +12,10 @@ import {
 
 import { investigateIssue } from "./agent/investigate.js";
 
+import { patchIssue } from "./agent/patch.js";
+
+import { executeTool } from "./tools/index.js";
+
 const SANDBOX_PROJECT = "/tmp/patchverdict";
 
 async function readFixtureFile(relativePath: string) {
@@ -96,6 +100,30 @@ The function does not appear to reject division by zero.
 
     console.log("");
     console.log(`Iterations: ${investigation.iterations}`);
+
+    console.log("");
+    console.log("Starting AI patch phase...");
+
+    const patch = await patchIssue(sandbox, issue, investigation.report);
+
+    console.log("");
+    console.log("PATCH PHASE RESULT");
+
+    console.log(`Patch applied: ${patch.patchApplied ? "✓" : "✗"}`);
+
+    console.log("");
+    console.log(`Patch applied: ${patch.patchApplied ? "✓" : "✗"}`);
+
+    console.log("");
+    console.log("Reading src/divide.ts AFTER AI patch...");
+
+    const changedSource = await executeTool(sandbox, "read_file", {
+      path: "src/divide.ts",
+    });
+
+    console.dir(changedSource, {
+      depth: null,
+    });
   } finally {
     await destroySandbox(sandbox);
   }

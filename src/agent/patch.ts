@@ -5,44 +5,56 @@ import { openRouter, AGENT_MODEL } from "../ai/openrouter.js";
 
 import { executeTool, type ToolName } from "../tools/index.js";
 
-import { investigationToolDefinitions } from "./tool-definitions.js";
+import { patchToolDefinitions } from "./tool-definitions.js";
 
-import { INVESTIGATION_SYSTEM_PROMPT } from "./prompt.js";
+import { PATCH_SYSTEM_PROMPT } from "./patch-prompt.js";
 
-const MAX_ITERATIONS = 8;
+const MAX_PATCH_ITERATIONS = 4;
 
-export async function investigateIssue(sandbox: Sandbox, issue: string) {
+export async function patchIssue(
+  sandbox: Sandbox,
+  issue: string,
+  investigationReport: string,
+) {
   const messages: ChatMessages[] = [
     {
       role: "system",
-      content: INVESTIGATION_SYSTEM_PROMPT,
+      content: PATCH_SYSTEM_PROMPT,
     },
 
     {
       role: "user",
       content: `
-Investigate this reported issue:
+Reported issue:
 
 ${issue}
+
+Investigation report:
+
+${investigationReport}
+
+Apply the smallest reasonable candidate patch.
 `.trim(),
     },
   ];
 
-  for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
+  let patchApplied = false;
+
+  for (let iteration = 1; iteration <= MAX_PATCH_ITERATIONS; iteration++) {
     console.log("");
-    console.log(`AGENT ITERATION ${iteration}`);
+    console.log(`PATCH ITERATION ${iteration}`);
 
     const response = await openRouter.chat.send({
       chatRequest: {
         model: AGENT_MODEL,
         messages,
-        tools: investigationToolDefinitions,
+        tools: patchToolDefinitions,
         stream: false,
       },
     });
 
     if (!("choices" in response)) {
-      throw new Error("Expected a non-streaming chat completion");
+      throw new Error("Expected non-streaming response");
     }
 
     const message = response.choices[0]?.message;
@@ -55,20 +67,11 @@ ${issue}
 
     const toolCalls = message.toolCalls;
 
-    /*
-     * No tool call means the model believes
-     * its investigation is finished.
-     */
     if (!toolCalls || toolCalls.length === 0) {
       return {
         completed: true,
-        iterations: iteration,
-        report:
-          typeof message.content === "string"
-            ? message.content
-            : (message.content ?? [])
-                .map((part) => (part.type === "text" ? part.text : ""))
-                .join("\n"),
+        patchApplied,
+        report: message.content ?? "",
       };
     }
 
@@ -83,22 +86,20 @@ ${issue}
         input = {};
       }
 
-      console.log(`→ ${toolName}`, input);
+      console.log(`→ ${toolName}`);
 
-      let result;
-
-      try {
-        result = await executeTool(sandbox, toolName, input);
-      } catch (error) {
-        result = {
-          ok: false,
-
-          error:
-            error instanceof Error ? error.message : "Tool execution failed",
-        };
-      }
+      const result = await executeTool(sandbox, toolName, input);
 
       console.log(`← ${toolName}`, result.ok ? "OK" : "ERROR");
+
+      if (
+        toolName === "apply_patch" &&
+        result.ok &&
+        "changed" in result.data &&
+        result.data.changed
+      ) {
+        patchApplied = true;
+      }
 
       messages.push({
         role: "tool",
@@ -108,12 +109,23 @@ ${issue}
         content: JSON.stringify(result),
       });
     }
+
+    /*
+     * Once a real patch was applied,
+     * stop granting further autonomous edits.
+     */
+    if (patchApplied) {
+      return {
+        completed: true,
+        patchApplied: true,
+        report: "Candidate patch applied.",
+      };
+    }
   }
 
   return {
     completed: false,
-    iterations: MAX_ITERATIONS,
-
-    report: "Investigation stopped because the iteration budget was exhausted.",
+    patchApplied,
+    report: "Patch iteration budget exhausted.",
   };
 }

@@ -8,7 +8,14 @@ import { runTestTool } from "./run-test.js";
 
 import { searchCodeTool } from "./search-code.js";
 
-export type ToolName = "list_files" | "read_file" | "search_code" | "run_test";
+import { applyPatchTool } from "./apply-patch.js";
+
+export type ToolName =
+  | "list_files"
+  | "read_file"
+  | "search_code"
+  | "run_test"
+  | "apply_patch";
 
 export async function executeTool(
   sandbox: Sandbox,
@@ -27,5 +34,8 @@ export async function executeTool(
 
     case "run_test":
       return runTestTool(sandbox, input);
+
+    case "apply_patch":
+      return applyPatchTool(sandbox, input);
   }
 }

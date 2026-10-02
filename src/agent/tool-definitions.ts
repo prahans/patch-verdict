@@ -1,4 +1,4 @@
-export const agentToolDefinitions = [
+export const investigationToolDefinitions = [
   {
     type: "function" as const,
 
@@ -96,6 +96,60 @@ export const agentToolDefinitions = [
         },
 
         required: ["testName"],
+        additionalProperties: false,
+      },
+    },
+  },
+];
+
+export const patchToolDefinitions = [
+  {
+    type: "function" as const,
+
+    function: {
+      name: "read_file",
+
+      description: "Read a repository file before modifying it.",
+
+      parameters: {
+        type: "object",
+
+        properties: {
+          path: {
+            type: "string",
+          },
+        },
+
+        required: ["path"],
+        additionalProperties: false,
+      },
+    },
+  },
+
+  {
+    type: "function" as const,
+
+    function: {
+      name: "apply_patch",
+
+      description:
+        "Replace the contents of one repository file with a candidate fixed version.",
+
+      parameters: {
+        type: "object",
+
+        properties: {
+          path: {
+            type: "string",
+          },
+
+          content: {
+            type: "string",
+          },
+        },
+
+        required: ["path", "content"],
+
         additionalProperties: false,
       },
     },
