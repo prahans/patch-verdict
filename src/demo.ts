@@ -10,6 +10,19 @@ import {
   writeSandboxFile,
 } from "./sandbox/e2b.js";
 
+const FIXED_DIVIDE_SOURCE = `
+export function divide(
+  a: number,
+  b: number,
+): number {
+  if (b === 0) {
+    throw new Error("Division by zero");
+  }
+
+  return a / b;
+}
+`.trimStart();
+
 const SANDBOX_PROJECT = "/tmp/patchverdict";
 
 async function readFixtureFile(relativePath: string) {
@@ -24,6 +37,9 @@ async function readFixtureFile(relativePath: string) {
 }
 
 async function main() {
+  const reproductionCommand =
+    'npx vitest run tests/divide.test.ts -t "rejects division by zero"';
+
   console.log("");
   console.log("PATCHVERDICT");
   console.log("────────────────────────────");
@@ -135,7 +151,7 @@ async function main() {
 
     const before = await runSandboxCommand(
       sandbox,
-      'npx vitest run tests/divide.test.ts -t "rejects division by zero"',
+      reproductionCommand,
       SANDBOX_PROJECT,
     );
 
@@ -153,42 +169,71 @@ async function main() {
     console.log("");
     console.log("────────────────────────────");
 
-    const output = `${before.stdout}\n${before.stderr}`;
+    const beforeOutput = `${before.stdout}\n${before.stderr}`;
 
-    const testRunnerStarted = output.includes("Test Files");
+    const testRunnerStarted = beforeOutput.includes("Test Files");
 
-    const reproductionTestRan = output.includes("rejects division by zero");
+    const reproductionTestRan = beforeOutput.includes(
+      "rejects division by zero",
+    );
 
-    const infrastructureFailed = output.includes("Startup Error");
+    const infrastructureFailed = beforeOutput.includes("Startup Error");
 
-    const expectedFailureObserved =
+    const bugReproduced =
       before.exitCode !== 0 &&
       testRunnerStarted &&
       reproductionTestRan &&
       !infrastructureFailed;
 
-    if (expectedFailureObserved) {
-      console.log("✓ BUG REPRODUCED");
-      console.log("");
-      console.log(`Test exit code: ${before.exitCode}`);
-      console.log(`Duration: ${before.durationMs}ms`);
-    } else {
+    if (!bugReproduced) {
       console.log("✗ BUG NOT REPRODUCED");
+      console.log(
+        "Stopping mission because the reported failure was not proven.",
+      );
 
-      if (infrastructureFailed) {
-        console.log(
-          "The test environment failed before the reproduction test could run.",
-        );
-      } else if (before.exitCode !== 0) {
-        console.log(
-          "The command failed, but the expected reproduction test was not observed.",
-        );
-      } else {
-        console.log(
-          "The reproduction test passed, so the reported bug was not demonstrated.",
-        );
-      }
+      return;
     }
+
+    console.log("✓ BUG REPRODUCED");
+    console.log("");
+    // ------------------------------------
+    // APPLY PATCH HERE
+    // ------------------------------------
+    console.log("Applying candidate patch...");
+
+    await writeSandboxFile(
+      sandbox,
+      `${SANDBOX_PROJECT}/src/divide.ts`,
+      FIXED_DIVIDE_SOURCE,
+    );
+
+    const patchApplied = true;
+
+    console.log("✓ Patch applied: src/divide.ts");
+
+    console.log("");
+    console.log("Running reproduction test AFTER patch...");
+
+    const afterReproduction = await runSandboxCommand(
+      sandbox,
+      reproductionCommand,
+      SANDBOX_PROJECT,
+    );
+
+    console.log(afterReproduction.stdout);
+
+    if (afterReproduction.stderr) {
+      console.error(afterReproduction.stderr);
+    }
+
+    const reproductionPassesAfterPatch = afterReproduction.exitCode === 0;
+
+    if (reproductionPassesAfterPatch) {
+      console.log("✓ REPRODUCTION TEST NOW PASSES");
+    } else {
+      console.log("✗ PATCH DID NOT FIX REPRODUCTION");
+    }
+
     console.log("────────────────────────────");
   } finally {
     /*
