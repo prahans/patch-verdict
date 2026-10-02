@@ -10,6 +10,7 @@ import { investigationToolDefinitions } from "./tool-definitions.js";
 import { INVESTIGATION_SYSTEM_PROMPT } from "./prompt.js";
 
 const MAX_ITERATIONS = 8;
+const MAX_DUPLICATE_CALLS = 2;
 
 export async function investigateIssue(sandbox: Sandbox, issue: string) {
   const messages: ChatMessages[] = [
@@ -27,6 +28,10 @@ ${issue}
 `.trim(),
     },
   ];
+
+  const toolCallCache = new Map<string, unknown>();
+
+  let duplicateCalls = 0;
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     console.log("");
@@ -81,6 +86,39 @@ ${issue}
         input = JSON.parse(toolCall.function.arguments);
       } catch {
         input = {};
+      }
+
+      const toolKey = `${toolName}:${JSON.stringify(input)}`;
+      const cachedResult = toolCallCache.get(toolKey);
+
+      if (cachedResult !== undefined) {
+        duplicateCalls++;
+
+        console.log(`↻ ${toolName} DUPLICATE — using cached result`);
+
+        messages.push({
+          role: "tool",
+          toolCallId: toolCall.id,
+          content: JSON.stringify({
+            result: cachedResult,
+
+            meta: {
+              cached: true,
+              message:
+                "This identical tool call was already executed. Repository state has not changed. Use the existing evidence and do not repeat this call.",
+            },
+          }),
+        });
+
+        if (duplicateCalls >= MAX_DUPLICATE_CALLS) {
+          messages.push({
+            role: "user",
+            content:
+              "You are repeating tool calls without gathering new evidence. Stop using tools and provide your investigation report now.",
+          });
+        }
+
+        continue;
       }
 
       console.log(`→ ${toolName}`, input);

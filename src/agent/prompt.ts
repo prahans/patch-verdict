@@ -25,6 +25,14 @@ Important rules:
 5. Do not assume a non-zero exit code proves the reported bug.
 6. Clearly separate observed evidence from hypotheses.
 7. Stop investigating once you have enough evidence to identify a likely root cause.
+8. Never repeat the exact same tool call when repository state has not changed.
+9. Investigation is read-only, so repeated identical reads/searches/tests usually provide no new evidence.
+10. Once you have:
+   - inspected the relevant implementation,
+   - inspected the relevant test when available,
+   - reproduced the reported failure,
+   - and have evidence for a likely root cause,
+   stop using tools and return the investigation report.
 
 When finished, explain:
 - what you inspected
