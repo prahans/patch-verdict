@@ -1,8 +1,8 @@
 import "dotenv/config";
 
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { determineVerdict } from "./proof/verdict.js";
 import path from "node:path";
-
 import {
   createSandbox,
   destroySandbox,
@@ -234,7 +234,98 @@ async function main() {
       console.log("✗ PATCH DID NOT FIX REPRODUCTION");
     }
 
-    console.log("────────────────────────────");
+    console.log("");
+    console.log("Running full test suite AFTER patch...");
+    console.log("");
+
+    const fullSuite = await runSandboxCommand(
+      sandbox,
+      "npm test",
+      SANDBOX_PROJECT,
+    );
+
+    console.log(fullSuite.stdout);
+
+    if (fullSuite.stderr) {
+      console.error(fullSuite.stderr);
+    }
+
+    const fullSuitePassesAfterPatch = fullSuite.exitCode === 0;
+
+    if (fullSuitePassesAfterPatch) {
+      console.log("✓ FULL TEST SUITE PASSES");
+    } else {
+      console.log("✗ FULL TEST SUITE FAILED");
+    }
+
+    const verdict = determineVerdict({
+      bugReproducedBeforePatch: bugReproduced,
+
+      patchApplied,
+
+      reproductionPassesAfterPatch,
+
+      fullSuitePassesAfterPatch,
+    });
+
+    console.log("");
+    console.log("════════════════════════════");
+
+    console.log("PATCH VERDICT");
+
+    console.log("════════════════════════════");
+
+    console.log("");
+
+    console.log(`Bug reproduced before patch: ${bugReproduced ? "✓" : "✗"}`);
+
+    console.log(`Patch applied: ${patchApplied ? "✓" : "✗"}`);
+
+    console.log(
+      `Reproduction passes after patch: ${
+        reproductionPassesAfterPatch ? "✓" : "✗"
+      }`,
+    );
+
+    console.log(
+      `Full suite passes after patch: ${fullSuitePassesAfterPatch ? "✓" : "✗"}`,
+    );
+
+    console.log("");
+
+    console.log(`VERDICT: ${verdict.status}`);
+
+    console.log("════════════════════════════");
+
+    const proof = {
+      version: 1,
+
+      mission: {
+        id: "fixture-divide-zero",
+        issue: "divide() should reject division by zero",
+      },
+
+      patch: {
+        filesChanged: ["src/divide.ts"],
+      },
+
+      evidence: {
+        beforePatch: before,
+
+        afterPatchReproduction: afterReproduction,
+
+        afterPatchFullSuite: fullSuite,
+      },
+
+      verdict,
+    };
+
+    const proofPath = path.resolve(process.cwd(), "output", "proof.json");
+
+    await writeFile(proofPath, JSON.stringify(proof, null, 2), "utf8");
+
+    console.log("");
+    console.log("✓ Proof written to output/proof.json");
   } finally {
     /*
      * Always destroy the sandbox.
