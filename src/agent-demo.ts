@@ -11,10 +11,10 @@ import {
 } from "./sandbox/e2b.js";
 
 import { investigateIssue } from "./agent/investigate.js";
-
 import { patchIssue } from "./agent/patch.js";
-
 import { executeTool } from "./tools/index.js";
+import { determineVerdict } from "./proof/verdict.js";
+import { runFullSuiteTool } from "./tools/run-full-suite.js";
 
 const SANDBOX_PROJECT = "/tmp/patchverdict";
 
@@ -26,18 +26,18 @@ async function readFixtureFile(relativePath: string) {
 }
 
 async function main() {
-  console.log("");
-  console.log("PATCHVERDICT");
-  console.log("AI INVESTIGATION DEMO");
-  console.log("────────────────────────────");
+  console.log(`
+  ╭──────────────────────────────────────────────────╮
+  │  PATCHVERDICT                                    │
+  │  AI patch verification                           │
+  ╰──────────────────────────────────────────────────╯`);
+  console.log("\n  [1/6] Prepare repository\n  ──────────────────────────────────────────────────");
 
   const sandbox = await createSandbox();
 
   try {
     const packageJson = await readFixtureFile("package.json");
-
     const source = await readFixtureFile("src/divide.ts");
-
     const test = await readFixtureFile("tests/divide.test.ts");
 
     await writeSandboxFile(
@@ -54,8 +54,7 @@ async function main() {
       test,
     );
 
-    console.log("");
-    console.log("Installing dependencies...");
+    console.log("    Installing dependencies...");
 
     const install = await runSandboxCommand(
       sandbox,
@@ -67,7 +66,7 @@ async function main() {
       throw new Error("Dependency installation failed");
     }
 
-    console.log("✓ Repository ready");
+    console.log("    ✓  Repository ready");
 
     const issue = `
 divide() should reject division by zero.
@@ -79,60 +78,148 @@ Current behavior:
 The function does not appear to reject division by zero.
 `.trim();
 
-    console.log("");
-    console.log("ISSUE");
-    console.log(issue);
+    console.log("\n    Reported issue\n");
+    console.log(`    ${issue.replace(/\r?\n/g, "\n    ")}`);
 
-    console.log("");
-    console.log("Starting AI investigation...");
+    console.log("\n  [2/6] Reproduce reported bug\n  ──────────────────────────────────────────────────");
+
+    const beforePatch = await executeTool(sandbox, "run_test", {
+      testName: "rejects division by zero",
+    });
+
+    if (!beforePatch.ok) {
+      throw new Error(`Could not run baseline test: ${beforePatch.error}`);
+    }
+
+    if (!("exitCode" in beforePatch.data)) {
+      throw new Error("Baseline test result is missing an exit code");
+    }
+
+    const beforeOutput = `${beforePatch.data.stdout}\n${beforePatch.data.stderr}`;
+
+    const bugReproducedBeforePatch =
+      beforePatch.data.exitCode !== 0 &&
+      beforeOutput.includes("rejects division by zero") &&
+      beforeOutput.includes("expected [Function] to throw") &&
+      !beforeOutput.includes("Startup Error");
+
+    if (!bugReproducedBeforePatch) {
+      throw new Error("Reported bug could not be reproduced before patching.");
+    }
+
+    console.log("    ✓  Baseline bug reproduced");
+
+    console.log("\n  [3/6] Investigate issue\n  ──────────────────────────────────────────────────");
 
     const investigation = await investigateIssue(sandbox, issue);
 
-    console.log("");
-    console.log("════════════════════════════");
+    if (!investigation.completed) {
+      throw new Error("AI investigation did not complete successfully.");
+    }
 
-    console.log("INVESTIGATION REPORT");
+    console.log("\n    Investigation report\n");
+    console.log(`    ${investigation.report.replace(/\r?\n/g, "\n    ")}`);
+    console.log(`\n    Iterations: ${investigation.iterations}`);
 
-    console.log("════════════════════════════");
-
-    console.log("");
-    console.log(investigation.report);
-
-    console.log("");
-    console.log(`Iterations: ${investigation.iterations}`);
-
-    console.log("");
-    console.log("Starting AI patch phase...");
+    console.log("\n  [4/6] Apply candidate patch\n  ──────────────────────────────────────────────────");
 
     const patch = await patchIssue(sandbox, issue, investigation.report);
 
-    console.log("");
-    console.log("PATCH PHASE RESULT");
+    if (!patch.patchApplied) {
+      throw new Error("AI did not produce a candidate patch.");
+    }
 
-    console.log(`Patch applied: ${patch.patchApplied ? "✓" : "✗"}`);
-
-    console.log("");
-    console.log(`Patch applied: ${patch.patchApplied ? "✓" : "✗"}`);
-
-    console.log("");
-    console.log("Reading src/divide.ts AFTER AI patch...");
+    console.log(`    ${patch.patchApplied ? "✓" : "✗"}  Candidate patch applied`);
+    console.log("    Reading patched source...");
 
     const changedSource = await executeTool(sandbox, "read_file", {
       path: "src/divide.ts",
     });
 
-    console.dir(changedSource, {
-      depth: null,
+    if (!changedSource.ok) {
+      throw new Error(
+        `Could not inspect patched source: ${changedSource.error}`,
+      );
+    }
+
+    if (!("content" in changedSource.data)) {
+      throw new Error("Patched source result is missing file content");
+    }
+
+    console.log("\n    Patched source · src/divide.ts\n");
+    console.log(`    ${changedSource.data.content.replace(/\r?\n/g, "\n    ")}`);
+
+    console.log("\n  [5/6] Verify candidate patch\n  ──────────────────────────────────────────────────");
+    console.log("    Running reproduction test...");
+
+    const afterPatchReproduction = await executeTool(sandbox, "run_test", {
+      testName: "rejects division by zero",
     });
+
+    if (!afterPatchReproduction.ok) {
+      throw new Error(
+        `Could not run reproduction test: ${afterPatchReproduction.error}`,
+      );
+    }
+
+    if (!("exitCode" in afterPatchReproduction.data)) {
+      throw new Error("Reproduction test result is missing an exit code");
+    }
+
+    const reproductionPassesAfterPatch =
+      afterPatchReproduction.data.exitCode === 0;
+
+    console.log(
+      reproductionPassesAfterPatch
+        ? "    ✓  Reproduction test passes"
+        : "    ✗  Reproduction test still fails",
+    );
+
+    console.log("\n    Running full test suite...");
+
+    const fullSuite = await runFullSuiteTool(sandbox);
+
+    if (!fullSuite.ok) {
+      throw new Error(`Full test suite could not execute: ${fullSuite.error}`);
+    }
+
+    const fullSuitePassesAfterPatch = fullSuite.data.exitCode === 0;
+
+    console.log(
+      fullSuitePassesAfterPatch
+        ? "    ✓  Full test suite passes"
+        : "    ✗  Full test suite fails",
+    );
+
+    const verdict = determineVerdict({
+      bugReproducedBeforePatch,
+      patchApplied: patch.patchApplied,
+      reproductionPassesAfterPatch,
+      fullSuitePassesAfterPatch,
+    });
+
+    console.log("\n  [6/6] Patch verdict\n  ──────────────────────────────────────────────────");
+    console.log(
+      `    Bug reproduced     ${bugReproducedBeforePatch ? "✓  Yes" : "✗  No"}`,
+    );
+    console.log(
+      `    Patch applied      ${patch.patchApplied ? "✓  Yes" : "✗  No"}`,
+    );
+    console.log(
+      `    Reported bug fixed ${reproductionPassesAfterPatch ? "✓  Yes" : "✗  No"}`,
+    );
+    console.log(
+      `    Full test suite    ${fullSuitePassesAfterPatch ? "✓  Pass" : "✗  Fail"}`,
+    );
+    console.log(`\n    VERDICT: ${verdict.status}`);
+    console.log("  ──────────────────────────────────────────────────\n");
   } finally {
     await destroySandbox(sandbox);
   }
 }
 
 main().catch((error) => {
-  console.error("");
-  console.error("Agent demo failed:");
-
+  console.error("\n  ✗  Agent demo failed\n  ──────────────────────────────────────────────────");
   console.error(error);
 
   process.exitCode = 1;
