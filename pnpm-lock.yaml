@@ -166,6 +166,9 @@ importers:
 
   .:
     dependencies:
+      '@openrouter/sdk':
+        specifier: ^1.4.14
+        version: 1.4.14
       dotenv:
         specifier: ^18.0.4
         version: 18.0.5
@@ -374,6 +377,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@openrouter/sdk@1.4.14':
+    resolution: {integrity: sha512-DPaemgnQTG0VRq00udMxMcdhJbBSZdxbrnQpT7VrdD0M8lmU0h+zAZmrhm3zBNPyp+sOvrK7vbAtPxTciv5a7w==}
 
   '@oxc-project/types@0.152.0':
     resolution: {integrity: sha512-oM/5rLBm2tPkg0iBgkH/FOeR3PCDpY19GTgAZjMFM8h9WI9VW7cLgzp6nwtarYKmovavIQZ+Fe/RKX/8C8O/Rw==}
@@ -1079,6 +1085,10 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
+
+  '@openrouter/sdk@1.4.14':
+    dependencies:
+      zod: 4.6.5
 
   '@oxc-project/types@0.152.0': {}
 

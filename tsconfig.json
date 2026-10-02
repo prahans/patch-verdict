@@ -42,6 +42,6 @@
     "skipLibCheck": true
   },
 
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "agent-demo.ts"],
   "exclude": ["node_modules", "fixtures", "output"]
 }

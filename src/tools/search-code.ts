@@ -34,7 +34,13 @@ export async function searchCodeTool(
 
     const result = await runSandboxCommand(
       sandbox,
-      `grep -R -n -F '${escaped}' . --exclude-dir=node_modules | head -50`,
+      `grep -R -n -F '${escaped}' . \
+--exclude-dir=node_modules \
+--exclude-dir=.git \
+--exclude=package-lock.json \
+--exclude=pnpm-lock.yaml \
+--exclude=yarn.lock \
+| head -50`,
       PROJECT_ROOT,
     );
 
