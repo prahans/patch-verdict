@@ -1,4 +1,25 @@
-node_modules
+# Dependencies
+node_modules/
+
+# Environment / secrets
 .env
-.env.example
+.env.*
+!.env.example
+
+# Generated PatchVerdict output
 output/*.json
+
+# Test coverage
+coverage/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS junk
+.DS_Store
+Thumbs.db
