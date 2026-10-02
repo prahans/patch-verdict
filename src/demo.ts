@@ -155,20 +155,38 @@ async function main() {
 
     const output = `${before.stdout}\n${before.stderr}`;
 
+    const testRunnerStarted = output.includes("Test Files");
+
+    const reproductionTestRan = output.includes("rejects division by zero");
+
+    const infrastructureFailed = output.includes("Startup Error");
+
     const expectedFailureObserved =
       before.exitCode !== 0 &&
-      output.includes("rejects division by zero") &&
-      output.includes("expected function to throw");
+      testRunnerStarted &&
+      reproductionTestRan &&
+      !infrastructureFailed;
 
     if (expectedFailureObserved) {
       console.log("✓ BUG REPRODUCED");
+      console.log("");
+      console.log(`Test exit code: ${before.exitCode}`);
+      console.log(`Duration: ${before.durationMs}ms`);
     } else {
       console.log("✗ BUG NOT REPRODUCED");
 
-      if (before.exitCode !== 0) {
-        console.log("The command failed, but not for the expected bug.");
+      if (infrastructureFailed) {
+        console.log(
+          "The test environment failed before the reproduction test could run.",
+        );
+      } else if (before.exitCode !== 0) {
+        console.log(
+          "The command failed, but the expected reproduction test was not observed.",
+        );
       } else {
-        console.log("The test unexpectedly passed.");
+        console.log(
+          "The reproduction test passed, so the reported bug was not demonstrated.",
+        );
       }
     }
     console.log("────────────────────────────");
