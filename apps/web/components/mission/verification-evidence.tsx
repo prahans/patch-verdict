@@ -1,9 +1,22 @@
-import type { CommandEvidence, MissionResult } from "@/lib/mock-mission";
+import type { CommandEvidence, MissionResult } from "@/lib/mission-types";
 
-function EvidenceRow({ title, evidence, baseline = false }: { title: string; evidence: CommandEvidence; baseline?: boolean }) {
+function EvidenceRow({ title, evidence, baseline = false, bugReproducedBeforePatch }: {
+  title: string;
+  evidence?: CommandEvidence;
+  baseline?: boolean;
+  bugReproducedBeforePatch?: boolean;
+}) {
+  if (!evidence) {
+    return (
+      <div className="evidence-row evidence-summary">
+        <div className="evidence-main"><h3 className="evidence-title">{title}</h3><p className="panel-description">This command evidence was not produced or is unavailable in the proof bundle.</p></div>
+        <span className="evidence-result is-unavailable">UNAVAILABLE</span>
+      </div>
+    );
+  }
   const passed = evidence.exitCode === 0;
-  const expectedFailure = baseline && !passed;
-  const result = baseline ? (expectedFailure ? "FAILURE REPRODUCED" : "NOT REPRODUCED") : passed ? "PASS" : "FAIL";
+  const expectedFailure = baseline && !passed && bugReproducedBeforePatch === true;
+  const result = baseline ? (expectedFailure ? "FAILURE REPRODUCED" : passed ? "NOT REPRODUCED" : "FAILURE UNCONFIRMED") : passed ? "PASS" : "FAIL";
   const resultClass = expectedFailure ? "is-expected" : baseline || !passed ? "is-failure" : "is-pass";
 
   return (
@@ -36,7 +49,10 @@ function EvidenceRow({ title, evidence, baseline = false }: { title: string; evi
   );
 }
 
-export function VerificationEvidence({ evidence }: { evidence: NonNullable<MissionResult["evidence"]> }) {
+export function VerificationEvidence({ evidence, bugReproducedBeforePatch }: {
+  evidence: MissionResult["evidence"];
+  bugReproducedBeforePatch?: boolean;
+}) {
   return (
     <section className="panel evidence-panel" id="verification-evidence" aria-labelledby="evidence-heading">
       <div className="panel-header">
@@ -47,11 +63,11 @@ export function VerificationEvidence({ evidence }: { evidence: NonNullable<Missi
         </div>
       </div>
       <div className="evidence-list">
-        <EvidenceRow title="Baseline reproduction" evidence={evidence.baselineTest} baseline />
-        <EvidenceRow title="Post-patch reproduction" evidence={evidence.postPatchTest} />
-        <EvidenceRow title="Full test suite" evidence={evidence.fullSuite} />
+        <EvidenceRow title="Baseline reproduction" evidence={evidence?.baselineTest} baseline bugReproducedBeforePatch={bugReproducedBeforePatch} />
+        <EvidenceRow title="Post-patch reproduction" evidence={evidence?.postPatchTest} />
+        <EvidenceRow title="Full test suite" evidence={evidence?.fullSuite} />
       </div>
-      <p className="panel-footer">The baseline failure confirms the bug. Both post-patch checks must pass.</p>
+      <p className="panel-footer">Baseline labels use the saved reproduction check. Both post-patch checks must pass for verification.</p>
     </section>
   );
 }

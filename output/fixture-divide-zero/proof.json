@@ -12,9 +12,12 @@
     "reproductionPassesAfterPatch": true,
     "fullSuitePassesAfterPatch": true
   },
+  "investigation": {
+    "iterations": 5
+  },
   "patch": {
     "applied": true,
-    "baseCommit": "7128483dd58118217b8fcb794ce104b2a4aec6eb",
+    "baseCommit": "724323f7c604241beb98d2e2acf0ca14a5647bb6",
     "changedFiles": [
       "src/divide.ts"
     ]

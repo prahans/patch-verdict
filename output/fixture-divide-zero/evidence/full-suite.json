@@ -1,7 +1,7 @@
 {
   "command": "npm test",
   "exitCode": 0,
-  "stdout": "\n> test\n> vitest run\n\n\n RUN  v3.2.4 /tmp/patchverdict\n\n ✓ tests/divide.test.ts (2 tests) 3ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)\n   Start at  05:16:05\n   Duration  254ms (transform 47ms, setup 0ms, collect 43ms, tests 3ms, environment 0ms, prepare 83ms)\n\n",
+  "stdout": "\n> test\n> vitest run\n\n\n RUN  v3.2.4 /tmp/patchverdict\n\n ✓ tests/divide.test.ts (2 tests) 3ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)\n   Start at  08:56:52\n   Duration  354ms (transform 73ms, setup 0ms, collect 52ms, tests 3ms, environment 0ms, prepare 118ms)\n\n",
   "stderr": "",
-  "durationMs": 1067
+  "durationMs": 1452
 }

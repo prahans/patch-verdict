@@ -40,6 +40,10 @@ export async function writeProofBundle({
 
     checks: result.checks ?? null,
 
+    investigation: result.investigation
+      ? { iterations: result.investigation.iterations }
+      : null,
+
     patch: result.patch
       ? {
           applied: result.patch.applied,

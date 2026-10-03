@@ -1,11 +1,11 @@
 "use client";
 
-import type { MissionResult } from "@/lib/mock-mission";
+import type { MissionResult } from "@/lib/mission-types";
 import { Icon } from "./icon";
 
 export function ExportEvidence({ mission, missionId }: { mission: MissionResult; missionId: string }) {
   function download() {
-    const url = URL.createObjectURL(new Blob([JSON.stringify({ missionId, dataSource: "mock", ...mission }, null, 2)], { type: "application/json" }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ missionId, dataSource: "proof-bundle", ...mission }, null, 2)], { type: "application/json" }));
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `${missionId.toLowerCase()}-evidence.json`;

@@ -1,10 +1,10 @@
-import type { MissionResult } from "@/lib/mock-mission";
+import type { MissionDetails, MissionResult } from "@/lib/mission-types";
 import { Icon } from "./icon";
 import { ExportEvidence } from "./export-evidence";
 
 export function MissionSummary({ mission, details }: {
   mission: MissionResult;
-  details: { id: string; title: string; description: string; repository: string };
+  details: MissionDetails;
 }) {
   return (
     <section className="mission-summary" aria-labelledby="mission-title">
@@ -16,12 +16,12 @@ export function MissionSummary({ mission, details }: {
         </div>
         <ExportEvidence mission={mission} missionId={details.id} />
       </div>
-      <div className="repository-line"><Icon name="branch" /><span>{details.repository}</span></div>
+      <div className="repository-line"><Icon name="branch" /><span>{details.repository ?? `Proof bundle / ${details.id}`}</span></div>
       <dl className="mission-facts">
-        <div><dt>Mission status</dt><dd className={mission.status === "COMPLETED" ? "green" : "amber"}><span className="status-dot" />{mission.status}</dd></div>
-        <div><dt>Base commit</dt><dd><Icon name="branch" /><code title={mission.patch?.baseCommit}>{mission.patch?.baseCommit.slice(0, 7) ?? "—"}</code></dd></div>
-        <div><dt>Changed files</dt><dd><Icon name="file" />{mission.patch?.changedFiles.length ?? 0}<span className="fact-detail">file</span></dd></div>
-        <div><dt>Investigation</dt><dd>{mission.investigation?.iterations ?? 0}<span className="fact-detail">iterations</span></dd></div>
+        <div><dt>Mission status</dt><dd className={mission.status === "COMPLETED" ? "green" : "is-failed"}><span className="status-dot" />{mission.status}</dd></div>
+        <div><dt>Base commit</dt><dd><Icon name="branch" /><code title={mission.patch?.baseCommit}>{mission.patch?.baseCommit.slice(0, 7) || "Unavailable"}</code></dd></div>
+        <div><dt>Changed files</dt><dd><Icon name="file" />{mission.patch ? <>{mission.patch.changedFiles.length}<span className="fact-detail">{mission.patch.changedFiles.length === 1 ? "file" : "files"}</span></> : "Unavailable"}</dd></div>
+        <div><dt>Investigation</dt><dd>{mission.investigation?.iterations !== undefined ? <>{mission.investigation.iterations}<span className="fact-detail">iterations</span></> : "Unavailable"}</dd></div>
       </dl>
     </section>
   );

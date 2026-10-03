@@ -1,7 +1,7 @@
 {
   "command": "npx vitest run -t \"rejects division by zero\"",
   "exitCode": 1,
-  "stdout": "\n RUN  v3.2.4 /tmp/patchverdict\n\n ❯ tests/divide.test.ts (2 tests | 1 failed | 1 skipped) 8ms\n   ↓ divide > divides two numbers\n   × divide > rejects division by zero 7ms\n     → expected [Function] to throw an error\n\n Test Files  1 failed (1)\n      Tests  1 failed | 1 skipped (2)\n   Start at  05:15:48\n   Duration  283ms (transform 67ms, setup 0ms, collect 50ms, tests 8ms, environment 0ms, prepare 98ms)\n\n",
+  "stdout": "\n RUN  v3.2.4 /tmp/patchverdict\n\n ❯ tests/divide.test.ts (2 tests | 1 failed | 1 skipped) 10ms\n   ↓ divide > divides two numbers\n   × divide > rejects division by zero 9ms\n     → expected [Function] to throw an error\n\n Test Files  1 failed (1)\n      Tests  1 failed | 1 skipped (2)\n   Start at  08:56:34\n   Duration  317ms (transform 65ms, setup 0ms, collect 49ms, tests 10ms, environment 0ms, prepare 104ms)\n\n",
   "stderr": "\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  tests/divide.test.ts > divide > rejects division by zero\nAssertionError: expected [Function] to throw an error\n\n\u001b[32m- Expected:\u001b[39m \nnull\n\n\u001b[31m+ Received:\u001b[39m \nundefined\n\n ❯ tests/divide.test.ts:11:33\n      9| \n     10|   it(\"rejects division by zero\", () => {\n     11|     expect(() => divide(10, 0)).toThrow(\"Division by zero\");\n       |                                 ^\n     12|   });\n     13| });\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n",
-  "durationMs": 1260
+  "durationMs": 1490
 }
