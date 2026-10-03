@@ -6,7 +6,7 @@ import { patchIssue } from "../agent/patch.js";
 
 import { executeTool } from "../tools/index.js";
 
-import { runFullSuiteTool } from "../tools/run-full-suite.js";
+import { runVerificationCommand } from "../verification/run-command.js";
 
 import { determineVerdict } from "../proof/verdict.js";
 
@@ -43,23 +43,13 @@ export async function runMission(
 
     record("BASELINE", "Running reproduction test before patch");
 
-    const beforePatch = await executeTool(sandbox, "run_test", {
-      testName: input.reproductionTestName,
-    });
-
-    if (!beforePatch.ok) {
-      throw new Error(`Baseline test could not execute: ${beforePatch.error}`);
-    }
-
-    if (!("exitCode" in beforePatch.data)) {
-      throw new Error("Baseline result missing exit code");
-    }
-
-    const baselineEvidence = beforePatch.data;
-    const bugReproducedBeforePatch = didReproduceBug(
-      baselineEvidence,
-      input.reproductionTestName,
+    const baselineEvidence = await runVerificationCommand(
+      sandbox,
+      input.projectRoot,
+      input.verificationPlan.reproduction,
     );
+
+    const bugReproducedBeforePatch = didReproduceBug(baselineEvidence);
 
     if (!bugReproducedBeforePatch) {
       throw new Error("Reported bug could not be reproduced");
@@ -127,20 +117,13 @@ export async function runMission(
 
     record("VERIFYING", "Running reproduction test after patch");
 
-    const afterPatch = await executeTool(sandbox, "run_test", {
-      testName: input.reproductionTestName,
-    });
+    const postPatchEvidence = await runVerificationCommand(
+      sandbox,
+      input.projectRoot,
+      input.verificationPlan.reproduction,
+    );
 
-    if (!afterPatch.ok) {
-      throw new Error(`Post-patch test could not execute: ${afterPatch.error}`);
-    }
-
-    if (!("exitCode" in afterPatch.data)) {
-      throw new Error("Post-patch result missing exit code");
-    }
-
-    const postPatchEvidence = afterPatch.data;
-    const reproductionPassesAfterPatch = afterPatch.data.exitCode === 0;
+    const reproductionPassesAfterPatch = postPatchEvidence.exitCode === 0;
 
     record(
       "VERIFYING",
@@ -155,15 +138,13 @@ export async function runMission(
 
     record("VERIFYING", "Running full test suite");
 
-    const fullSuite = await runFullSuiteTool(sandbox);
+    const fullSuiteEvidence = await runVerificationCommand(
+      sandbox,
+      input.projectRoot,
+      input.verificationPlan.fullSuite,
+    );
 
-    if (!fullSuite.ok) {
-      throw new Error(`Full suite could not execute: ${fullSuite.error}`);
-    }
-
-    const fullSuiteEvidence = fullSuite.data;
-
-    const fullSuitePassesAfterPatch = fullSuite.data.exitCode === 0;
+    const fullSuitePassesAfterPatch = fullSuiteEvidence.exitCode === 0;
 
     record(
       "VERIFYING",

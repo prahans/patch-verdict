@@ -3,7 +3,14 @@
   "mission": {
     "id": "fixture-divide-zero",
     "issue": "divide() should reject division by zero.\n\nExpected behavior:\ndivide(10, 0) should throw an error with the message \"Division by zero\".\n\nCurrent behavior:\nThe function does not appear to reject division by zero.",
-    "reproductionTestName": "rejects division by zero"
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npx vitest run tests/divide.test.ts -t \"rejects division by zero\""
+    },
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
   },
   "status": "COMPLETED",
   "verdict": "VERIFIED",
@@ -13,11 +20,11 @@
     "fullSuitePassesAfterPatch": true
   },
   "investigation": {
-    "iterations": 5
+    "iterations": 6
   },
   "patch": {
     "applied": true,
-    "baseCommit": "724323f7c604241beb98d2e2acf0ca14a5647bb6",
+    "baseCommit": "883cd26101eca99b7a9c877654037e91bd98ba4b",
     "changedFiles": [
       "src/divide.ts"
     ]

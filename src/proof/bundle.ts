@@ -31,7 +31,17 @@ export async function writeProofBundle({
 
       issue: input.issue,
 
-      reproductionTestName: input.reproductionTestName,
+      reproduction: {
+        label: input.verificationPlan.reproduction.label,
+
+        command: input.verificationPlan.reproduction.command,
+      },
+
+      fullSuite: {
+        label: input.verificationPlan.fullSuite.label,
+
+        command: input.verificationPlan.fullSuite.command,
+      },
     },
 
     status: result.status,

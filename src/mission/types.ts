@@ -1,3 +1,5 @@
+import type { VerificationPlan } from "../verification/types.js";
+
 export type MissionState =
   | "PREPARING"
   | "BASELINE"
@@ -16,7 +18,10 @@ export type MissionEvent = {
 
 export type MissionInput = {
   issue: string;
-  reproductionTestName: string;
+
+  projectRoot: string;
+
+  verificationPlan: VerificationPlan;
 };
 
 export type MissionResult = {

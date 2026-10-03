@@ -12,8 +12,32 @@ import {
 } from "./sandbox/e2b.js";
 import { runMission } from "./mission/runner.js";
 import { writeProofBundle } from "./proof/bundle.js";
+import { createVerificationPlan } from "./verification/create-plan.js";
 
 const SANDBOX_PROJECT = "/tmp/patchverdict";
+
+const verificationPlan = createVerificationPlan({
+  preparedRepository: {
+    repositoryUrl: "fixture://divide-by-zero",
+
+    baseCommit: "fixture-baseline",
+
+    projectRoot: SANDBOX_PROJECT,
+
+    project: {
+      packageManager: "npm",
+
+      testFramework: "vitest",
+
+      installCommand: "npm install --no-audit --no-fund",
+
+      fullSuiteCommand: "npm test",
+    },
+  },
+
+  reproductionCommand:
+    'npx vitest run tests/divide.test.ts -t "rejects division by zero"',
+});
 
 async function readFixtureFile(relativePath: string) {
   return readFile(
@@ -104,7 +128,9 @@ git commit -m "baseline"
     const missionInput = {
       issue,
 
-      reproductionTestName: "rejects division by zero",
+      projectRoot: SANDBOX_PROJECT,
+
+      verificationPlan,
     };
 
     const result = await runMission(sandbox, missionInput);
