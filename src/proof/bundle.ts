@@ -24,7 +24,7 @@ export async function writeProofBundle({
   });
 
   const proof = {
-    version: 1,
+    version: 2,
 
     mission: {
       id: missionId,

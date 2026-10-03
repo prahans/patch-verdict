@@ -1,14 +1,22 @@
 export type VerificationCommand = {
   command: string;
-
-  /**
-   * Human-readable purpose shown in evidence/UI.
-   */
   label: string;
 };
 
+export type ReproductionExpectation = {
+  expectedExitCodes: number[];
+
+  requiredOutput?: string[];
+
+  forbiddenOutput?: string[];
+};
+
+export type ReproductionVerificationCommand = VerificationCommand & {
+  expectation: ReproductionExpectation;
+};
+
 export type VerificationPlan = {
-  reproduction: VerificationCommand;
+  reproduction: ReproductionVerificationCommand;
 
   fullSuite: VerificationCommand;
 };

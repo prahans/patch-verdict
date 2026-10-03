@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "mission": {
     "id": "fixture-divide-zero",
     "issue": "divide() should reject division by zero.\n\nExpected behavior:\ndivide(10, 0) should throw an error with the message \"Division by zero\".\n\nCurrent behavior:\nThe function does not appear to reject division by zero.",
@@ -20,11 +20,11 @@
     "fullSuitePassesAfterPatch": true
   },
   "investigation": {
-    "iterations": 6
+    "iterations": 4
   },
   "patch": {
     "applied": true,
-    "baseCommit": "883cd26101eca99b7a9c877654037e91bd98ba4b",
+    "baseCommit": "8832f836643ff331bf86e300d870342f7fc3a727",
     "changedFiles": [
       "src/divide.ts"
     ]

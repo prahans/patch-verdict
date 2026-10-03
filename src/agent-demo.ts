@@ -37,6 +37,17 @@ const verificationPlan = createVerificationPlan({
 
   reproductionCommand:
     'npx vitest run tests/divide.test.ts -t "rejects division by zero"',
+
+  reproductionExpectation: {
+    expectedExitCodes: [1],
+
+    requiredOutput: [
+      "rejects division by zero",
+      "expected [Function] to throw",
+    ],
+
+    forbiddenOutput: ["Startup Error"],
+  },
 });
 
 async function readFixtureFile(relativePath: string) {

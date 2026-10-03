@@ -14,10 +14,26 @@ type JsonObject = Record<string, unknown>;
 type ProofMetadata = {
   id: string;
   issue: string;
-  reproductionTestName: string;
+  reproduction: {
+    label: string;
+    command: string;
+  };
+
+  fullSuite: {
+    label: string;
+    command: string;
+  };
   status: MissionResult["status"];
   verdict: MissionResult["verdict"];
   checks?: MissionResult["checks"];
+  reproductionClassification?: {
+    reproduced: boolean;
+    checks: {
+      exitCodeMatched: boolean;
+      missingRequiredOutput: string[];
+      presentForbiddenOutput: string[];
+    };
+  };
   patch?: MissionResult["patch"];
   iterations?: number;
   error?: string;
@@ -31,8 +47,14 @@ type ProofMetadata = {
 };
 
 const missionStates = new Set<MissionState>([
-  "PREPARING", "BASELINE", "INVESTIGATING", "PATCHING",
-  "VERIFYING", "VERDICT", "COMPLETED", "FAILED",
+  "PREPARING",
+  "BASELINE",
+  "INVESTIGATING",
+  "PATCHING",
+  "VERIFYING",
+  "VERDICT",
+  "COMPLETED",
+  "FAILED",
 ]);
 
 function invalid(label: string, expectation: string): never {
@@ -58,7 +80,11 @@ function boolean(value: unknown, label: string): boolean {
 }
 
 function number(value: unknown, label: string, integer = false): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || (integer && !Number.isInteger(value))) {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    (integer && !Number.isInteger(value))
+  ) {
     return invalid(label, integer ? "a finite integer" : "a finite number");
   }
   return value;
@@ -68,26 +94,50 @@ function parseJson(contents: string, filename: string): unknown {
   try {
     return JSON.parse(contents);
   } catch {
-    throw new Error(`Invalid JSON in ${filename}. Fix or regenerate this proof artifact.`);
+    throw new Error(
+      `Invalid JSON in ${filename}. Fix or regenerate this proof artifact.`,
+    );
   }
 }
 
 function parseProof(value: unknown, missionId: string): ProofMetadata {
   const proof = object(value, "proof.json");
-  if (proof.version !== 1) invalid("proof.json version", "version 1");
+  if (proof.version !== 2) {
+    invalid("proof.json version", "version 2");
+  }
   const mission = object(proof.mission, "proof.json mission");
+  const reproduction = object(
+    mission.reproduction,
+    "proof.json mission.reproduction",
+  );
+  const fullSuite = object(
+    mission.fullSuite,
+    "proof.json mission.fullSuite",
+  );
   const id = string(mission.id, "proof.json mission.id", true);
   if (id !== missionId) {
-    throw new Error(`Invalid proof.json mission.id: expected "${missionId}" to match its bundle directory.`);
+    throw new Error(
+      `Invalid proof.json mission.id: expected "${missionId}" to match its bundle directory.`,
+    );
   }
   if (proof.status !== "COMPLETED" && proof.status !== "FAILED") {
     invalid("proof.json status", "COMPLETED or FAILED");
   }
-  if (proof.verdict !== "VERIFIED" && proof.verdict !== "FAILED" && proof.verdict !== null) {
+  if (
+    proof.verdict !== "VERIFIED" &&
+    proof.verdict !== "FAILED" &&
+    proof.verdict !== null
+  ) {
     invalid("proof.json verdict", "VERIFIED, FAILED, or null");
   }
-  const artifacts = proof.artifacts == null ? undefined : object(proof.artifacts, "proof.json artifacts");
-  const evidenceArtifacts = artifacts?.evidence == null ? undefined : object(artifacts.evidence, "proof.json artifacts.evidence");
+  const artifacts =
+    proof.artifacts == null
+      ? undefined
+      : object(proof.artifacts, "proof.json artifacts");
+  const evidenceArtifacts =
+    artifacts?.evidence == null
+      ? undefined
+      : object(artifacts.evidence, "proof.json artifacts.evidence");
   // Explicit null means this run produced no artifact, even if an older file remains.
   // Older manifests without these fields may still use the fixed artifact filenames.
   const hasArtifacts = proof.artifacts !== null;
@@ -95,11 +145,37 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
   const metadata: ProofMetadata = {
     id,
     issue: string(mission.issue, "proof.json mission.issue", true),
-    reproductionTestName: string(mission.reproductionTestName, "proof.json mission.reproductionTestName", true),
+    reproduction: {
+      label: string(
+        reproduction.label,
+        "proof.json mission.reproduction.label",
+        true,
+      ),
+      command: string(
+        reproduction.command,
+        "proof.json mission.reproduction.command",
+        true,
+      ),
+    },
+    fullSuite: {
+      label: string(
+        fullSuite.label,
+        "proof.json mission.fullSuite.label",
+        true,
+      ),
+      command: string(
+        fullSuite.command,
+        "proof.json mission.fullSuite.command",
+        true,
+      ),
+    },
     status: proof.status,
     verdict: proof.verdict,
     available: {
-      report: hasArtifacts && proof.investigation !== null && artifacts?.investigation !== null,
+      report:
+        hasArtifacts &&
+        proof.investigation !== null &&
+        artifacts?.investigation !== null,
       diff: hasArtifacts && proof.patch != null && artifacts?.patch !== null,
       baseline: hasEvidence && evidenceArtifacts?.baseline !== null,
       postPatch: hasEvidence && evidenceArtifacts?.postPatch !== null,
@@ -110,26 +186,97 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
   if (proof.checks != null) {
     const checks = object(proof.checks, "proof.json checks");
     metadata.checks = {
-      bugReproducedBeforePatch: boolean(checks.bugReproducedBeforePatch, "proof.json checks.bugReproducedBeforePatch"),
-      reproductionPassesAfterPatch: boolean(checks.reproductionPassesAfterPatch, "proof.json checks.reproductionPassesAfterPatch"),
-      fullSuitePassesAfterPatch: boolean(checks.fullSuitePassesAfterPatch, "proof.json checks.fullSuitePassesAfterPatch"),
+      bugReproducedBeforePatch: boolean(
+        checks.bugReproducedBeforePatch,
+        "proof.json checks.bugReproducedBeforePatch",
+      ),
+      reproductionPassesAfterPatch: boolean(
+        checks.reproductionPassesAfterPatch,
+        "proof.json checks.reproductionPassesAfterPatch",
+      ),
+      fullSuitePassesAfterPatch: boolean(
+        checks.fullSuitePassesAfterPatch,
+        "proof.json checks.fullSuitePassesAfterPatch",
+      ),
+    };
+  }
+  if (proof.reproduction != null) {
+    const reproduction = object(proof.reproduction, "proof.json reproduction");
+    const checks = object(
+      reproduction.checks,
+      "proof.json reproduction.checks",
+    );
+
+    if (!Array.isArray(checks.missingRequiredOutput)) {
+      invalid(
+        "proof.json reproduction.checks.missingRequiredOutput",
+        "an array of strings",
+      );
+    }
+
+    if (!Array.isArray(checks.presentForbiddenOutput)) {
+      invalid(
+        "proof.json reproduction.checks.presentForbiddenOutput",
+        "an array of strings",
+      );
+    }
+
+    metadata.reproductionClassification = {
+      reproduced: boolean(
+        reproduction.reproduced,
+        "proof.json reproduction.reproduced",
+      ),
+      checks: {
+        exitCodeMatched: boolean(
+          checks.exitCodeMatched,
+          "proof.json reproduction.checks.exitCodeMatched",
+        ),
+        missingRequiredOutput: checks.missingRequiredOutput.map(
+          (value, index) =>
+            string(
+              value,
+              `proof.json reproduction.checks.missingRequiredOutput[${index}]`,
+              true,
+            ),
+        ),
+        presentForbiddenOutput: checks.presentForbiddenOutput.map(
+          (value, index) =>
+            string(
+              value,
+              `proof.json reproduction.checks.presentForbiddenOutput[${index}]`,
+              true,
+            ),
+        ),
+      },
     };
   }
   if (proof.patch != null) {
     const patch = object(proof.patch, "proof.json patch");
-    if (!Array.isArray(patch.changedFiles)) invalid("proof.json patch.changedFiles", "an array of strings");
+    if (!Array.isArray(patch.changedFiles))
+      invalid("proof.json patch.changedFiles", "an array of strings");
     metadata.patch = {
       applied: boolean(patch.applied, "proof.json patch.applied"),
       baseCommit: string(patch.baseCommit, "proof.json patch.baseCommit"),
-      changedFiles: patch.changedFiles.map((file, index) => string(file, `proof.json patch.changedFiles[${index}]`, true)),
+      changedFiles: patch.changedFiles.map((file, index) =>
+        string(file, `proof.json patch.changedFiles[${index}]`, true),
+      ),
     };
   }
   if (proof.investigation != null) {
-    const investigation = object(proof.investigation, "proof.json investigation");
-    metadata.iterations = number(investigation.iterations, "proof.json investigation.iterations", true);
-    if (metadata.iterations < 0) invalid("proof.json investigation.iterations", "a nonnegative integer");
+    const investigation = object(
+      proof.investigation,
+      "proof.json investigation",
+    );
+    metadata.iterations = number(
+      investigation.iterations,
+      "proof.json investigation.iterations",
+      true,
+    );
+    if (metadata.iterations < 0)
+      invalid("proof.json investigation.iterations", "a nonnegative integer");
   }
-  if (proof.error != null) metadata.error = string(proof.error, "proof.json error");
+  if (proof.error != null)
+    metadata.error = string(proof.error, "proof.json error");
   return metadata;
 }
 
@@ -139,8 +286,10 @@ function parseEvents(value: unknown): MissionEvent[] {
     const label = `events.json[${index}]`;
     const event = object(item, label);
     const timestamp = string(event.timestamp, `${label}.timestamp`, true);
-    if (!Number.isFinite(Date.parse(timestamp))) invalid(`${label}.timestamp`, "a valid date-time string");
-    if (!missionStates.has(event.state as MissionState)) invalid(`${label}.state`, "a known mission state");
+    if (!Number.isFinite(Date.parse(timestamp)))
+      invalid(`${label}.timestamp`, "a valid date-time string");
+    if (!missionStates.has(event.state as MissionState))
+      invalid(`${label}.state`, "a known mission state");
     return {
       timestamp,
       state: event.state as MissionState,
@@ -164,46 +313,79 @@ function parseEvidence(value: unknown, filename: string): CommandEvidence {
 
 function assertContained(parent: string, child: string, label: string) {
   const relative = path.relative(parent, child);
-  if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-    throw new Error(`Cannot read ${label}: its resolved path is outside the allowed proof directory.`);
+  if (
+    !relative ||
+    relative === ".." ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  ) {
+    throw new Error(
+      `Cannot read ${label}: its resolved path is outside the allowed proof directory.`,
+    );
   }
 }
 
 function isMissing(error: unknown) {
-  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT";
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
 }
 
-async function readArtifact(directory: string, filename: string): Promise<string> {
+async function readArtifact(
+  directory: string,
+  filename: string,
+): Promise<string> {
   // The filenames are constants below; artifact paths inside proof.json are never followed.
   const resolved = await realpath(path.join(directory, filename));
   assertContained(directory, resolved, filename);
   return readFile(resolved, "utf8");
 }
 
-async function readRequired(directory: string, filename: string): Promise<string> {
+async function readRequired(
+  directory: string,
+  filename: string,
+): Promise<string> {
   try {
     return await readArtifact(directory, filename);
   } catch (error) {
     if (isMissing(error)) {
-      throw new Error(`Required proof artifact ${filename} is missing. Run the backend workflow to generate this bundle.`);
+      throw new Error(
+        `Required proof artifact ${filename} is missing. Run the backend workflow to generate this bundle.`,
+      );
     }
-    throw new Error(`Could not read required proof artifact ${filename}: ${error instanceof Error ? error.message : "read failed"}`);
+    throw new Error(
+      `Could not read required proof artifact ${filename}: ${error instanceof Error ? error.message : "read failed"}`,
+    );
   }
 }
 
-async function readOptional<T>(directory: string, filename: string, parse: (contents: string) => T, available = true): Promise<{ value?: T; warning?: string }> {
+async function readOptional<T>(
+  directory: string,
+  filename: string,
+  parse: (contents: string) => T,
+  available = true,
+): Promise<{ value?: T; warning?: string }> {
   if (!available) return {};
   try {
     return { value: parse(await readArtifact(directory, filename)) };
   } catch (error) {
     if (isMissing(error)) return {};
-    return { warning: `${filename} is unavailable: ${error instanceof Error ? error.message : "read failed"}` };
+    return {
+      warning: `${filename} is unavailable: ${error instanceof Error ? error.message : "read failed"}`,
+    };
   }
 }
 
-export async function loadProofBundle(missionId: string): Promise<MissionViewModel> {
+export async function loadProofBundle(
+  missionId: string,
+): Promise<MissionViewModel> {
   if (!/^[a-zA-Z0-9_-]+$/.test(missionId)) {
-    throw new Error("Invalid mission ID. Use only letters, digits, underscores, and hyphens.");
+    throw new Error(
+      "Invalid mission ID. Use only letters, digits, underscores, and hyphens.",
+    );
   }
   // Next is launched from apps/web. Keep this portable across development machines.
   const repositoryRoot = await realpath(path.resolve(process.cwd(), "../.."));
@@ -215,7 +397,9 @@ export async function loadProofBundle(missionId: string): Promise<MissionViewMod
     assertContained(outputDirectory, directory, "mission directory");
   } catch (error) {
     if (isMissing(error)) {
-      throw new Error(`Proof bundle output/${missionId} was not found. Run the backend workflow to generate it.`);
+      throw new Error(
+        `Proof bundle output/${missionId} was not found. Run the backend workflow to generate it.`,
+      );
     }
     throw error;
   }
@@ -227,14 +411,31 @@ export async function loadProofBundle(missionId: string): Promise<MissionViewMod
   const proof = parseProof(parseJson(proofText, "proof.json"), missionId);
   const events = parseEvents(parseJson(eventsText, "events.json"));
   const [report, diff, baseline, postPatch, fullSuite] = await Promise.all([
-    readOptional(directory, "investigation.md", (contents) => contents, proof.available.report),
-    readOptional(directory, "patch.diff", (contents) => contents, proof.available.diff),
-    ...([
-      ["evidence/baseline-test.json", proof.available.baseline],
-      ["evidence/post-patch-test.json", proof.available.postPatch],
-      ["evidence/full-suite.json", proof.available.fullSuite],
-    ] as const).map(
-      ([filename, available]) => readOptional(directory, filename, (contents) => parseEvidence(parseJson(contents, filename), filename), available),
+    readOptional(
+      directory,
+      "investigation.md",
+      (contents) => contents,
+      proof.available.report,
+    ),
+    readOptional(
+      directory,
+      "patch.diff",
+      (contents) => contents,
+      proof.available.diff,
+    ),
+    ...(
+      [
+        ["evidence/baseline-test.json", proof.available.baseline],
+        ["evidence/post-patch-test.json", proof.available.postPatch],
+        ["evidence/full-suite.json", proof.available.fullSuite],
+      ] as const
+    ).map(([filename, available]) =>
+      readOptional(
+        directory,
+        filename,
+        (contents) => parseEvidence(parseJson(contents, filename), filename),
+        available,
+      ),
     ),
   ]);
   const issueLines = proof.issue.trim().split(/\r?\n/);
@@ -244,7 +445,14 @@ export async function loadProofBundle(missionId: string): Promise<MissionViewMod
     events,
   };
   if (proof.checks) mission.checks = proof.checks;
-  if (proof.patch) mission.patch = { ...proof.patch, ...(diff.value !== undefined && { diff: diff.value }) };
+  if (proof.reproductionClassification) {
+    mission.reproduction = proof.reproductionClassification;
+  }
+  if (proof.patch)
+    mission.patch = {
+      ...proof.patch,
+      ...(diff.value !== undefined && { diff: diff.value }),
+    };
   if (report.value !== undefined || proof.iterations !== undefined) {
     mission.investigation = {
       ...(report.value !== undefined && { report: report.value }),
@@ -258,8 +466,12 @@ export async function loadProofBundle(missionId: string): Promise<MissionViewMod
       ...(fullSuite.value && { fullSuite: fullSuite.value }),
     };
   }
-  const lastFailure = [...events].reverse().find((event) => event.state === "FAILED");
-  const error = proof.error ?? (proof.status === "FAILED" ? lastFailure?.message : undefined);
+  const lastFailure = [...events]
+    .reverse()
+    .find((event) => event.state === "FAILED");
+  const error =
+    proof.error ??
+    (proof.status === "FAILED" ? lastFailure?.message : undefined);
   if (error !== undefined) mission.error = error;
 
   return {
@@ -268,8 +480,11 @@ export async function loadProofBundle(missionId: string): Promise<MissionViewMod
       id: proof.id,
       title: issueLines[0].trim(),
       description: issueLines.slice(1).join("\n").trim(),
-      reproductionTestName: proof.reproductionTestName,
+      reproduction: proof.reproduction,
+      fullSuite: proof.fullSuite,
     },
-    warnings: [report, diff, baseline, postPatch, fullSuite].flatMap((artifact) => artifact.warning ? [artifact.warning] : []),
+    warnings: [report, diff, baseline, postPatch, fullSuite].flatMap(
+      (artifact) => (artifact.warning ? [artifact.warning] : []),
+    ),
   };
 }

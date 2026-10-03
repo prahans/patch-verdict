@@ -1,4 +1,5 @@
 import type { VerificationPlan } from "../verification/types.js";
+import type { ReproductionClassification } from "../verification/reproduction.js";
 
 export type MissionState =
   | "PREPARING"
@@ -51,6 +52,8 @@ export type MissionResult = {
     reproductionPassesAfterPatch: boolean;
     fullSuitePassesAfterPatch: boolean;
   };
+
+  reproduction?: ReproductionClassification;
 
   evidence?: MissionEvidence;
 

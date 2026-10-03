@@ -13,7 +13,7 @@ import { determineVerdict } from "../proof/verdict.js";
 import { createMissionEvent } from "./events.js";
 
 import { getGitEvidence } from "../tools/git-evidence.js";
-import { didReproduceBug } from "../verification/reproduction.js";
+import { classifyReproduction } from "../verification/reproduction.js";
 
 import type {
   MissionEvent,
@@ -49,10 +49,35 @@ export async function runMission(
       input.verificationPlan.reproduction,
     );
 
-    const bugReproducedBeforePatch = didReproduceBug(baselineEvidence);
+    const reproductionClassification = classifyReproduction(
+      baselineEvidence,
+      input.verificationPlan.reproduction.expectation,
+    );
+
+    const bugReproducedBeforePatch = reproductionClassification.reproduced;
 
     if (!bugReproducedBeforePatch) {
-      throw new Error("Reported bug could not be reproduced");
+      const checks = reproductionClassification.checks;
+
+      throw new Error(
+        [
+          "Reported bug could not be reproduced according to the verification expectation.",
+
+          `Exit code matched: ${checks.exitCodeMatched}`,
+
+          `Missing required output: ${
+            checks.missingRequiredOutput.length > 0
+              ? checks.missingRequiredOutput.join(", ")
+              : "none"
+          }`,
+
+          `Forbidden output present: ${
+            checks.presentForbiddenOutput.length > 0
+              ? checks.presentForbiddenOutput.join(", ")
+              : "none"
+          }`,
+        ].join("\n"),
+      );
     }
 
     record("BASELINE", "Reported bug reproduced");
@@ -195,6 +220,8 @@ export async function runMission(
         reproductionPassesAfterPatch,
         fullSuitePassesAfterPatch,
       },
+
+      reproduction: reproductionClassification,
 
       evidence: {
         baselineTest: baselineEvidence,
