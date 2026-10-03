@@ -46,7 +46,7 @@ export default async function Home() {
             <span className="text-muted" aria-hidden="true">/</span>
             <span className="font-mono text-muted">{missionDetails.id}</span>
           </div>
-          <span className="mock-label"><span className="status-dot" />Proof bundle</span>
+          <span className="bundle-label"><span className="status-dot" />Proof bundle</span>
         </div>
         <MissionSummary mission={mission} details={missionDetails} />
         {mission.status === "FAILED" && (

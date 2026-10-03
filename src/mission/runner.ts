@@ -12,9 +12,8 @@ import { determineVerdict } from "../proof/verdict.js";
 
 import { createMissionEvent } from "./events.js";
 
-import { getGitDiff } from "../tools/git-diff.js";
-
 import { getGitEvidence } from "../tools/git-evidence.js";
+import { didReproduceBug } from "../verification/reproduction.js";
 
 import type {
   MissionEvent,
@@ -29,11 +28,7 @@ export async function runMission(
 ): Promise<MissionResult> {
   const events: MissionEvent[] = [];
 
-  let state: MissionState = "BASELINE";
-
   function record(nextState: MissionState, message: string) {
-    state = nextState;
-
     const event = createMissionEvent(nextState, message);
 
     events.push(event);
@@ -61,12 +56,10 @@ export async function runMission(
     }
 
     const baselineEvidence = beforePatch.data;
-    const beforeOutput = `${beforePatch.data.stdout}\n${beforePatch.data.stderr}`;
-
-    const bugReproducedBeforePatch =
-      beforePatch.data.exitCode !== 0 &&
-      beforeOutput.includes(input.reproductionTestName) &&
-      !beforeOutput.includes("Startup Error");
+    const bugReproducedBeforePatch = didReproduceBug(
+      baselineEvidence,
+      input.reproductionTestName,
+    );
 
     if (!bugReproducedBeforePatch) {
       throw new Error("Reported bug could not be reproduced");
@@ -125,18 +118,6 @@ export async function runMission(
       "PATCHING",
       `Git captured ${gitEvidence.data.changedFiles.length} changed file(s)`,
     );
-
-    const gitDiff = await getGitDiff(sandbox);
-
-    if (!gitDiff.ok) {
-      throw new Error(`Could not capture candidate patch: ${gitDiff.error}`);
-    }
-
-    if (!gitDiff.data.changed) {
-      throw new Error(
-        "Patch agent reported a change, but Git found no repository diff.",
-      );
-    }
 
     record("PATCHING", "Git diff captured");
 
