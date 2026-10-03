@@ -33,6 +33,7 @@ export type MissionResult = {
 
   patch?: {
     applied: boolean;
+    diff: string;
   };
 
   checks?: {

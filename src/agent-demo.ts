@@ -2,6 +2,7 @@ import "dotenv/config";
 
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { styleText } from "node:util";
 
 import {
   createSandbox,
@@ -27,10 +28,10 @@ async function readFixtureFile(relativePath: string) {
 }
 
 async function main() {
-  console.log(`PATCHVERDICT AI patch verification`);
-  console.log(
-    "\n Prepare repository\n  ──────────────────────────────────────────────────",
-  );
+  console.log(styleText(["bold", "cyan"], "\n  PATCHVERDICT"));
+  console.log(styleText("dim", "  AI patch verification"));
+  console.log(styleText("dim", "  ──────────────────────────────────────────────────"));
+  console.log(styleText("bold", "\n  01  Prepare repository\n"));
 
   const sandbox = await createSandbox();
 
@@ -53,7 +54,7 @@ async function main() {
       test,
     );
 
-    console.log("    Installing dependencies...");
+    console.log(styleText("dim", "    Installing dependencies..."));
 
     const install = await runSandboxCommand(
       sandbox,
@@ -65,7 +66,7 @@ async function main() {
       throw new Error("Dependency installation failed");
     }
 
-    console.log("    ✓  Repository ready");
+    console.log(styleText("green", "    ✓  Repository ready"));
 
     const issue = `
 divide() should reject division by zero.
@@ -77,20 +78,85 @@ Current behavior:
 The function does not appear to reject division by zero.
 `.trim();
 
+    const gitInit = await runSandboxCommand(
+      sandbox,
+      `
+git init &&
+git config user.email "patchverdict@local" &&
+git config user.name "PatchVerdict" &&
+printf "node_modules/\\n" > .gitignore &&
+git add . &&
+git commit -m "baseline"
+`,
+      SANDBOX_PROJECT,
+    );
+
+    if (gitInit.exitCode !== 0) {
+      throw new Error(
+        `Could not create baseline Git commit: ${gitInit.stderr}`,
+      );
+    }
+
+    console.log(styleText("bold", "\n  02  Run mission\n"));
+
     const result = await runMission(sandbox, {
       issue,
 
       reproductionTestName: "rejects division by zero",
     });
 
-    console.log("");
-    console.log("════════════════════════════");
+    console.log(
+      result.investigation
+        ? styleText("bold", "\n    Investigation report\n") +
+            "\n    " + result.investigation.report.replace(/\r?\n/g, "\n    ") +
+            styleText("dim", `\n\n    Iterations: ${result.investigation.iterations}`)
+        : "",
+    );
 
-    console.log("MISSION RESULT");
-
-    console.log("════════════════════════════");
-
-    console.log(JSON.stringify(result, null, 2));
+    console.log(styleText("bold", "\n  03  Mission result"));
+    console.log(styleText("dim", "  ──────────────────────────────────────────────────"));
+    console.log(`    Execution           ${result.status}`);
+    console.log(
+      `    Verdict             ${styleText(
+        result.verdict === "VERIFIED" ? ["bold", "green"] :
+          result.verdict === "FAILED" ? ["bold", "red"] : "dim",
+        result.verdict ?? "Not available",
+      )}`,
+    );
+    console.log(
+      `\n    Bug reproduced      ${result.checks === undefined
+        ? styleText("dim", "—  Not available")
+        : result.checks.bugReproducedBeforePatch
+          ? styleText("green", "✓  Yes")
+          : styleText("red", "✗  No")}`,
+    );
+    console.log(
+      `    Patch applied       ${result.patch === undefined
+        ? styleText("dim", "—  Not available")
+        : result.patch.applied
+          ? styleText("green", "✓  Yes")
+          : styleText("red", "✗  No")}`,
+    );
+    console.log(
+      `    Reproduction test   ${result.checks === undefined
+        ? styleText("dim", "—  Not available")
+        : result.checks.reproductionPassesAfterPatch
+          ? styleText("green", "✓  Passed")
+          : styleText("red", "✗  Failed")}`,
+    );
+    console.log(
+      `    Full test suite     ${result.checks === undefined
+        ? styleText("dim", "—  Not available")
+        : result.checks.fullSuitePassesAfterPatch
+          ? styleText("green", "✓  Passed")
+          : styleText("red", "✗  Failed")}`,
+    );
+    console.log(
+      result.error
+        ? styleText("red", `\n    Error: ${result.error.replace(/\r?\n/g, "\n    ")}`)
+        : "",
+    );
+    console.log(styleText("dim", "  ──────────────────────────────────────────────────\n"));
   } finally {
     await destroySandbox(sandbox);
   }
@@ -98,7 +164,9 @@ The function does not appear to reject division by zero.
 
 main().catch((error) => {
   console.error(
-    "\n  ✗  Agent demo failed\n  ──────────────────────────────────────────────────",
+    styleText(["bold", "red"], "\n  ✗  Agent demo failed\n", {
+      stream: process.stderr,
+    }),
   );
   console.error(error);
 

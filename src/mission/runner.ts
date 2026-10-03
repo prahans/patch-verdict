@@ -12,6 +12,8 @@ import { determineVerdict } from "../proof/verdict.js";
 
 import { createMissionEvent } from "./events.js";
 
+import { getGitDiff } from "../tools/git-diff.js";
+
 import type {
   MissionEvent,
   MissionInput,
@@ -97,6 +99,20 @@ export async function runMission(
 
     record("PATCHING", "Candidate patch applied");
 
+    const gitDiff = await getGitDiff(sandbox);
+
+    if (!gitDiff.ok) {
+      throw new Error(`Could not capture candidate patch: ${gitDiff.error}`);
+    }
+
+    if (!gitDiff.data.changed) {
+      throw new Error(
+        "Patch agent reported a change, but Git found no repository diff.",
+      );
+    }
+
+    record("PATCHING", "Git diff captured");
+
     // -------------------------
     // VERIFY TARGETED TEST
     // -------------------------
@@ -178,6 +194,8 @@ export async function runMission(
 
       patch: {
         applied: patch.patchApplied,
+
+        diff: gitDiff.data.diff,
       },
 
       checks: {
