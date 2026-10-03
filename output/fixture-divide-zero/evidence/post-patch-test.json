@@ -1,0 +1,7 @@
+{
+  "command": "npx vitest run -t \"rejects division by zero\"",
+  "exitCode": 0,
+  "stdout": "\n RUN  v3.2.4 /tmp/patchverdict\n\n ✓ tests/divide.test.ts (2 tests | 1 skipped) 2ms\n\n Test Files  1 passed (1)\n      Tests  1 passed | 1 skipped (2)\n   Start at  05:16:04\n   Duration  274ms (transform 63ms, setup 0ms, collect 42ms, tests 2ms, environment 0ms, prepare 103ms)\n\n",
+  "stderr": "",
+  "durationMs": 1182
+}

@@ -49,6 +49,24 @@ export async function writeProofBundle({
           changedFiles: result.patch.changedFiles,
         }
       : null,
+
+    artifacts: {
+      patch: result.patch ? "patch.diff" : null,
+
+      investigation: result.investigation ? "investigation.md" : null,
+
+      events: "events.json",
+
+      evidence: result.evidence
+        ? {
+            baseline: "evidence/baseline-test.json",
+
+            postPatch: "evidence/post-patch-test.json",
+
+            fullSuite: "evidence/full-suite.json",
+          }
+        : null,
+    },
   };
 
   await writeFile(
@@ -85,6 +103,38 @@ export async function writeProofBundle({
 
 ${result.investigation.report}
 `,
+
+      "utf8",
+    );
+  }
+
+  const evidenceDirectory = path.join(outputDirectory, "evidence");
+
+  await mkdir(evidenceDirectory, {
+    recursive: true,
+  });
+
+  if (result.evidence) {
+    await writeFile(
+      path.join(evidenceDirectory, "baseline-test.json"),
+
+      JSON.stringify(result.evidence.baselineTest, null, 2),
+
+      "utf8",
+    );
+
+    await writeFile(
+      path.join(evidenceDirectory, "post-patch-test.json"),
+
+      JSON.stringify(result.evidence.postPatchTest, null, 2),
+
+      "utf8",
+    );
+
+    await writeFile(
+      path.join(evidenceDirectory, "full-suite.json"),
+
+      JSON.stringify(result.evidence.fullSuite, null, 2),
 
       "utf8",
     );

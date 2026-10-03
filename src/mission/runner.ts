@@ -60,6 +60,7 @@ export async function runMission(
       throw new Error("Baseline result missing exit code");
     }
 
+    const baselineEvidence = beforePatch.data;
     const beforeOutput = `${beforePatch.data.stdout}\n${beforePatch.data.stderr}`;
 
     const bugReproducedBeforePatch =
@@ -157,6 +158,7 @@ export async function runMission(
       throw new Error("Post-patch result missing exit code");
     }
 
+    const postPatchEvidence = afterPatch.data;
     const reproductionPassesAfterPatch = afterPatch.data.exitCode === 0;
 
     record(
@@ -177,6 +179,8 @@ export async function runMission(
     if (!fullSuite.ok) {
       throw new Error(`Full suite could not execute: ${fullSuite.error}`);
     }
+
+    const fullSuiteEvidence = fullSuite.data;
 
     const fullSuitePassesAfterPatch = fullSuite.data.exitCode === 0;
 
@@ -214,26 +218,26 @@ export async function runMission(
 
       investigation: {
         report: investigationReport,
-
         iterations: investigation.iterations,
       },
 
       patch: {
         applied: patch.patchApplied,
-
         baseCommit: gitEvidence.data.baseCommit,
-
         changedFiles: gitEvidence.data.changedFiles,
-
         diff: gitEvidence.data.diff,
       },
 
       checks: {
         bugReproducedBeforePatch,
-
         reproductionPassesAfterPatch,
-
         fullSuitePassesAfterPatch,
+      },
+
+      evidence: {
+        baselineTest: baselineEvidence,
+        postPatchTest: postPatchEvidence,
+        fullSuite: fullSuiteEvidence,
       },
     };
   } catch (error) {

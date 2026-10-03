@@ -47,5 +47,17 @@ export type MissionResult = {
     fullSuitePassesAfterPatch: boolean;
   };
 
+  evidence?: MissionEvidence;
+
   error?: string;
+};
+
+import type { CommandEvidence } from "../evidence/command-evidence.js";
+
+export type MissionEvidence = {
+  baselineTest: CommandEvidence;
+
+  postPatchTest: CommandEvidence;
+
+  fullSuite: CommandEvidence;
 };

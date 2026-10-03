@@ -14,9 +14,19 @@
   },
   "patch": {
     "applied": true,
-    "baseCommit": "37a411fb2753e31d714ec42cc69be75169f2e4d7",
+    "baseCommit": "7128483dd58118217b8fcb794ce104b2a4aec6eb",
     "changedFiles": [
       "src/divide.ts"
     ]
+  },
+  "artifacts": {
+    "patch": "patch.diff",
+    "investigation": "investigation.md",
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": "evidence/post-patch-test.json",
+      "fullSuite": "evidence/full-suite.json"
+    }
   }
 }
