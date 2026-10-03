@@ -11,6 +11,7 @@ import { INVESTIGATION_SYSTEM_PROMPT } from "./prompt.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
+const MAX_TEST_CALLS = 2;
 
 export async function investigateIssue(sandbox: Sandbox, issue: string) {
   const messages: ChatMessages[] = [
@@ -32,6 +33,7 @@ ${issue}
   const toolCallCache = new Map<string, unknown>();
 
   let duplicateCalls = 0;
+  let testCalls = 0;
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     console.log("");
@@ -91,6 +93,28 @@ ${issue}
       const toolKey = `${toolName}:${JSON.stringify(input)}`;
       const cachedResult = toolCallCache.get(toolKey);
 
+      if (toolName === "run_test" && testCalls >= MAX_TEST_CALLS) {
+        console.log("⊘ run_test BLOCKED — investigation test budget exhausted");
+
+        messages.push({
+          role: "tool",
+          toolCallId: toolCall.id,
+          content: JSON.stringify({
+            ok: false,
+            error:
+              "Investigation test budget exhausted. Use the evidence already collected and provide the investigation report.",
+          }),
+        });
+
+        messages.push({
+          role: "user",
+          content:
+            "You have enough execution evidence. Stop calling tools and provide your final investigation report now.",
+        });
+
+        continue;
+      }
+
       if (cachedResult !== undefined) {
         duplicateCalls++;
 
@@ -148,10 +172,40 @@ ${issue}
     }
   }
 
-  return {
-    completed: false,
-    iterations: MAX_ITERATIONS,
+  console.log("");
+  console.log(
+    "Investigation budget exhausted — requesting final report without tools",
+  );
 
-    report: "Investigation stopped because the iteration budget was exhausted.",
+  messages.push({
+    role: "user",
+    content:
+      "The investigation tool budget is exhausted. You may not call any more tools. Based only on the evidence already collected, provide your final investigation report now.",
+  });
+
+  const finalResponse = await openRouter.chat.send({
+    chatRequest: {
+      model: AGENT_MODEL,
+      messages,
+      stream: false,
+    },
+  });
+
+  if (!("choices" in finalResponse)) {
+    throw new Error("Expected a non-streaming final investigation response");
+  }
+
+  const finalMessage = finalResponse.choices[0]?.message;
+
+  if (!finalMessage) {
+    throw new Error("Model returned no final investigation report");
+  }
+
+  return {
+    completed: true,
+    iterations: MAX_ITERATIONS,
+    report:
+      finalMessage.content ??
+      "Investigation completed without a textual report.",
   };
 }

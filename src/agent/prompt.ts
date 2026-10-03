@@ -22,12 +22,15 @@ Important rules:
 2. Use tools to gather evidence before making conclusions.
 3. Prefer reading relevant source and test files.
 4. Run a relevant test when possible.
-5. Do not assume a non-zero exit code proves the reported bug.
-6. Clearly separate observed evidence from hypotheses.
-7. Stop investigating once you have enough evidence to identify a likely root cause.
-8. Never repeat the exact same tool call when repository state has not changed.
-9. Investigation is read-only, so repeated identical reads/searches/tests usually provide no new evidence.
-10. Once you have:
+5. Running one failing reproduction test is normally sufficient evidence that the reported failure exists.
+6. Do not invent test names.
+7. Do not run unrelated tests merely to gain confidence.
+8. Do not assume a non-zero exit code proves the reported bug.
+9. Clearly separate observed evidence from hypotheses.
+10. Stop investigating once you have enough evidence to identify a likely root cause.
+11. Never repeat the exact same tool call when repository state has not changed.
+12. Investigation is read-only, so repeated identical reads/searches/tests usually provide no new evidence.
+13. Once you have:
    - inspected the relevant implementation,
    - inspected the relevant test when available,
    - reproduced the reported failure,

@@ -10,13 +10,8 @@ import {
   runSandboxCommand,
   writeSandboxFile,
 } from "./sandbox/e2b.js";
-
-import { investigateIssue } from "./agent/investigate.js";
-import { patchIssue } from "./agent/patch.js";
-import { executeTool } from "./tools/index.js";
-import { determineVerdict } from "./proof/verdict.js";
-import { runFullSuiteTool } from "./tools/run-full-suite.js";
 import { runMission } from "./mission/runner.js";
+import { writeProofBundle } from "./proof/bundle.js";
 
 const SANDBOX_PROJECT = "/tmp/patchverdict";
 
@@ -30,7 +25,9 @@ async function readFixtureFile(relativePath: string) {
 async function main() {
   console.log(styleText(["bold", "cyan"], "\n  PATCHVERDICT"));
   console.log(styleText("dim", "  AI patch verification"));
-  console.log(styleText("dim", "  ──────────────────────────────────────────────────"));
+  console.log(
+    styleText("dim", "  ──────────────────────────────────────────────────"),
+  );
   console.log(styleText("bold", "\n  01  Prepare repository\n"));
 
   const sandbox = await createSandbox();
@@ -78,6 +75,9 @@ Current behavior:
 The function does not appear to reject division by zero.
 `.trim();
 
+    console.log("");
+    console.log("Creating baseline Git commit...");
+
     const gitInit = await runSandboxCommand(
       sandbox,
       `
@@ -97,66 +97,110 @@ git commit -m "baseline"
       );
     }
 
+    console.log("✓ Baseline Git commit created");
+
     console.log(styleText("bold", "\n  02  Run mission\n"));
 
-    const result = await runMission(sandbox, {
+    const missionInput = {
       issue,
 
       reproductionTestName: "rejects division by zero",
-    });
+    };
+
+    const result = await runMission(sandbox, missionInput);
 
     console.log(
       result.investigation
         ? styleText("bold", "\n    Investigation report\n") +
-            "\n    " + result.investigation.report.replace(/\r?\n/g, "\n    ") +
-            styleText("dim", `\n\n    Iterations: ${result.investigation.iterations}`)
+            "\n    " +
+            result.investigation.report.replace(/\r?\n/g, "\n    ") +
+            styleText(
+              "dim",
+              `\n\n    Iterations: ${result.investigation.iterations}`,
+            )
         : "",
     );
 
     console.log(styleText("bold", "\n  03  Mission result"));
-    console.log(styleText("dim", "  ──────────────────────────────────────────────────"));
+    console.log(
+      styleText("dim", "  ──────────────────────────────────────────────────"),
+    );
     console.log(`    Execution           ${result.status}`);
     console.log(
       `    Verdict             ${styleText(
-        result.verdict === "VERIFIED" ? ["bold", "green"] :
-          result.verdict === "FAILED" ? ["bold", "red"] : "dim",
+        result.verdict === "VERIFIED"
+          ? ["bold", "green"]
+          : result.verdict === "FAILED"
+            ? ["bold", "red"]
+            : "dim",
         result.verdict ?? "Not available",
       )}`,
     );
     console.log(
-      `\n    Bug reproduced      ${result.checks === undefined
-        ? styleText("dim", "—  Not available")
-        : result.checks.bugReproducedBeforePatch
-          ? styleText("green", "✓  Yes")
-          : styleText("red", "✗  No")}`,
+      `\n    Bug reproduced      ${
+        result.checks === undefined
+          ? styleText("dim", "—  Not available")
+          : result.checks.bugReproducedBeforePatch
+            ? styleText("green", "✓  Yes")
+            : styleText("red", "✗  No")
+      }`,
     );
     console.log(
-      `    Patch applied       ${result.patch === undefined
-        ? styleText("dim", "—  Not available")
-        : result.patch.applied
-          ? styleText("green", "✓  Yes")
-          : styleText("red", "✗  No")}`,
+      `    Patch applied       ${
+        result.patch === undefined
+          ? styleText("dim", "—  Not available")
+          : result.patch.applied
+            ? styleText("green", "✓  Yes")
+            : styleText("red", "✗  No")
+      }`,
     );
     console.log(
-      `    Reproduction test   ${result.checks === undefined
-        ? styleText("dim", "—  Not available")
-        : result.checks.reproductionPassesAfterPatch
-          ? styleText("green", "✓  Passed")
-          : styleText("red", "✗  Failed")}`,
+      `    Reproduction test   ${
+        result.checks === undefined
+          ? styleText("dim", "—  Not available")
+          : result.checks.reproductionPassesAfterPatch
+            ? styleText("green", "✓  Passed")
+            : styleText("red", "✗  Failed")
+      }`,
     );
     console.log(
-      `    Full test suite     ${result.checks === undefined
-        ? styleText("dim", "—  Not available")
-        : result.checks.fullSuitePassesAfterPatch
-          ? styleText("green", "✓  Passed")
-          : styleText("red", "✗  Failed")}`,
+      `    Full test suite     ${
+        result.checks === undefined
+          ? styleText("dim", "—  Not available")
+          : result.checks.fullSuitePassesAfterPatch
+            ? styleText("green", "✓  Passed")
+            : styleText("red", "✗  Failed")
+      }`,
     );
     console.log(
       result.error
-        ? styleText("red", `\n    Error: ${result.error.replace(/\r?\n/g, "\n    ")}`)
+        ? styleText(
+            "red",
+            `\n    Error: ${result.error.replace(/\r?\n/g, "\n    ")}`,
+          )
         : "",
     );
-    console.log(styleText("dim", "  ──────────────────────────────────────────────────\n"));
+    console.log(
+      styleText(
+        "dim",
+        "  ──────────────────────────────────────────────────\n",
+      ),
+    );
+
+    const bundle = await writeProofBundle({
+      missionId: "fixture-divide-zero",
+
+      input: missionInput,
+
+      result,
+    });
+
+    console.log("");
+    console.log("PROOF BUNDLE");
+
+    console.log("────────────────────────────");
+
+    console.log(`✓ ${bundle.outputDirectory}`);
   } finally {
     await destroySandbox(sandbox);
   }

@@ -33,6 +33,11 @@ export type MissionResult = {
 
   patch?: {
     applied: boolean;
+
+    baseCommit: string;
+
+    changedFiles: string[];
+
     diff: string;
   };
 

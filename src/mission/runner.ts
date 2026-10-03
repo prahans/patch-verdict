@@ -14,6 +14,8 @@ import { createMissionEvent } from "./events.js";
 
 import { getGitDiff } from "../tools/git-diff.js";
 
+import { getGitEvidence } from "../tools/git-evidence.js";
+
 import type {
   MissionEvent,
   MissionInput,
@@ -83,6 +85,13 @@ export async function runMission(
       throw new Error("AI investigation did not complete");
     }
 
+    const investigationReport =
+      typeof investigation.report === "string"
+        ? investigation.report
+        : investigation.report
+            .map((part) => (part.type === "text" ? part.text : ""))
+            .join("\n");
+
     record("INVESTIGATING", "AI investigation completed");
 
     // -------------------------
@@ -91,13 +100,30 @@ export async function runMission(
 
     record("PATCHING", "AI patch phase started");
 
-    const patch = await patchIssue(sandbox, input.issue, investigation.report);
+    const patch = await patchIssue(sandbox, input.issue, investigationReport);
 
     if (!patch.patchApplied) {
       throw new Error("AI did not produce a candidate patch");
     }
 
     record("PATCHING", "Candidate patch applied");
+
+    const gitEvidence = await getGitEvidence(sandbox);
+
+    if (!gitEvidence.ok) {
+      throw new Error(`Could not capture Git evidence: ${gitEvidence.error}`);
+    }
+
+    if (!gitEvidence.data.changed) {
+      throw new Error(
+        "AI reported a patch, but Git detected no repository changes.",
+      );
+    }
+
+    record(
+      "PATCHING",
+      `Git captured ${gitEvidence.data.changedFiles.length} changed file(s)`,
+    );
 
     const gitDiff = await getGitDiff(sandbox);
 
@@ -187,7 +213,7 @@ export async function runMission(
       events,
 
       investigation: {
-        report: investigation.report,
+        report: investigationReport,
 
         iterations: investigation.iterations,
       },
@@ -195,7 +221,11 @@ export async function runMission(
       patch: {
         applied: patch.patchApplied,
 
-        diff: gitDiff.data.diff,
+        baseCommit: gitEvidence.data.baseCommit,
+
+        changedFiles: gitEvidence.data.changedFiles,
+
+        diff: gitEvidence.data.diff,
       },
 
       checks: {
