@@ -1,0 +1,54 @@
+{
+  "version": 2,
+  "mission": {
+    "id": "real-vitest-rtl-cleanup-bug-c49e76f2-b687f629",
+    "issue": "DarkMode tests fail because rendered DOM from previous test suites remains mounted. Each test should run with a clean DOM.",
+    "source": {
+      "repositoryUrl": "https://github.com/zrev2220/vitest-rtl-cleanup-bug.git",
+      "baseCommit": "c49e76f2bc2f7bf7af14588c6d1c49b0bd86e9cf"
+    },
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npm test"
+    },
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
+  },
+  "status": "COMPLETED",
+  "verdict": "VERIFIED",
+  "checks": {
+    "bugReproducedBeforePatch": true,
+    "reproductionPassesAfterPatch": true,
+    "fullSuitePassesAfterPatch": true
+  },
+  "reproduction": {
+    "reproduced": true,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [],
+      "presentForbiddenOutput": []
+    }
+  },
+  "investigation": {
+    "iterations": 8
+  },
+  "patch": {
+    "applied": true,
+    "baseCommit": "c49e76f2bc2f7bf7af14588c6d1c49b0bd86e9cf",
+    "changedFiles": [
+      "vitest.setup.ts"
+    ]
+  },
+  "artifacts": {
+    "patch": "patch.diff",
+    "investigation": "investigation.md",
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": "evidence/post-patch-test.json",
+      "fullSuite": "evidence/full-suite.json"
+    }
+  }
+}

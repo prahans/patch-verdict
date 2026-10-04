@@ -4,18 +4,26 @@ import path from "node:path";
 
 import type { MissionInput, MissionResult } from "../mission/types.js";
 
+type ProofSource = {
+  repositoryUrl: string;
+  baseCommit: string;
+};
+
 type ProofBundleInput = {
   missionId: string;
 
   input: MissionInput;
 
   result: MissionResult;
+
+  source?: ProofSource;
 };
 
 export async function writeProofBundle({
   missionId,
   input,
   result,
+  source,
 }: ProofBundleInput) {
   if (!/^[A-Za-z0-9_-]+$/.test(missionId)) {
     throw new Error("Invalid mission ID.");
@@ -45,6 +53,14 @@ export async function writeProofBundle({
       id: missionId,
 
       issue: input.issue,
+
+      source: source
+        ? {
+            repositoryUrl: source.repositoryUrl,
+
+            baseCommit: source.baseCommit,
+          }
+        : null,
 
       reproduction: {
         label: input.verificationPlan.reproduction.label,

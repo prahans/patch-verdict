@@ -38,9 +38,9 @@ export type MissionResult = {
     diff?: string;
   };
   checks?: {
-    bugReproducedBeforePatch: boolean;
-    reproductionPassesAfterPatch: boolean;
-    fullSuitePassesAfterPatch: boolean;
+    bugReproducedBeforePatch?: boolean;
+    reproductionPassesAfterPatch?: boolean;
+    fullSuitePassesAfterPatch?: boolean;
   };
   reproduction?: ReproductionClassification;
   evidence?: {
@@ -55,6 +55,7 @@ export type MissionDetails = {
   id: string;
   title: string;
   description: string;
+
   reproduction: {
     label: string;
     command: string;
@@ -64,6 +65,12 @@ export type MissionDetails = {
     label: string;
     command: string;
   };
+
+  source?: {
+    repositoryUrl: string;
+    baseCommit: string;
+  };
+
   repository?: string;
   sourcePath?: string;
   testPath?: string;

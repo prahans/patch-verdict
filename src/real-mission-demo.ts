@@ -2,6 +2,9 @@ import { prepareRepository } from "./repository/prepare.js";
 import { createVerificationPlan } from "./verification/create-plan.js";
 import { runMission } from "./mission/runner.js";
 import { createSandbox, destroySandbox } from "./sandbox/e2b.js";
+import { createHash } from "node:crypto";
+
+import { writeProofBundle } from "./proof/bundle.js";
 
 async function main() {
   const [repositoryUrl, issue, reproductionCommand, requiredOutput] =
@@ -67,16 +70,59 @@ async function main() {
     console.log("Running mission...");
     console.log("");
 
-    const result = await runMission(sandbox, {
+    const missionInput = {
       issue,
 
       projectRoot: prepared.projectRoot,
 
       verificationPlan,
+    };
+
+    const result = await runMission(sandbox, missionInput);
+
+    const repositoryName =
+      new URL(prepared.repositoryUrl).pathname
+        .split("/")
+        .filter(Boolean)
+        .at(-1)
+        ?.replace(/\.git$/, "") ?? "repository";
+
+    const safeRepositoryName = repositoryName.replace(/[^A-Za-z0-9_-]/g, "-");
+
+    const issueHash = createHash("sha256")
+      .update(issue)
+      .digest("hex")
+      .slice(0, 8);
+
+    const missionId = [
+      "real",
+      safeRepositoryName,
+      prepared.baseCommit.slice(0, 8),
+      issueHash,
+    ].join("-");
+
+    const bundle = await writeProofBundle({
+      missionId,
+
+      input: missionInput,
+
+      result,
+
+      source: {
+        repositoryUrl: prepared.repositoryUrl,
+
+        baseCommit: prepared.baseCommit,
+      },
     });
 
     console.log("");
     console.log("MISSION RESULT");
+
+    console.log("");
+    console.log("PROOF BUNDLE");
+    console.log("----------------------------");
+    console.log(`✓ ${bundle.outputDirectory}`);
+    console.log(`Mission ID: ${missionId}`);
 
     console.log(`Execution: ${result.status}`);
 

@@ -14,6 +14,12 @@ type JsonObject = Record<string, unknown>;
 type ProofMetadata = {
   id: string;
   issue: string;
+
+  source?: {
+    repositoryUrl: string;
+    baseCommit: string;
+  };
+
   reproduction: {
     label: string;
     command: string;
@@ -106,14 +112,17 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
     invalid("proof.json version", "version 2");
   }
   const mission = object(proof.mission, "proof.json mission");
+
+  const source =
+    mission.source == null
+      ? undefined
+      : object(mission.source, "proof.json mission.source");
+
   const reproduction = object(
     mission.reproduction,
     "proof.json mission.reproduction",
   );
-  const fullSuite = object(
-    mission.fullSuite,
-    "proof.json mission.fullSuite",
-  );
+  const fullSuite = object(mission.fullSuite, "proof.json mission.fullSuite");
   const id = string(mission.id, "proof.json mission.id", true);
   if (id !== missionId) {
     throw new Error(
@@ -183,22 +192,79 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
     },
   };
 
+  if (source) {
+    const repositoryUrl = string(
+      source.repositoryUrl,
+      "proof.json mission.source.repositoryUrl",
+      true,
+    );
+
+    const baseCommit = string(
+      source.baseCommit,
+      "proof.json mission.source.baseCommit",
+      true,
+    );
+
+    let parsedRepositoryUrl: URL;
+
+    try {
+      parsedRepositoryUrl = new URL(repositoryUrl);
+    } catch {
+      return invalid(
+        "proof.json mission.source.repositoryUrl",
+        "a valid GitHub HTTPS URL",
+      );
+    }
+
+    if (
+      parsedRepositoryUrl.protocol !== "https:" ||
+      parsedRepositoryUrl.hostname !== "github.com"
+    ) {
+      invalid("proof.json mission.source.repositoryUrl", "a GitHub HTTPS URL");
+    }
+
+    if (!/^[0-9a-f]{40}$/i.test(baseCommit)) {
+      invalid(
+        "proof.json mission.source.baseCommit",
+        "a 40-character Git commit SHA",
+      );
+    }
+
+    metadata.source = {
+      repositoryUrl,
+      baseCommit,
+    };
+  }
+
   if (proof.checks != null) {
     const checks = object(proof.checks, "proof.json checks");
-    metadata.checks = {
-      bugReproducedBeforePatch: boolean(
+
+    const parsedChecks: NonNullable<MissionResult["checks"]> = {};
+
+    if (checks.bugReproducedBeforePatch !== undefined) {
+      parsedChecks.bugReproducedBeforePatch = boolean(
         checks.bugReproducedBeforePatch,
         "proof.json checks.bugReproducedBeforePatch",
-      ),
-      reproductionPassesAfterPatch: boolean(
+      );
+    }
+
+    if (checks.reproductionPassesAfterPatch !== undefined) {
+      parsedChecks.reproductionPassesAfterPatch = boolean(
         checks.reproductionPassesAfterPatch,
         "proof.json checks.reproductionPassesAfterPatch",
-      ),
-      fullSuitePassesAfterPatch: boolean(
+      );
+    }
+
+    if (checks.fullSuitePassesAfterPatch !== undefined) {
+      parsedChecks.fullSuitePassesAfterPatch = boolean(
         checks.fullSuitePassesAfterPatch,
         "proof.json checks.fullSuitePassesAfterPatch",
-      ),
-    };
+      );
+    }
+
+    if (Object.keys(parsedChecks).length > 0) {
+      metadata.checks = parsedChecks;
+    }
   }
   if (proof.reproduction != null) {
     const reproduction = object(proof.reproduction, "proof.json reproduction");
@@ -478,10 +544,18 @@ export async function loadProofBundle(
     mission,
     details: {
       id: proof.id,
+
       title: issueLines[0].trim(),
+
       description: issueLines.slice(1).join("\n").trim(),
+
       reproduction: proof.reproduction,
+
       fullSuite: proof.fullSuite,
+
+      ...(proof.source && {
+        source: proof.source,
+      }),
     },
     warnings: [report, diff, baseline, postPatch, fullSuite].flatMap(
       (artifact) => (artifact.warning ? [artifact.warning] : []),

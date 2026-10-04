@@ -1,0 +1,19 @@
+diff --git a/vitest.setup.ts b/vitest.setup.ts
+index b8500db..fd4d814 100644
+--- a/vitest.setup.ts
++++ b/vitest.setup.ts
+@@ -1,8 +1,13 @@
+ import "@testing-library/jest-dom";
++import { afterEach } from "vitest";
++import { cleanup } from "@testing-library/react";
++
++afterEach(() => {
++  cleanup();
++});
+ 
+ declare global {
+   var IS_REACT_ACT_ENVIRONMENT: boolean;
+ }
+ 
+ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+-
