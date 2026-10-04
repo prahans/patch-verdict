@@ -1,7 +1,7 @@
 {
   "command": "npm test",
   "exitCode": 0,
-  "stdout": "\n> vite-test@0.0.0 test\n> vitest run\n\n\n RUN  v0.13.1 /tmp/patchverdict\n\n √ src/components/Counter.test.tsx  (2 tests) 150ms\n √ src/components/DarkMode.test.tsx  (3 tests) 20ms\n\nTest Files  2 passed (2)\n     Tests  5 passed (5)\n      Time  1.77s (in thread 170ms, 1039.97%)\n\n",
+  "stdout": "\n> vite-test@0.0.0 test\n> vitest run\n\n\n RUN  v0.13.1 /tmp/patchverdict\n\n √ src/components/Counter.test.tsx  (2 tests) 198ms\n √ src/components/DarkMode.test.tsx  (3 tests) 26ms\n\nTest Files  2 passed (2)\n     Tests  5 passed (5)\n      Time  2.30s (in thread 224ms, 1024.69%)\n\n",
   "stderr": "",
-  "durationMs": 3518
+  "durationMs": 3458
 }

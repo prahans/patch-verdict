@@ -1,5 +1,6 @@
 import type { VerificationPlan } from "../verification/types.js";
 import type { ReproductionClassification } from "../verification/reproduction.js";
+import type { VerificationIntegrity } from "../verification/integrity.js";
 
 export type MissionState =
   | "PREPARING"
@@ -27,8 +28,12 @@ export type MissionInput = {
 
 export type MissionChecks = {
   bugReproducedBeforePatch?: boolean;
+
   reproductionPassesAfterPatch?: boolean;
+
   fullSuitePassesAfterPatch?: boolean;
+
+  verificationIntegrityPreserved?: boolean;
 };
 
 export type MissionResult = {
@@ -56,6 +61,8 @@ export type MissionResult = {
   checks?: MissionChecks;
 
   reproduction?: ReproductionClassification;
+
+  verificationIntegrity?: VerificationIntegrity;
 
   evidence?: MissionEvidence;
 

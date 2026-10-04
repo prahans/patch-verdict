@@ -12,6 +12,7 @@ import { createMissionEvent } from "./events.js";
 
 import { getGitEvidence } from "../tools/git-evidence.js";
 import { classifyReproduction } from "../verification/reproduction.js";
+import { analyzeVerificationIntegrity } from "../verification/integrity.js";
 
 import type {
   MissionEvent,
@@ -34,6 +35,7 @@ export async function runMission(
   let investigationResult: MissionResult["investigation"];
 
   let patchResult: MissionResult["patch"];
+  let verificationIntegrityResult: MissionResult["verificationIntegrity"];
 
   function record(nextState: MissionState, message: string) {
     const event = createMissionEvent(nextState, message);
@@ -161,6 +163,33 @@ export async function runMission(
 
     record("PATCHING", "Git diff captured");
 
+    verificationIntegrityResult = analyzeVerificationIntegrity({
+      changedFiles: gitEvidence.data.changedFiles,
+
+      diff: gitEvidence.data.diff,
+    });
+
+    checks.verificationIntegrityPreserved =
+      verificationIntegrityResult.preserved;
+
+    if (!verificationIntegrityResult.preserved) {
+      record(
+        "PATCHING",
+        `Verification integrity violation: ${verificationIntegrityResult.violations.join(
+          " ",
+        )}`,
+      );
+    } else if (verificationIntegrityResult.reviewFlags.length > 0) {
+      record(
+        "PATCHING",
+        `Verification integrity preserved with review flag: ${verificationIntegrityResult.reviewFlags.join(
+          " ",
+        )}`,
+      );
+    } else {
+      record("PATCHING", "Verification integrity preserved");
+    }
+
     // -------------------------
     // VERIFY TARGETED TEST
     // -------------------------
@@ -225,6 +254,9 @@ export async function runMission(
       reproductionPassesAfterPatch,
 
       fullSuitePassesAfterPatch,
+
+      verificationIntegrityPreserved:
+        verificationIntegrityResult?.preserved ?? false,
     });
 
     record("COMPLETED", `Mission completed with verdict ${verdict.status}`);

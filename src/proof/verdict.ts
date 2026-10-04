@@ -2,9 +2,14 @@ export type VerdictStatus = "VERIFIED" | "FAILED";
 
 export type VerdictChecks = {
   bugReproducedBeforePatch: boolean;
+
   patchApplied: boolean;
+
   reproductionPassesAfterPatch: boolean;
+
   fullSuitePassesAfterPatch: boolean;
+
+  verificationIntegrityPreserved: boolean;
 };
 
 export type VerdictResult = {
@@ -17,7 +22,8 @@ export function determineVerdict(checks: VerdictChecks): VerdictResult {
     checks.bugReproducedBeforePatch &&
     checks.patchApplied &&
     checks.reproductionPassesAfterPatch &&
-    checks.fullSuitePassesAfterPatch;
+    checks.fullSuitePassesAfterPatch &&
+    checks.verificationIntegrityPreserved;
 
   return {
     status: verified ? "VERIFIED" : "FAILED",

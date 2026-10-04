@@ -68,6 +68,19 @@ export async function writeProofBundle({
         command: input.verificationPlan.reproduction.command,
       },
 
+      verificationIntegrity: result.verificationIntegrity
+        ? {
+            preserved: result.verificationIntegrity.preserved,
+
+            violations: result.verificationIntegrity.violations,
+
+            reviewFlags: result.verificationIntegrity.reviewFlags,
+
+            protectedChangedFiles:
+              result.verificationIntegrity.protectedChangedFiles,
+          }
+        : null,
+
       fullSuite: {
         label: input.verificationPlan.fullSuite.label,
 

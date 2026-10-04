@@ -11,15 +11,17 @@
       "label": "Reported bug reproduction",
       "command": "npm test"
     },
+    "verificationIntegrity": null,
     "fullSuite": {
       "label": "Repository full test suite",
       "command": "npm test"
     }
   },
   "status": "COMPLETED",
-  "verdict": "VERIFIED",
+  "verdict": "FAILED",
   "checks": {
     "bugReproducedBeforePatch": true,
+    "verificationIntegrityPreserved": false,
     "reproductionPassesAfterPatch": true,
     "fullSuitePassesAfterPatch": true
   },
