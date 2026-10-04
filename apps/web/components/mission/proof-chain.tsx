@@ -28,6 +28,19 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
         : "Base commit unavailable",
     },
     {
+      label: "Verification integrity preserved",
+
+      passed: mission.checks?.verificationIntegrityPreserved,
+
+      detail: mission.verificationIntegrity
+        ? mission.verificationIntegrity.preserved
+          ? mission.verificationIntegrity.reviewFlags.length > 0
+            ? mission.verificationIntegrity.reviewFlags.join(" · ")
+            : "Verification assets remained independent"
+          : mission.verificationIntegrity.violations.join(" · ")
+        : "Integrity analysis unavailable",
+    },
+    {
       label: "Reproduction passes after patch",
       passed: mission.checks?.reproductionPassesAfterPatch,
       detail: mission.evidence?.postPatchTest

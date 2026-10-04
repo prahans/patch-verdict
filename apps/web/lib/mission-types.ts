@@ -41,8 +41,10 @@ export type MissionResult = {
     bugReproducedBeforePatch?: boolean;
     reproductionPassesAfterPatch?: boolean;
     fullSuitePassesAfterPatch?: boolean;
+    verificationIntegrityPreserved?: boolean;
   };
   reproduction?: ReproductionClassification;
+  verificationIntegrity?: VerificationIntegrity;
   evidence?: {
     baselineTest?: CommandEvidence;
     postPatchTest?: CommandEvidence;
@@ -92,4 +94,14 @@ export type ReproductionClassification = {
 
     presentForbiddenOutput: string[];
   };
+};
+
+export type VerificationIntegrity = {
+  preserved: boolean;
+
+  violations: string[];
+
+  reviewFlags: string[];
+
+  protectedChangedFiles: string[];
 };

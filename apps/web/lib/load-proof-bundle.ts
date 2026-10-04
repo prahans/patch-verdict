@@ -25,6 +25,8 @@ type ProofMetadata = {
     command: string;
   };
 
+  verificationIntegrity?: MissionResult["verificationIntegrity"];
+
   fullSuite: {
     label: string;
     command: string;
@@ -111,6 +113,7 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
   if (proof.version !== 2) {
     invalid("proof.json version", "version 2");
   }
+
   const mission = object(proof.mission, "proof.json mission");
 
   const source =
@@ -316,6 +319,67 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       },
     };
   }
+
+  if (proof.verificationIntegrity != null) {
+    const integrity = object(
+      proof.verificationIntegrity,
+      "proof.json verificationIntegrity",
+    );
+
+    if (!Array.isArray(integrity.violations)) {
+      invalid(
+        "proof.json verificationIntegrity.violations",
+        "an array of strings",
+      );
+    }
+
+    if (!Array.isArray(integrity.reviewFlags)) {
+      invalid(
+        "proof.json verificationIntegrity.reviewFlags",
+        "an array of strings",
+      );
+    }
+
+    if (!Array.isArray(integrity.protectedChangedFiles)) {
+      invalid(
+        "proof.json verificationIntegrity.protectedChangedFiles",
+        "an array of strings",
+      );
+    }
+
+    metadata.verificationIntegrity = {
+      preserved: boolean(
+        integrity.preserved,
+        "proof.json verificationIntegrity.preserved",
+      ),
+
+      violations: integrity.violations.map((value, index) =>
+        string(
+          value,
+          `proof.json verificationIntegrity.violations[${index}]`,
+          true,
+        ),
+      ),
+
+      reviewFlags: integrity.reviewFlags.map((value, index) =>
+        string(
+          value,
+          `proof.json verificationIntegrity.reviewFlags[${index}]`,
+          true,
+        ),
+      ),
+
+      protectedChangedFiles: integrity.protectedChangedFiles.map(
+        (value, index) =>
+          string(
+            value,
+            `proof.json verificationIntegrity.protectedChangedFiles[${index}]`,
+            true,
+          ),
+      ),
+    };
+  }
+
   if (proof.patch != null) {
     const patch = object(proof.patch, "proof.json patch");
     if (!Array.isArray(patch.changedFiles))
