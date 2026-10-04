@@ -8,6 +8,7 @@
     "tools:demo": "tsx src/tools-demo.ts",
     "agent:demo": "tsx src/agent-demo.ts",
     "repo:demo": "tsx src/repository-demo.ts",
+    "real:demo": "tsx src/real-mission-demo.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
