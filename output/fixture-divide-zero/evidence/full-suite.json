@@ -1,7 +1,0 @@
-{
-  "command": "npm test",
-  "exitCode": 0,
-  "stdout": "\n> test\n> vitest run\n\n\n RUN  v3.2.4 /tmp/patchverdict\n\n ✓ tests/divide.test.ts (2 tests) 3ms\n\n Test Files  1 passed (1)\n      Tests  2 passed (2)\n   Start at  03:55:27\n   Duration  294ms (transform 70ms, setup 0ms, collect 52ms, tests 3ms, environment 0ms, prepare 98ms)\n\n",
-  "stderr": "",
-  "durationMs": 1384
-}

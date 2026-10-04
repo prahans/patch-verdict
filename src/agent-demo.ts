@@ -16,6 +16,8 @@ import { createVerificationPlan } from "./verification/create-plan.js";
 
 const SANDBOX_PROJECT = "/tmp/patchverdict";
 
+const forceBaselineFailure = process.argv.includes("--fail-baseline");
+
 const verificationPlan = createVerificationPlan({
   preparedRepository: {
     repositoryUrl: "fixture://divide-by-zero",
@@ -41,10 +43,9 @@ const verificationPlan = createVerificationPlan({
   reproductionExpectation: {
     expectedExitCodes: [1],
 
-    requiredOutput: [
-      "rejects division by zero",
-      "expected [Function] to throw",
-    ],
+    requiredOutput: forceBaselineFailure
+      ? ["THIS_MARKER_DOES_NOT_EXIST"]
+      : ["rejects division by zero", "expected [Function] to throw"],
 
     forbiddenOutput: ["Startup Error"],
   },

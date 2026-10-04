@@ -12,31 +12,31 @@
       "command": "npm test"
     }
   },
-  "status": "COMPLETED",
-  "verdict": "VERIFIED",
+  "status": "FAILED",
+  "verdict": null,
   "checks": {
-    "bugReproducedBeforePatch": true,
-    "reproductionPassesAfterPatch": true,
-    "fullSuitePassesAfterPatch": true
+    "bugReproducedBeforePatch": false
   },
-  "investigation": {
-    "iterations": 5
+  "reproduction": {
+    "reproduced": false,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [
+        "THIS_MARKER_DOES_NOT_EXIST"
+      ],
+      "presentForbiddenOutput": []
+    }
   },
-  "patch": {
-    "applied": true,
-    "baseCommit": "0c30afac6f190e72e35c0611e284a5911346e39b",
-    "changedFiles": [
-      "src/divide.ts"
-    ]
-  },
+  "investigation": null,
+  "patch": null,
   "artifacts": {
-    "patch": "patch.diff",
-    "investigation": "investigation.md",
+    "patch": null,
+    "investigation": null,
     "events": "events.json",
     "evidence": {
       "baseline": "evidence/baseline-test.json",
-      "postPatch": "evidence/post-patch-test.json",
-      "fullSuite": "evidence/full-suite.json"
+      "postPatch": null,
+      "fullSuite": null
     }
   }
 }

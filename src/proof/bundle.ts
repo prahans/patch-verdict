@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 
 import path from "node:path";
 
@@ -17,7 +17,22 @@ export async function writeProofBundle({
   input,
   result,
 }: ProofBundleInput) {
-  const outputDirectory = path.resolve(process.cwd(), "output", missionId);
+  if (!/^[A-Za-z0-9_-]+$/.test(missionId)) {
+    throw new Error("Invalid mission ID.");
+  }
+
+  const outputRoot = path.resolve(process.cwd(), "output");
+
+  const outputDirectory = path.join(outputRoot, missionId);
+
+  await mkdir(outputRoot, {
+    recursive: true,
+  });
+
+  await rm(outputDirectory, {
+    recursive: true,
+    force: true,
+  });
 
   await mkdir(outputDirectory, {
     recursive: true,
@@ -49,6 +64,22 @@ export async function writeProofBundle({
     verdict: result.verdict ?? null,
 
     checks: result.checks ?? null,
+
+    reproduction: result.reproduction
+      ? {
+          reproduced: result.reproduction.reproduced,
+
+          checks: {
+            exitCodeMatched: result.reproduction.checks.exitCodeMatched,
+
+            missingRequiredOutput:
+              result.reproduction.checks.missingRequiredOutput,
+
+            presentForbiddenOutput:
+              result.reproduction.checks.presentForbiddenOutput,
+          },
+        }
+      : null,
 
     investigation: result.investigation
       ? { iterations: result.investigation.iterations }
