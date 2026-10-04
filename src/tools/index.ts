@@ -37,5 +37,11 @@ export async function executeTool(
 
     case "apply_patch":
       return applyPatchTool(sandbox, input);
+
+    default:
+      return {
+        ok: false as const,
+        error: `Unknown tool: ${toolName}`,
+      };
   }
 }

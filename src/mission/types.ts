@@ -25,6 +25,12 @@ export type MissionInput = {
   verificationPlan: VerificationPlan;
 };
 
+export type MissionChecks = {
+  bugReproducedBeforePatch?: boolean;
+  reproductionPassesAfterPatch?: boolean;
+  fullSuitePassesAfterPatch?: boolean;
+};
+
 export type MissionResult = {
   status: "COMPLETED" | "FAILED";
 
@@ -47,11 +53,7 @@ export type MissionResult = {
     diff: string;
   };
 
-  checks?: {
-    bugReproducedBeforePatch: boolean;
-    reproductionPassesAfterPatch: boolean;
-    fullSuitePassesAfterPatch: boolean;
-  };
+  checks?: MissionChecks;
 
   reproduction?: ReproductionClassification;
 
@@ -63,9 +65,7 @@ export type MissionResult = {
 import type { CommandEvidence } from "../evidence/command-evidence.js";
 
 export type MissionEvidence = {
-  baselineTest: CommandEvidence;
-
-  postPatchTest: CommandEvidence;
-
-  fullSuite: CommandEvidence;
+  baselineTest?: CommandEvidence;
+  postPatchTest?: CommandEvidence;
+  fullSuite?: CommandEvidence;
 };

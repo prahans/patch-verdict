@@ -10,6 +10,7 @@ import { patchToolDefinitions } from "./tool-definitions.js";
 import { PATCH_SYSTEM_PROMPT } from "./patch-prompt.js";
 
 const MAX_PATCH_ITERATIONS = 4;
+const PATCH_ALLOWED_TOOLS = new Set<string>(["read_file", "apply_patch"]);
 
 export async function patchIssue(
   sandbox: Sandbox,
@@ -76,7 +77,31 @@ Apply the smallest reasonable candidate patch.
     }
 
     for (const toolCall of toolCalls) {
-      const toolName = toolCall.function.name as ToolName;
+      const requestedToolName = toolCall.function.name;
+
+      // Never trust a model-provided tool name.
+      if (!PATCH_ALLOWED_TOOLS.has(requestedToolName)) {
+        const blockedResult = {
+          ok: false as const,
+          error: `Tool "${requestedToolName}" is not permitted during the PATCH phase.`,
+        };
+
+        console.log(`→ ${requestedToolName}`);
+
+        console.log(`← ${requestedToolName} BLOCKED`);
+
+        messages.push({
+          role: "tool",
+
+          toolCallId: toolCall.id,
+
+          content: JSON.stringify(blockedResult),
+        });
+
+        continue;
+      }
+
+      const toolName = requestedToolName as ToolName;
 
       let input: unknown;
 
@@ -90,11 +115,16 @@ Apply the smallest reasonable candidate patch.
 
       const result = await executeTool(sandbox, toolName, input);
 
-      console.log(`← ${toolName}`, result.ok ? "OK" : "ERROR");
+      if (result.ok) {
+        console.log(`← ${toolName} OK`);
+      } else {
+        console.log(`← ${toolName} ERROR: ${result.error}`);
+      }
 
       if (
         toolName === "apply_patch" &&
         result.ok &&
+        "data" in result &&
         "changed" in result.data &&
         result.data.changed
       ) {

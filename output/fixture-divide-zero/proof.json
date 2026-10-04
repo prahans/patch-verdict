@@ -20,11 +20,11 @@
     "fullSuitePassesAfterPatch": true
   },
   "investigation": {
-    "iterations": 4
+    "iterations": 5
   },
   "patch": {
     "applied": true,
-    "baseCommit": "8832f836643ff331bf86e300d870342f7fc3a727",
+    "baseCommit": "0c30afac6f190e72e35c0611e284a5911346e39b",
     "changedFiles": [
       "src/divide.ts"
     ]

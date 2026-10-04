@@ -73,11 +73,17 @@ export async function writeProofBundle({
 
       evidence: result.evidence
         ? {
-            baseline: "evidence/baseline-test.json",
+            baseline: result.evidence.baselineTest
+              ? "evidence/baseline-test.json"
+              : null,
 
-            postPatch: "evidence/post-patch-test.json",
+            postPatch: result.evidence.postPatchTest
+              ? "evidence/post-patch-test.json"
+              : null,
 
-            fullSuite: "evidence/full-suite.json",
+            fullSuite: result.evidence.fullSuite
+              ? "evidence/full-suite.json"
+              : null,
           }
         : null,
     },
@@ -128,28 +134,26 @@ ${result.investigation.report}
     recursive: true,
   });
 
-  if (result.evidence) {
+  if (result.evidence?.baselineTest) {
     await writeFile(
       path.join(evidenceDirectory, "baseline-test.json"),
-
       JSON.stringify(result.evidence.baselineTest, null, 2),
-
       "utf8",
     );
+  }
 
+  if (result.evidence?.postPatchTest) {
     await writeFile(
       path.join(evidenceDirectory, "post-patch-test.json"),
-
       JSON.stringify(result.evidence.postPatchTest, null, 2),
-
       "utf8",
     );
+  }
 
+  if (result.evidence?.fullSuite) {
     await writeFile(
       path.join(evidenceDirectory, "full-suite.json"),
-
       JSON.stringify(result.evidence.fullSuite, null, 2),
-
       "utf8",
     );
   }

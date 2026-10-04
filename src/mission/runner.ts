@@ -4,8 +4,6 @@ import { investigateIssue } from "../agent/investigate.js";
 
 import { patchIssue } from "../agent/patch.js";
 
-import { executeTool } from "../tools/index.js";
-
 import { runVerificationCommand } from "../verification/run-command.js";
 
 import { determineVerdict } from "../proof/verdict.js";
@@ -27,6 +25,15 @@ export async function runMission(
   input: MissionInput,
 ): Promise<MissionResult> {
   const events: MissionEvent[] = [];
+  const checks: NonNullable<MissionResult["checks"]> = {};
+
+  const evidence: NonNullable<MissionResult["evidence"]> = {};
+
+  let reproductionResult: MissionResult["reproduction"];
+
+  let investigationResult: MissionResult["investigation"];
+
+  let patchResult: MissionResult["patch"];
 
   function record(nextState: MissionState, message: string) {
     const event = createMissionEvent(nextState, message);
@@ -49,10 +56,16 @@ export async function runMission(
       input.verificationPlan.reproduction,
     );
 
+    evidence.baselineTest = baselineEvidence;
+
     const reproductionClassification = classifyReproduction(
       baselineEvidence,
       input.verificationPlan.reproduction.expectation,
     );
+
+    reproductionResult = reproductionClassification;
+
+    checks.bugReproducedBeforePatch = reproductionClassification.reproduced;
 
     const bugReproducedBeforePatch = reproductionClassification.reproduced;
 
@@ -101,6 +114,11 @@ export async function runMission(
             .map((part) => (part.type === "text" ? part.text : ""))
             .join("\n");
 
+    investigationResult = {
+      report: investigationReport,
+      iterations: investigation.iterations,
+    };
+
     record("INVESTIGATING", "AI investigation completed");
 
     // -------------------------
@@ -134,6 +152,13 @@ export async function runMission(
       `Git captured ${gitEvidence.data.changedFiles.length} changed file(s)`,
     );
 
+    patchResult = {
+      applied: patch.patchApplied,
+      baseCommit: gitEvidence.data.baseCommit,
+      changedFiles: gitEvidence.data.changedFiles,
+      diff: gitEvidence.data.diff,
+    };
+
     record("PATCHING", "Git diff captured");
 
     // -------------------------
@@ -148,7 +173,11 @@ export async function runMission(
       input.verificationPlan.reproduction,
     );
 
+    evidence.postPatchTest = postPatchEvidence;
+
     const reproductionPassesAfterPatch = postPatchEvidence.exitCode === 0;
+
+    checks.reproductionPassesAfterPatch = reproductionPassesAfterPatch;
 
     record(
       "VERIFYING",
@@ -169,7 +198,11 @@ export async function runMission(
       input.verificationPlan.fullSuite,
     );
 
+    evidence.fullSuite = fullSuiteEvidence;
+
     const fullSuitePassesAfterPatch = fullSuiteEvidence.exitCode === 0;
+
+    checks.fullSuitePassesAfterPatch = fullSuitePassesAfterPatch;
 
     record(
       "VERIFYING",
@@ -203,31 +236,25 @@ export async function runMission(
 
       events,
 
-      investigation: {
-        report: investigationReport,
-        iterations: investigation.iterations,
-      },
+      ...(investigationResult && {
+        investigation: investigationResult,
+      }),
 
-      patch: {
-        applied: patch.patchApplied,
-        baseCommit: gitEvidence.data.baseCommit,
-        changedFiles: gitEvidence.data.changedFiles,
-        diff: gitEvidence.data.diff,
-      },
+      ...(patchResult && {
+        patch: patchResult,
+      }),
 
-      checks: {
-        bugReproducedBeforePatch,
-        reproductionPassesAfterPatch,
-        fullSuitePassesAfterPatch,
-      },
+      ...(Object.keys(checks).length > 0 && {
+        checks,
+      }),
 
-      reproduction: reproductionClassification,
+      ...(reproductionResult && {
+        reproduction: reproductionResult,
+      }),
 
-      evidence: {
-        baselineTest: baselineEvidence,
-        postPatchTest: postPatchEvidence,
-        fullSuite: fullSuiteEvidence,
-      },
+      ...(Object.keys(evidence).length > 0 && {
+        evidence,
+      }),
     };
   } catch (error) {
     const message =
@@ -237,7 +264,29 @@ export async function runMission(
 
     return {
       status: "FAILED",
+
       events,
+
+      ...(investigationResult && {
+        investigation: investigationResult,
+      }),
+
+      ...(patchResult && {
+        patch: patchResult,
+      }),
+
+      ...(reproductionResult && {
+        reproduction: reproductionResult,
+      }),
+
+      ...(Object.keys(checks).length > 0 && {
+        checks,
+      }),
+
+      ...(Object.keys(evidence).length > 0 && {
+        evidence,
+      }),
+
       error: message,
     };
   }

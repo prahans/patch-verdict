@@ -193,7 +193,7 @@ git commit -m "baseline"
     );
     console.log(
       `    Reproduction test   ${
-        result.checks === undefined
+        result.checks?.reproductionPassesAfterPatch === undefined
           ? styleText("dim", "—  Not available")
           : result.checks.reproductionPassesAfterPatch
             ? styleText("green", "✓  Passed")
@@ -202,7 +202,7 @@ git commit -m "baseline"
     );
     console.log(
       `    Full test suite     ${
-        result.checks === undefined
+        result.checks?.fullSuitePassesAfterPatch === undefined
           ? styleText("dim", "—  Not available")
           : result.checks.fullSuitePassesAfterPatch
             ? styleText("green", "✓  Passed")
