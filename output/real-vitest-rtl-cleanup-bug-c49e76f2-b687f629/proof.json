@@ -38,7 +38,7 @@
     "applied": true,
     "baseCommit": "c49e76f2bc2f7bf7af14588c6d1c49b0bd86e9cf",
     "changedFiles": [
-      "vitest.setup.ts"
+      "src/components/DarkMode.test.tsx"
     ]
   },
   "artifacts": {

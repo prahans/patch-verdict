@@ -13,6 +13,10 @@ const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
 const MAX_TEST_CALLS = 2;
 
+function createToolCallKey(toolName: string, input: unknown) {
+  return `${toolName}:${JSON.stringify(input)}`;
+}
+
 export async function investigateIssue(sandbox: Sandbox, issue: string) {
   const messages: ChatMessages[] = [
     {
@@ -34,6 +38,7 @@ ${issue}
 
   let duplicateCalls = 0;
   let testCalls = 0;
+  let forceFinalReport = false;
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     console.log("");
@@ -90,31 +95,14 @@ ${issue}
         input = {};
       }
 
-      const toolKey = `${toolName}:${JSON.stringify(input)}`;
+      const toolKey = createToolCallKey(toolName, input);
+
       const cachedResult = toolCallCache.get(toolKey);
 
-      if (toolName === "run_test" && testCalls >= MAX_TEST_CALLS) {
-        console.log("⊘ run_test BLOCKED — investigation test budget exhausted");
-
-        messages.push({
-          role: "tool",
-          toolCallId: toolCall.id,
-          content: JSON.stringify({
-            ok: false,
-            error:
-              "Investigation test budget exhausted. Use the evidence already collected and provide the investigation report.",
-          }),
-        });
-
-        messages.push({
-          role: "user",
-          content:
-            "You have enough execution evidence. Stop calling tools and provide your final investigation report now.",
-        });
-
-        continue;
-      }
-
+      /*
+       * Identical calls reuse previous evidence.
+       * Never execute the same command twice.
+       */
       if (cachedResult !== undefined) {
         duplicateCalls++;
 
@@ -122,14 +110,17 @@ ${issue}
 
         messages.push({
           role: "tool",
+
           toolCallId: toolCall.id,
+
           content: JSON.stringify({
             result: cachedResult,
 
             meta: {
               cached: true,
+
               message:
-                "This identical tool call was already executed. Repository state has not changed. Use the existing evidence and do not repeat this call.",
+                "This identical tool call was already executed. Use the existing evidence and do not repeat this call.",
             },
           }),
         });
@@ -137,10 +128,45 @@ ${issue}
         if (duplicateCalls >= MAX_DUPLICATE_CALLS) {
           messages.push({
             role: "user",
+
             content:
               "You are repeating tool calls without gathering new evidence. Stop using tools and provide your investigation report now.",
           });
         }
+
+        forceFinalReport = true;
+
+        continue;
+      }
+
+      /*
+       * Only NEW run_test executions count
+       * against the execution budget.
+       */
+      if (toolName === "run_test" && testCalls >= MAX_TEST_CALLS) {
+        console.log("⊘ run_test BLOCKED — investigation test budget exhausted");
+
+        messages.push({
+          role: "tool",
+
+          toolCallId: toolCall.id,
+
+          content: JSON.stringify({
+            ok: false,
+
+            error:
+              "Investigation test budget exhausted. Use the evidence already collected and provide the investigation report.",
+          }),
+        });
+
+        messages.push({
+          role: "user",
+
+          content:
+            "You have enough execution evidence. Stop calling tools and provide your final investigation report now.",
+        });
+
+        forceFinalReport = true;
 
         continue;
       }
@@ -153,7 +179,7 @@ ${issue}
         result = await executeTool(sandbox, toolName, input);
       } catch (error) {
         result = {
-          ok: false,
+          ok: false as const,
 
           error:
             error instanceof Error ? error.message : "Tool execution failed",
@@ -162,6 +188,16 @@ ${issue}
 
       console.log(`← ${toolName}`, result.ok ? "OK" : "ERROR");
 
+      /*
+       * Cache the actual evidence so an
+       * identical call is never executed again.
+       */
+      toolCallCache.set(toolKey, result);
+
+      if (toolName === "run_test") {
+        testCalls++;
+      }
+
       messages.push({
         role: "tool",
 
@@ -169,6 +205,9 @@ ${issue}
 
         content: JSON.stringify(result),
       });
+    }
+    if (forceFinalReport) {
+      break;
     }
   }
 
