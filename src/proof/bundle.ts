@@ -70,6 +70,8 @@ export async function writeProofBundle({
 
       verificationIntegrity: result.verificationIntegrity
         ? {
+            status: result.verificationIntegrity.status,
+
             preserved: result.verificationIntegrity.preserved,
 
             violations: result.verificationIntegrity.violations,

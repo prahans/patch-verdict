@@ -1,47 +1,49 @@
 # Investigation Report
 
-## Investigation Report: DarkMode Tests Failing Due to DOM State Persistence
+I'll provide my investigation report now based on the evidence collected.
+
+## Investigation Report: DarkMode Tests Failing Due to DOM State Leakage
 
 ### What Was Inspected
 
-1. **DarkMode Component** (`src/components/DarkMode.tsx`): A React component that displays current dark mode state and provides a toggle button.
+1. **DarkMode test file** (`src/components/DarkMode.test.tsx`) - Contains 3 tests:
+   - A test for "light" state
+   - A test for "dark" state  
+   - A test for toggling dark mode
 
-2. **DarkMode Context** (`src/context/DarkModeContext.tsx`): React context that manages dark mode state with a provider component.
+2. **Test utilities** (`src/utils/test-utils.tsx`) - Shows tests are rendered with `DarkModeContextProvider`
 
-3. **Test Utilities** (`src/utils/test-utils.tsx`): Contains `renderWithContext` helper that wraps components with `DarkModeContextProvider`.
+3. **DarkMode component** (`src/components/DarkMode.tsx`) - Renders text showing current mode and a toggle button
 
-4. **DarkMode Tests** (`src/components/DarkMode.test.tsx`): Contains 3 tests:
-   - Test for "light" mode display
-   - Test for "dark" mode display  
-   - Test for toggle functionality
+4. **DarkModeContext** (`src/context/DarkModeContext.tsx`) - Uses React's `useState` for state management
 
-5. **Test Setup** (`vitest.setup.ts`): Configures React ACT environment but does not include test cleanup setup.
+5. **Vitest setup** (`vitest.setup.ts`) - Only configures React ACT environment
 
-### Evidence of the Issue
+### Issue Analysis
 
-The test file imports `cleanup` from `@testing-library/react` but **never calls `cleanup()`** after tests. According to React Testing Library documentation, `cleanup()` is required to unmount rendered components and prevent DOM state from persisting between tests.
+The problem is clear: **the DarkMode tests are not using the `cleanup` function from `@testing-library/react`**. While the test file imports `cleanup`, it's never actually called.
 
-The test file structure shows:
+In React Testing Library, when components are rendered without cleanup, DOM elements from previous tests remain mounted. This causes:
 
-- Test 1: renders with mocked context → expects "light" text
-- Test 2: renders with mocked context → expects "dark" text  
-- Test 3: renders without mocked context → expects toggle functionality
-
-When tests run in sequence, components from previous tests remain mounted because `cleanup()` is not called. This causes DOM state pollution where:
-- Event listeners from previous tests may still be active
-- Context state may leak between tests
-- DOM queries (`screen.getByText`, `screen.queryByText`) may match elements from previous tests instead of the current test's component
-
-Additionally, the mock for `useDarkModeContext` in the first two tests uses `mockReturnValueOnce`, but if tests don't clean up properly, these mocks may persist and affect subsequent tests.
+1. **State leakage**: The `DarkModeContextProvider` maintains its state across tests
+2. **DOM contamination**: Previous test's DOM elements persist
+3. **Test interference**: Tests can see elements from other tests (e.g., `queryByText` returning unexpected elements)
 
 ### Root Cause
 
-**Missing test cleanup**: The test file imports `cleanup` but never invokes it after each test. In React Testing Library, `cleanup()` must be called (typically via `afterEach(cleanup)` or manually after each test) to unmount React trees and clear the DOM between tests.
+The tests lack proper cleanup between test cases. The `cleanup` function should be called after each test to unmount rendered components and clear the DOM.
 
-Without cleanup:
-- Previous test DOM nodes remain in the document
-- Mock implementations may leak between tests
-- Context provider state may persist
-- Subsequent tests find unexpected elements in the DOM
+### Evidence
 
-This explains why tests fail "because rendered DOM from previous test suites remains mounted" - the test environment is not being reset between individual tests.
+- The test file imports `cleanup` but never calls it
+- Each test renders `<DarkMode />` with `renderWithContext` which wraps in a provider
+- The provider maintains internal state via `useState` - without cleanup, this state persists
+- Without cleanup, DOM queries like `screen.getByText()` and `screen.queryByText()` may find elements from previous tests
+
+### Why This Causes Failures
+
+In the "light" test, if a previous test rendered "dark" content that wasn't cleaned up, `screen.queryByText(/dark/)` might find that leftover element instead of null, causing the assertion to fail.
+
+---
+
+**Recommendation**: Add `cleanup()` calls (either manually after each test or via `afterEach(cleanup)`) to ensure each test runs with a clean DOM.

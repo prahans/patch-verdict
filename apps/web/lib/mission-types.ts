@@ -25,7 +25,7 @@ export type CommandEvidence = {
 
 export type MissionResult = {
   status: "COMPLETED" | "FAILED";
-  verdict?: "VERIFIED" | "FAILED" | null;
+  verdict?: "VERIFIED" | "REVIEW_REQUIRED" | "FAILED" | null;
   events: MissionEvent[];
   investigation?: {
     report?: string;
@@ -96,7 +96,14 @@ export type ReproductionClassification = {
   };
 };
 
+export type VerificationIntegrityStatus =
+  | "PRESERVED"
+  | "REVIEW_REQUIRED"
+  | "COMPROMISED";
+
 export type VerificationIntegrity = {
+  status: VerificationIntegrityStatus;
+
   preserved: boolean;
 
   violations: string[];

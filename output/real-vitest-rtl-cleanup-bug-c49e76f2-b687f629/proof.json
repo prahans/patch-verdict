@@ -12,6 +12,7 @@
       "command": "npm test"
     },
     "verificationIntegrity": {
+      "status": "REVIEW_REQUIRED",
       "preserved": false,
       "violations": [],
       "reviewFlags": [

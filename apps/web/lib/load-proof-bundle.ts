@@ -137,10 +137,11 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
   }
   if (
     proof.verdict !== "VERIFIED" &&
+    proof.verdict !== "REVIEW_REQUIRED" &&
     proof.verdict !== "FAILED" &&
     proof.verdict !== null
   ) {
-    invalid("proof.json verdict", "VERIFIED, FAILED, or null");
+    invalid("proof.json verdict", "VERIFIED, REVIEW_REQUIRED, FAILED, or null");
   }
   const artifacts =
     proof.artifacts == null
@@ -265,6 +266,13 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       );
     }
 
+    if (checks.verificationIntegrityPreserved !== undefined) {
+      parsedChecks.verificationIntegrityPreserved = boolean(
+        checks.verificationIntegrityPreserved,
+        "proof.json checks.verificationIntegrityPreserved",
+      );
+    }
+
     if (Object.keys(parsedChecks).length > 0) {
       metadata.checks = parsedChecks;
     }
@@ -320,43 +328,65 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
     };
   }
 
-  if (proof.verificationIntegrity != null) {
-    const integrity = object(
-      proof.verificationIntegrity,
-      "proof.json verificationIntegrity",
-    );
+  // The bundle writer nests integrity under mission. Also accept the top-level
+  // shape, whose explicit null must remain authoritative over nested data.
+  const hasTopLevelIntegrity = Object.hasOwn(proof, "verificationIntegrity");
+  const integrityValue = hasTopLevelIntegrity
+    ? proof.verificationIntegrity
+    : mission.verificationIntegrity;
+  const integrityLabel = hasTopLevelIntegrity
+    ? "proof.json verificationIntegrity"
+    : "proof.json mission.verificationIntegrity";
+
+  if (integrityValue != null) {
+    const integrity = object(integrityValue, integrityLabel);
+
+    const integrityStatus = integrity.status;
+
+    if (
+      integrityStatus !== "PRESERVED" &&
+      integrityStatus !== "REVIEW_REQUIRED" &&
+      integrityStatus !== "COMPROMISED"
+    ) {
+      invalid(
+        `${integrityLabel}.status`,
+        "PRESERVED, REVIEW_REQUIRED, or COMPROMISED",
+      );
+    }
 
     if (!Array.isArray(integrity.violations)) {
       invalid(
-        "proof.json verificationIntegrity.violations",
+        `${integrityLabel}.violations`,
         "an array of strings",
       );
     }
 
     if (!Array.isArray(integrity.reviewFlags)) {
       invalid(
-        "proof.json verificationIntegrity.reviewFlags",
+        `${integrityLabel}.reviewFlags`,
         "an array of strings",
       );
     }
 
     if (!Array.isArray(integrity.protectedChangedFiles)) {
       invalid(
-        "proof.json verificationIntegrity.protectedChangedFiles",
+        `${integrityLabel}.protectedChangedFiles`,
         "an array of strings",
       );
     }
 
     metadata.verificationIntegrity = {
+      status: integrityStatus,
+
       preserved: boolean(
         integrity.preserved,
-        "proof.json verificationIntegrity.preserved",
+        `${integrityLabel}.preserved`,
       ),
 
       violations: integrity.violations.map((value, index) =>
         string(
           value,
-          `proof.json verificationIntegrity.violations[${index}]`,
+          `${integrityLabel}.violations[${index}]`,
           true,
         ),
       ),
@@ -364,7 +394,7 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       reviewFlags: integrity.reviewFlags.map((value, index) =>
         string(
           value,
-          `proof.json verificationIntegrity.reviewFlags[${index}]`,
+          `${integrityLabel}.reviewFlags[${index}]`,
           true,
         ),
       ),
@@ -373,7 +403,7 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
         (value, index) =>
           string(
             value,
-            `proof.json verificationIntegrity.protectedChangedFiles[${index}]`,
+            `${integrityLabel}.protectedChangedFiles[${index}]`,
             true,
           ),
       ),
@@ -578,6 +608,11 @@ export async function loadProofBundle(
   if (proof.reproductionClassification) {
     mission.reproduction = proof.reproductionClassification;
   }
+
+  if (proof.verificationIntegrity) {
+    mission.verificationIntegrity = proof.verificationIntegrity;
+  }
+
   if (proof.patch)
     mission.patch = {
       ...proof.patch,
