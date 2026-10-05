@@ -190,10 +190,12 @@ PROVENANCE RULES
    - observation must describe something actually observed in that file
    - observation should explain why the file matters to the diagnosis when the file appears in relevantFiles
 
-53. For TEST evidence:
+53. For TEST evidence, source must be either:
 
-   - source must be the exact test or suite selector actually executed with run_test
-   - observation must describe evidence from that execution
+- the exact test selector you actually executed with run_test, or
+- the exact authoritative baseline command supplied by PatchVerdict.
+
+Do not claim any other test execution as evidence.
 
 54. For SEARCH evidence:
 

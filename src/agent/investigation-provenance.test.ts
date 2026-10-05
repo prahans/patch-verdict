@@ -219,3 +219,34 @@ describe("assertInvestigationProvenance", () => {
     ).toThrow(/has no FILE evidence observation/i);
   });
 });
+
+it("accepts TEST evidence from trusted baseline execution", () => {
+  expect(() =>
+    assertInvestigationProvenance(
+      {
+        ...diagnosis,
+
+        evidence: [
+          ...diagnosis.evidence,
+
+          {
+            kind: "TEST" as const,
+            source: "npm test",
+            observation:
+              "The trusted baseline reproduction failed with the reported symptom.",
+          },
+        ],
+      },
+
+      {
+        inspectedFiles: ["vitest.setup.ts"],
+
+        executedTests: [],
+
+        searchQueries: [],
+
+        trustedTestCommands: ["npm test"],
+      },
+    ),
+  ).not.toThrow();
+});

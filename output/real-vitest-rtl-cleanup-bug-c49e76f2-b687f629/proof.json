@@ -28,12 +28,12 @@
     }
   },
   "status": "COMPLETED",
-  "verdict": "REVIEW_REQUIRED",
+  "verdict": "FAILED",
   "checks": {
     "bugReproducedBeforePatch": true,
     "verificationIntegrityPreserved": false,
-    "reproductionPassesAfterPatch": true,
-    "fullSuitePassesAfterPatch": true
+    "reproductionPassesAfterPatch": false,
+    "fullSuitePassesAfterPatch": false
   },
   "reproduction": {
     "reproduced": true,
@@ -46,31 +46,37 @@
   "investigation": {
     "iterations": 6,
     "diagnosis": {
-      "rootCause": "Missing DOM cleanup between tests; the DarkMode.test.tsx imports cleanup but never invokes it, causing DOM from previous tests (including Counter.test.tsx) to remain mounted and interfere with subsequent DarkMode tests.",
+      "rootCause": "Test suite lacks cleanup() calls and mock reset between tests, causing DOM pollution and stale mock state.",
       "evidence": [
         {
           "kind": "FILE",
           "source": "src/components/DarkMode.test.tsx",
-          "observation": "Imports `cleanup` but never calls it; no `afterEach(cleanup)` or manual cleanup after renders."
+          "observation": "Imports { cleanup } but never invokes it; no afterEach or per-test cleanup. Uses vi.mock without resetting mocks (e.g., vi.resetAllMocks)."
         },
         {
           "kind": "FILE",
           "source": "src/utils/test-utils.tsx",
-          "observation": "`renderWithContext` uses `render` but does not return or perform cleanup; lacks automatic teardown."
+          "observation": "Wraps render but does not expose or invoke cleanup; renders are not automatically cleaned up."
         },
         {
-          "kind": "FILE",
-          "source": "vitest.setup.ts",
-          "observation": "No global `afterEach(cleanup)` configured; no cleanup hooks set up."
+          "kind": "TEST",
+          "source": "npm test",
+          "observation": "Baseline output shows multiple <div> elements with 'It's light' and 'It's dark' in the <body>, proving uncleaned DOM from prior tests remains mounted."
         }
       ],
       "relevantFiles": [
         "src/components/DarkMode.test.tsx",
-        "src/utils/test-utils.tsx",
-        "vitest.setup.ts"
+        "src/utils/test-utils.tsx"
       ],
       "recommendedPatchTargets": [
         "src/components/DarkMode.test.tsx"
+      ],
+      "patchTargetAnalysis": [
+        {
+          "path": "src/components/DarkMode.test.tsx",
+          "decision": "RECOMMEND",
+          "reason": "This file directly controls test teardown; adding afterEach(cleanup) and vi.resetAllMocks() after each test will resolve both DOM pollution and mock state persistence."
+        }
       ],
       "confidence": "HIGH"
     }

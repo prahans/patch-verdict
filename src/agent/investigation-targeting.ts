@@ -2,11 +2,18 @@ import type { InvestigationDiagnosis } from "./investigation-contract.js";
 
 import { classifyVerificationPath } from "../verification/integrity.js";
 
+export type PatchTargetAnalysisContext = {
+  inspectedFiles: readonly string[];
+};
+
 function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
 
-export function assertPatchTargetAnalysis(diagnosis: InvestigationDiagnosis) {
+export function assertPatchTargetAnalysis(
+  diagnosis: InvestigationDiagnosis,
+  context: PatchTargetAnalysisContext,
+) {
   const errors: string[] = [];
 
   const relevantFiles = new Set(diagnosis.relevantFiles.map(normalizePath));
@@ -70,8 +77,8 @@ export function assertPatchTargetAnalysis(diagnosis: InvestigationDiagnosis) {
   /*
    * The reverse must also hold.
    * The model cannot secretly RECOMMEND
-   * something that is absent from the
-   * authoritative target list.
+   * something absent from the authoritative
+   * recommended target list.
    */
   for (const entry of diagnosis.patchTargetAnalysis) {
     const path = normalizePath(entry.path);
@@ -83,36 +90,54 @@ export function assertPatchTargetAnalysis(diagnosis: InvestigationDiagnosis) {
     }
   }
 
-  /*
-   * Important trust boundary:
-   *
-   * If the model recommends changing a
-   * direct test while it has identified
-   * relevant test infrastructure, it must
-   * explicitly compare that infrastructure
-   * before choosing the test file.
-   *
-   * PatchVerdict does NOT force the
-   * infrastructure to win.
-   */
   const recommendsDirectTest = [...recommendedTargetSet].some(
     (path) => classifyVerificationPath(path) === "TEST_FILE",
   );
 
-  const relevantTestInfrastructure = diagnosis.relevantFiles.filter(
-    (path) => classifyVerificationPath(path) === "TEST_INFRASTRUCTURE",
-  );
+  /*
+   * IMPORTANT:
+   *
+   * Use deterministic tool provenance here,
+   * not diagnosis.relevantFiles.
+   *
+   * Otherwise the model can inspect test
+   * infrastructure and then hide it by
+   * simply omitting it from relevantFiles.
+   */
+  const inspectedTestInfrastructure = [
+    ...new Set(
+      context.inspectedFiles
+        .map(normalizePath)
+        .filter(
+          (path) => classifyVerificationPath(path) === "TEST_INFRASTRUCTURE",
+        ),
+    ),
+  ];
 
-  if (recommendsDirectTest && relevantTestInfrastructure.length > 0) {
-    const analyzedInfrastructure = relevantTestInfrastructure.some((path) =>
-      analysisByPath.has(normalizePath(path)),
+  /*
+   * A direct test-file patch is a sensitive
+   * choice. If the investigator actually
+   * inspected test infrastructure, it must
+   * explicitly account for that candidate
+   * before recommending the direct test.
+   *
+   * PatchVerdict does NOT force the
+   * infrastructure to win.
+   *
+   * REJECT is perfectly valid if the
+   * evidence supports that decision.
+   */
+  if (recommendsDirectTest && inspectedTestInfrastructure.length > 0) {
+    const unanalyzedInfrastructure = inspectedTestInfrastructure.filter(
+      (path) => !analysisByPath.has(path),
     );
 
-    if (!analyzedInfrastructure) {
+    if (unanalyzedInfrastructure.length > 0) {
       errors.push(
         [
-          "A direct TEST_FILE is recommended while relevant TEST_INFRASTRUCTURE was identified.",
-          "The investigation must explicitly analyze at least one relevant test-infrastructure candidate before recommending the test file.",
+          "A direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was successfully inspected.",
+          "Every inspected test-infrastructure candidate must be explicitly accounted for in patchTargetAnalysis before the direct test file can be recommended.",
+          `Missing analysis for: ${unanalyzedInfrastructure.join(", ")}.`,
         ].join(" "),
       );
     }

@@ -4,6 +4,8 @@ export type InvestigationProvenance = {
   inspectedFiles: readonly string[];
   executedTests: readonly string[];
   searchQueries: readonly string[];
+
+  trustedTestCommands?: readonly string[];
 };
 
 function normalizePath(value: string) {
@@ -18,6 +20,9 @@ export function assertInvestigationProvenance(
 
   const executedTests = new Set(
     provenance.executedTests.map((value) => value.trim()),
+  );
+  const trustedTestCommands = new Set(
+    (provenance.trustedTestCommands ?? []).map((value) => value.trim()),
   );
 
   const searchQueries = new Set(
@@ -82,7 +87,8 @@ export function assertInvestigationProvenance(
 
     if (
       evidence.kind === "TEST" &&
-      !executedTests.has(evidence.source.trim())
+      !executedTests.has(evidence.source.trim()) &&
+      !trustedTestCommands.has(evidence.source.trim())
     ) {
       errors.push(
         `TEST evidence source "${evidence.source}" was not executed.`,

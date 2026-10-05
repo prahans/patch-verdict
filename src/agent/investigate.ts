@@ -267,8 +267,11 @@ Use list_files or search_code when necessary, then read_file the files that supp
           executedTests: [...executedTests],
 
           searchQueries: [...searchQueries],
+          trustedTestCommands: [baseline.command],
         });
-        assertPatchTargetAnalysis(structured.diagnosis);
+        assertPatchTargetAnalysis(structured.diagnosis, {
+          inspectedFiles: [...inspectedFiles],
+        });
       } catch (error) {
         const reason =
           error instanceof Error
@@ -299,8 +302,12 @@ Use tools to inspect any missing files or revise the diagnosis so that:
 - every relevantFiles path was successfully read
 - every recommendedPatchTargets path was successfully read
 - every recommended patch target is also listed in relevantFiles
+- if you recommend a direct test file after inspecting test infrastructure,
+  every inspected test-infrastructure candidate must be included in relevantFiles
+  and explicitly accounted for in patchTargetAnalysis as RECOMMEND or REJECT
 - FILE evidence refers to a successfully read file
-- TEST evidence refers to a test selector actually executed during this investigation
+- TEST evidence must refer either to a test selector actually executed
+with run_test or to the authoritative baseline command supplied by PatchVerdict
 - SEARCH evidence refers to a search query actually executed during this investigation
 
 Do not invent paths or evidence.
@@ -552,8 +559,11 @@ Do not invent paths or evidence.
     executedTests: [...executedTests],
 
     searchQueries: [...searchQueries],
+    trustedTestCommands: [baseline.command],
   });
-  assertPatchTargetAnalysis(structured.diagnosis);
+  assertPatchTargetAnalysis(structured.diagnosis, {
+    inspectedFiles: [...inspectedFiles],
+  });
 
   return {
     completed: true,

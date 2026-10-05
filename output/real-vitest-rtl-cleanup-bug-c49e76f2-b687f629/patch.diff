@@ -1,5 +1,5 @@
 diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
-index c62f423..e36de54 100644
+index c62f423..b9b6820 100644
 --- a/src/components/DarkMode.test.tsx
 +++ b/src/components/DarkMode.test.tsx
 @@ -4,6 +4,7 @@ import { renderWithContext } from "../utils/test-utils";
@@ -10,11 +10,12 @@ index c62f423..e36de54 100644
  
  vi.mock("../context/DarkModeContext", async () => {
    const actual = await vi.importActual<
-@@ -19,6 +20,8 @@ const mockedUseDarkModeContext = useDarkModeContext as MockedFunction<
+@@ -19,6 +20,9 @@ const mockedUseDarkModeContext = useDarkModeContext as MockedFunction<
    typeof useDarkModeContext
  >;
  
 +afterEach(cleanup);
++afterEach(() => vi.resetAllMocks());
 +
  describe("displays current dark mode", () => {
    test("light", () => {
