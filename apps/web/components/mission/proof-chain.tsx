@@ -3,6 +3,13 @@ import { Icon } from "./icon";
 
 type ProofCheckState = "passed" | "failed" | "review" | "unavailable";
 
+const checkPresentation = {
+  passed: { label: "Passed", summary: "passed", className: "is-verified", icon: "check" },
+  review: { label: "Review required", summary: "review", className: "is-review", icon: "warning" },
+  failed: { label: "Failed", summary: "failed", className: "is-failed", icon: "x" },
+  unavailable: { label: "Unavailable", summary: "unavailable", className: "is-unavailable", icon: "minus" },
+} as const;
+
 function booleanState(value: boolean | undefined): ProofCheckState {
   if (value === true) {
     return "passed";
@@ -16,7 +23,13 @@ function booleanState(value: boolean | undefined): ProofCheckState {
 }
 
 export function ProofChain({ mission }: { mission: MissionResult }) {
-  const checks = [
+  const reviewFlags = mission.verificationIntegrity?.reviewFlags.filter((flag) => flag.trim()) ?? [];
+  const reviewReason = reviewFlags.join(" · ") ||
+    "Verification independence requires human review; no specific reason was recorded.";
+  const testsPassed =
+    mission.checks?.reproductionPassesAfterPatch === true &&
+    mission.checks?.fullSuitePassesAfterPatch === true;
+  const checks: { label: string; state: ProofCheckState; detail: string }[] = [
     {
       label: "Bug reproduced before patch",
 
@@ -68,9 +81,9 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
 
       detail:
         mission.verificationIntegrity?.status === "REVIEW_REQUIRED"
-          ? mission.verificationIntegrity.reviewFlags.join(" · ")
+          ? reviewReason
           : mission.verificationIntegrity?.status === "COMPROMISED"
-            ? mission.verificationIntegrity.violations.join(" · ")
+            ? mission.verificationIntegrity.violations.join(" · ") || "Verification independence was compromised"
             : mission.verificationIntegrity?.status === "PRESERVED"
               ? "Verification remained independent"
               : "Integrity analysis unavailable",
@@ -96,16 +109,26 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
         : "Full suite evidence unavailable",
     },
   ];
-  const passedCount = checks.filter((check) => check.state === "passed").length;
-
-  const reviewCount = checks.filter((check) => check.state === "review").length;
+  const outcomes = (["passed", "review", "failed", "unavailable"] as const)
+    .map((state) => ({ state, count: checks.filter((check) => check.state === state).length }))
+    .filter(({ state, count }) => state === "passed" || count > 0);
   // Display the recorded result; verdict calculation belongs to the engine.
   const verdictClass =
     mission.verdict === "VERIFIED"
       ? "is-verified"
-      : mission.verdict === "FAILED"
-        ? "is-failed"
-        : "is-unavailable";
+      : mission.verdict === "REVIEW_REQUIRED"
+        ? "is-review"
+        : mission.verdict === "FAILED"
+          ? "is-failed"
+          : "is-unavailable";
+  const verdictIcon =
+    mission.verdict === "VERIFIED"
+      ? "shield"
+      : mission.verdict === "REVIEW_REQUIRED"
+        ? "warning"
+        : mission.verdict === "FAILED"
+          ? "x"
+          : "minus";
 
   return (
     <section className="panel proof-panel" aria-labelledby="proof-title">
@@ -119,84 +142,73 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
       <div className="proof-body">
         <div className="proof-count">
           <span>Evidence requirements</span>
-          <span
-            className={
-              reviewCount > 0
-                ? "amber"
-                : passedCount === checks.length
-                  ? "green"
-                  : "amber"
-            }
-          >
-            {reviewCount > 0
-              ? `${passedCount} passed · ${reviewCount} review`
-              : `${passedCount}/${checks.length} satisfied`}
+          <span className="proof-count-values">
+            {outcomes.map(({ state, count }, index) => (
+              <span key={state} className={checkPresentation[state].className}>
+                {index > 0 && <span className="proof-count-separator"> · </span>}
+                {count} {checkPresentation[state].summary}
+              </span>
+            ))}
           </span>
         </div>
         <ol className="proof-list">
-          {checks.map((check, index) => (
-            <li key={check.label}>
-              <span
-                className={`proof-check ${
-                  check.state === "passed"
-                    ? "green"
-                    : check.state === "failed"
-                      ? "is-failed"
-                      : check.state === "review"
-                        ? "amber"
-                        : "is-unavailable"
-                }`}
-                aria-label={
-                  check.state === "passed"
-                    ? "Passed"
-                    : check.state === "failed"
-                      ? "Failed"
-                      : check.state === "review"
-                        ? "Review required"
-                        : "Unavailable"
-                }
-              >
-                {check.state === "passed" ? (
-                  <Icon name="check" width="13" height="13" />
-                ) : check.state === "review" ? (
-                  "!"
-                ) : check.state === "failed" ? (
-                  "!"
-                ) : (
-                  "—"
-                )}
-              </span>
-              <div>
-                <span className="proof-label">{check.label}</span>
-                <span className="proof-detail">
-                  {check.state === "passed"
-                    ? "Passed"
-                    : check.state === "failed"
-                      ? "Failed"
-                      : check.state === "review"
-                        ? "Review required"
-                        : "Unavailable"}{" "}
-                  · {check.detail}
+          {checks.map((check, index) => {
+            const presentation = checkPresentation[check.state];
+
+            return (
+              <li key={check.label}>
+                <span
+                  className={`proof-check ${presentation.className}`}
+                  aria-hidden="true"
+                >
+                  <Icon name={presentation.icon} width="13" height="13" />
                 </span>
-              </div>
-              <span className="proof-index">0{index + 1}</span>
-            </li>
-          ))}
+                <div className="proof-content">
+                  <span className="proof-label">{check.label}</span>
+                  <span className="proof-detail">
+                    <span className={`proof-state ${presentation.className}`}>{presentation.label}</span>
+                    {" · "}{check.detail}
+                  </span>
+                </div>
+                <span className="proof-index">0{index + 1}</span>
+              </li>
+            );
+          })}
         </ol>
         <div className={`verdict-result ${verdictClass}`}>
-          <Icon name="shield" width="40" height="40" />
-          <div>
-            <span className="eyebrow">VERDICT</span>
-            <strong>{mission.verdict ?? "UNAVAILABLE"}</strong>
+          <div className="verdict-heading">
+            <Icon name={verdictIcon} width="40" height="40" />
+            <div className="verdict-title">
+              <span className="eyebrow">VERDICT</span>
+              <strong>{mission.verdict ?? "UNAVAILABLE"}</strong>
+            </div>
+            <span className="verdict-seal">
+              {mission.verdict ? "RECORDED\nVERDICT" : "NO VERDICT\nRECORDED"}
+            </span>
           </div>
-          <span className="verdict-seal">
-            {mission.verdict ? "RECORDED\nVERDICT" : "NO VERDICT\nRECORDED"}
-          </span>
+          {mission.verdict === "REVIEW_REQUIRED" && (
+            <div className="verdict-explanation">
+              <p className="verdict-review-title">Human review required</p>
+              <p>
+                {testsPassed
+                  ? "Tests passed, but automatic verification was withheld."
+                  : "Automatic verification was withheld."}
+                {" "}Review the evidence before approving this patch.
+              </p>
+              {reviewFlags.length > 0 ? (
+                <ul className="verdict-reasons" aria-label="Recorded review reasons">
+                  {reviewFlags.map((flag, index) => <li key={`${index}-${flag}`}>{flag}</li>)}
+                </ul>
+              ) : (
+                <p className="verdict-reason-fallback">{reviewReason}</p>
+              )}
+            </div>
+          )}
         </div>
         <p className="proof-note">
           The saved verdict is reported by PatchVerdict.
           <br />
-          AI proposes the patch. Execution earns the verdict.
+          AI proposes. Tools execute. Tests verify. Humans approve.
         </p>
       </div>
     </section>

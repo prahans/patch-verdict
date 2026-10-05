@@ -2,6 +2,20 @@ import type { MissionDetails, MissionResult } from "@/lib/mission-types";
 import { Icon } from "./icon";
 import { ExportEvidence } from "./export-evidence";
 
+function isGitHubRepositoryUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "github.com" &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function MissionSummary({
   mission,
   details,
@@ -27,8 +41,19 @@ export function MissionSummary({
       </div>
       <div className="repository-line">
         <Icon name="branch" />
-
-        <span title={repository}>{repository}</span>
+        <span className="repository-label">Repository</span>
+        {isGitHubRepositoryUrl(repository) ? (
+          <a
+            href={repository}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Source repository: ${repository} (opens in a new tab)`}
+          >
+            {repository}<span className="external-link-mark" aria-hidden="true"> ↗</span>
+          </a>
+        ) : (
+          <span className="repository-value">{repository}</span>
+        )}
       </div>
       <dl className="mission-facts">
         <div>
@@ -40,14 +65,14 @@ export function MissionSummary({
             {mission.status}
           </dd>
         </div>
-        <div>
+        <div className="base-commit-fact">
           <dt>Base commit</dt>
 
           <dd>
             <Icon name="branch" />
 
             {baseCommit ? (
-              <code className="break-all" title={baseCommit}>
+              <code className="base-commit" title={baseCommit}>
                 {baseCommit}
               </code>
             ) : (

@@ -36,11 +36,12 @@ const events = [{
 
 function proof(overrides = {}) {
   return {
-    version: 1,
+    version: 2,
     mission: {
       id: missionId,
       issue: "\n\n  divide() should reject division by zero.\n\nExpected behavior:\nThrow an error.\n",
-      reproductionTestName: "rejects division by zero",
+      reproduction: { label: "rejects division by zero", command: "npm test -- divide.test.ts" },
+      fullSuite: { label: "Repository full test suite", command: "npm test" },
     },
     status: "COMPLETED",
     verdict: "VERIFIED",
@@ -94,7 +95,8 @@ test("normalizes real fields and preserves artifact contents and raw durations",
     id: missionId,
     title: "divide() should reject division by zero.",
     description: "Expected behavior:\nThrow an error.",
-    reproductionTestName: "rejects division by zero",
+    reproduction: proof().mission.reproduction,
+    fullSuite: proof().mission.fullSuite,
   });
   assert.equal(result.mission.status, "COMPLETED");
   assert.equal(result.mission.verdict, "VERIFIED");
@@ -108,13 +110,115 @@ test("normalizes real fields and preserves artifact contents and raw durations",
   assert.deepEqual(result.warnings, []);
 });
 
-test("older bundles leave unknown iterations and optional artifacts unavailable", async () => {
+test("bundles leave unknown iterations and optional artifacts unavailable", async () => {
   const result = await loadProofBundle(missionId);
   assert.equal(result.mission.investigation, undefined);
   assert.equal(result.mission.patch.diff, undefined);
   assert.equal(result.mission.evidence, undefined);
   assert.equal(result.details.repository, undefined);
   assert.deepEqual(result.warnings, []);
+});
+
+const reviewIntegrity = {
+  status: "REVIEW_REQUIRED",
+  preserved: false,
+  violations: [],
+  reviewFlags: [
+    "Candidate modified protected test file(s): src/components/DarkMode.test.tsx",
+  ],
+  protectedChangedFiles: ["src/components/DarkMode.test.tsx"],
+};
+
+test("loads the writer's nested review integrity with exact reasons and a completed mission", async () => {
+  const reviewProof = proof({
+    verdict: "REVIEW_REQUIRED",
+    checks: { ...proof().checks, verificationIntegrityPreserved: false },
+    mission: { ...proof().mission, verificationIntegrity: reviewIntegrity },
+  });
+  await writeArtifact("proof.json", reviewProof);
+
+  const { mission } = await loadProofBundle(missionId);
+  assert.equal(mission.status, "COMPLETED");
+  assert.equal(mission.verdict, "REVIEW_REQUIRED");
+  assert.deepEqual(mission.verificationIntegrity, reviewIntegrity);
+  assert.deepEqual(mission.checks, reviewProof.checks);
+});
+
+test("retains every recorded integrity state from nested and top-level metadata", async () => {
+  const states = [
+    { status: "PRESERVED", preserved: true, violations: [], reviewFlags: [], protectedChangedFiles: [] },
+    reviewIntegrity,
+    {
+      status: "COMPROMISED", preserved: false,
+      violations: ["Candidate removed protected verification command"],
+      reviewFlags: [], protectedChangedFiles: ["package.json"],
+    },
+  ];
+
+  for (const integrity of states) {
+    for (const location of ["nested", "top-level"]) {
+      await writeArtifact("proof.json", proof(location === "nested"
+        ? { mission: { ...proof().mission, verificationIntegrity: integrity } }
+        : { verificationIntegrity: integrity }));
+
+      const { mission } = await loadProofBundle(missionId);
+      assert.deepEqual(mission.verificationIntegrity, integrity, `${location}: ${integrity.status}`);
+      // The frontend displays the recorded verdict; it must not recompute it.
+      assert.equal(mission.verdict, "VERIFIED");
+    }
+  }
+});
+
+test("missing or null integrity stays unavailable without inferring it from checks or verdict", async () => {
+  for (const metadata of [
+    {},
+    { verificationIntegrity: null },
+    { mission: { ...proof().mission, verificationIntegrity: null } },
+  ]) {
+    for (const preserved of [true, false]) {
+      await writeArtifact("proof.json", proof({
+        ...metadata,
+        verdict: "REVIEW_REQUIRED",
+        checks: { verificationIntegrityPreserved: preserved },
+      }));
+      const { mission } = await loadProofBundle(missionId);
+      assert.equal(mission.verificationIntegrity, undefined);
+      assert.equal(mission.checks.verificationIntegrityPreserved, preserved);
+      assert.equal(mission.verdict, "REVIEW_REQUIRED");
+    }
+  }
+});
+
+test("top-level integrity takes precedence, including explicit null", async () => {
+  const preserved = {
+    status: "PRESERVED", preserved: true, violations: [], reviewFlags: [], protectedChangedFiles: [],
+  };
+  for (const integrity of [preserved, null]) {
+    await writeArtifact("proof.json", proof({
+      mission: { ...proof().mission, verificationIntegrity: reviewIntegrity },
+      verificationIntegrity: integrity,
+    }));
+    assert.deepEqual((await loadProofBundle(missionId)).mission.verificationIntegrity, integrity ?? undefined);
+  }
+});
+
+test("validates integrity metadata in either location without losing the source field in errors", async () => {
+  for (const [field, invalidValue] of [
+    ["status", "UNKNOWN"],
+    ["preserved", "false"],
+    ["violations", [42]],
+    ["reviewFlags", [""]],
+    ["protectedChangedFiles", "src/components/DarkMode.test.tsx"],
+  ]) {
+    for (const location of ["nested", "top-level"]) {
+      const integrity = { ...reviewIntegrity, [field]: invalidValue };
+      await writeArtifact("proof.json", proof(location === "nested"
+        ? { mission: { ...proof().mission, verificationIntegrity: integrity } }
+        : { verificationIntegrity: integrity }));
+      const source = location === "nested" ? "mission\\.verificationIntegrity" : " verificationIntegrity";
+      await assert.rejects(loadProofBundle(missionId), new RegExp(`${source}\\.${field}`));
+    }
+  }
 });
 
 test("failed missions retain null verdict and absent patch, checks, and evidence", async () => {
@@ -200,12 +304,13 @@ test("rejects missing and malformed required artifacts descriptively", async () 
 
 test("rejects invalid required metadata, evidence shape, and events", async () => {
   for (const [overrides, expected] of [
-    [{ version: 2 }, /version 1/],
+    [{ version: 1 }, /version 2/],
     [{ status: "RUNNING" }, /status/],
     [{ verdict: "UNKNOWN" }, /verdict/],
     [{ mission: { ...proof().mission, id: "different-id" } }, /mission.id/],
     [{ mission: { ...proof().mission, issue: "  " } }, /mission.issue/],
     [{ checks: { ...proof().checks, fullSuitePassesAfterPatch: "true" } }, /fullSuitePassesAfterPatch/],
+    [{ checks: { verificationIntegrityPreserved: "false" } }, /verificationIntegrityPreserved/],
     [{ patch: { ...proof().patch, changedFiles: [42] } }, /changedFiles/],
     [{ investigation: { iterations: 1.5 } }, /iterations/],
   ]) {
