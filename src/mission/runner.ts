@@ -13,6 +13,7 @@ import { createMissionEvent } from "./events.js";
 import { getGitEvidence } from "../tools/git-evidence.js";
 import { classifyReproduction } from "../verification/reproduction.js";
 import { analyzeVerificationIntegrity } from "../verification/integrity.js";
+import { createInvestigationBaselineContext } from "../agent/investigation-context.js";
 
 import type {
   MissionEvent,
@@ -103,7 +104,30 @@ export async function runMission(
 
     record("INVESTIGATING", "AI investigation started");
 
-    const investigation = await investigateIssue(sandbox, input.issue);
+    const requiredOutput =
+      input.verificationPlan.reproduction.expectation.requiredOutput;
+
+    const investigationBaseline = createInvestigationBaselineContext({
+      command: baselineEvidence.command,
+
+      exitCode: baselineEvidence.exitCode,
+
+      stdout: baselineEvidence.stdout,
+
+      stderr: baselineEvidence.stderr,
+
+      ...(requiredOutput !== undefined
+        ? {
+            requiredOutput,
+          }
+        : {}),
+    });
+
+    const investigation = await investigateIssue(
+      sandbox,
+      input.issue,
+      investigationBaseline,
+    );
 
     if (!investigation.completed) {
       throw new Error("AI investigation did not complete");

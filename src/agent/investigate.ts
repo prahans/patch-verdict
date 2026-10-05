@@ -16,6 +16,7 @@ import {
 
 import { messageContentToText } from "./message-content.js";
 import { assertInvestigationProvenance } from "./investigation-provenance.js";
+import type { InvestigationBaselineContext } from "./investigation-context.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -137,7 +138,11 @@ Do not include additional fields.
   }
 }
 
-export async function investigateIssue(sandbox: Sandbox, issue: string) {
+export async function investigateIssue(
+  sandbox: Sandbox,
+  issue: string,
+  baseline: InvestigationBaselineContext,
+) {
   const messages: ChatMessages[] = [
     {
       role: "system",
@@ -150,6 +155,19 @@ export async function investigateIssue(sandbox: Sandbox, issue: string) {
 Investigate this reported issue:
 
 ${issue}
+
+PatchVerdict has already reproduced the reported failure using its trusted verification runner.
+
+Authoritative baseline evidence:
+
+${JSON.stringify(baseline, null, 2)}
+
+Important:
+
+- The baseline reproduction above is trusted PatchVerdict evidence.
+- You do not need to rerun the same failure merely to prove it exists.
+- Use run_test only when a more targeted execution would materially help distinguish competing root-cause hypotheses.
+- Focus your tool budget on locating and understanding the root cause.
 `.trim(),
     },
   ];
