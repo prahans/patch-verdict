@@ -16,9 +16,11 @@
       "preserved": false,
       "violations": [],
       "reviewFlags": [
-        "Candidate modified test infrastructure: vitest.setup.ts"
+        "Candidate modified protected test file(s): src/components/DarkMode.test.tsx"
       ],
-      "protectedChangedFiles": []
+      "protectedChangedFiles": [
+        "src/components/DarkMode.test.tsx"
+      ]
     },
     "fullSuite": {
       "label": "Repository full test suite",
@@ -42,24 +44,24 @@
     }
   },
   "investigation": {
-    "iterations": 8,
+    "iterations": 6,
     "diagnosis": {
-      "rootCause": "Missing cleanup between test runs — DOM from previous tests remains mounted due to absent cleanup() calls and no automatic teardown.",
+      "rootCause": "Missing DOM cleanup between tests; the DarkMode.test.tsx imports cleanup but never invokes it, causing DOM from previous tests (including Counter.test.tsx) to remain mounted and interfere with subsequent DarkMode tests.",
       "evidence": [
         {
           "kind": "FILE",
           "source": "src/components/DarkMode.test.tsx",
-          "observation": "Each test uses renderWithContext without calling cleanup(); no after-each or teardown logic is present."
+          "observation": "Imports `cleanup` but never calls it; no `afterEach(cleanup)` or manual cleanup after renders."
         },
         {
           "kind": "FILE",
           "source": "src/utils/test-utils.tsx",
-          "observation": "renderWithContext wraps render() but does not call cleanup() internally."
+          "observation": "`renderWithContext` uses `render` but does not return or perform cleanup; lacks automatic teardown."
         },
         {
           "kind": "FILE",
           "source": "vitest.setup.ts",
-          "observation": "No automatic cleanup configuration (e.g., import { cleanup } from '@testing-library/react' and globalThis.afterEach(cleanup)) is present."
+          "observation": "No global `afterEach(cleanup)` configured; no cleanup hooks set up."
         }
       ],
       "relevantFiles": [
@@ -68,7 +70,7 @@
         "vitest.setup.ts"
       ],
       "recommendedPatchTargets": [
-        "vitest.setup.ts"
+        "src/components/DarkMode.test.tsx"
       ],
       "confidence": "HIGH"
     }
@@ -77,7 +79,7 @@
     "applied": true,
     "baseCommit": "c49e76f2bc2f7bf7af14588c6d1c49b0bd86e9cf",
     "changedFiles": [
-      "vitest.setup.ts"
+      "src/components/DarkMode.test.tsx"
     ]
   },
   "artifacts": {

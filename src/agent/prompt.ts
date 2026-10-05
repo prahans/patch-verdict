@@ -276,6 +276,11 @@ The only allowed confidence values are:
 - MEDIUM
 - HIGH
 
+Allowed patch-target decisions:
+
+- RECOMMEND
+- REJECT
+
 Use:
 
 LOW

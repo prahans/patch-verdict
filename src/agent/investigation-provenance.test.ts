@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { InvestigationDiagnosis } from "./investigation-contract.js";
 import { assertInvestigationProvenance } from "./investigation-provenance.js";
 
 const diagnosis = {
@@ -7,7 +8,7 @@ const diagnosis = {
 
   evidence: [
     {
-      kind: "FILE" as const,
+      kind: "FILE",
       source: "vitest.setup.ts",
       observation: "Cleanup is not registered.",
     },
@@ -17,15 +18,23 @@ const diagnosis = {
 
   recommendedPatchTargets: ["vitest.setup.ts"],
 
-  confidence: "HIGH" as const,
-};
+  patchTargetAnalysis: [
+    {
+      path: "vitest.setup.ts",
+      decision: "RECOMMEND",
+      reason:
+        "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
+    },
+  ],
+
+  confidence: "HIGH",
+} satisfies InvestigationDiagnosis;
 
 describe("assertInvestigationProvenance", () => {
   it("accepts a fully grounded diagnosis", () => {
     expect(() =>
       assertInvestigationProvenance(diagnosis, {
         inspectedFiles: ["vitest.setup.ts"],
-
         executedTests: [],
         searchQueries: [],
       }),
@@ -43,128 +52,170 @@ describe("assertInvestigationProvenance", () => {
   });
 
   it("rejects an uninspected recommended target", () => {
+    const uninspectedDiagnosis = {
+      ...diagnosis,
+
+      evidence: [
+        ...diagnosis.evidence,
+        {
+          kind: "FILE" as const,
+          source: "src/fake.ts",
+          observation: "This file is claimed as a possible patch location.",
+        },
+      ],
+
+      relevantFiles: ["vitest.setup.ts", "src/fake.ts"],
+
+      recommendedPatchTargets: ["src/fake.ts"],
+
+      patchTargetAnalysis: [
+        {
+          path: "src/fake.ts",
+          decision: "RECOMMEND" as const,
+          reason:
+            "This file is intentionally used as an uninspected target for the test.",
+        },
+      ],
+    };
+
     expect(() =>
-      assertInvestigationProvenance(
-        {
-          ...diagnosis,
+      assertInvestigationProvenance(uninspectedDiagnosis, {
+        inspectedFiles: ["vitest.setup.ts"],
 
-          relevantFiles: ["src/fake.ts"],
-
-          recommendedPatchTargets: ["src/fake.ts"],
-        },
-        {
-          inspectedFiles: ["vitest.setup.ts"],
-
-          executedTests: [],
-          searchQueries: [],
-        },
-      ),
+        executedTests: [],
+        searchQueries: [],
+      }),
     ).toThrow(/not inspected/i);
   });
 
   it("requires patch targets to also be relevant files", () => {
+    const inconsistentDiagnosis = {
+      ...diagnosis,
+
+      evidence: [
+        {
+          kind: "FILE" as const,
+          source: "src/example.ts",
+          observation: "The example file was inspected and is relevant.",
+        },
+      ],
+
+      relevantFiles: ["src/example.ts"],
+
+      /*
+       * vitest.setup.ts is intentionally
+       * NOT present in relevantFiles.
+       */
+      recommendedPatchTargets: ["vitest.setup.ts"],
+
+      patchTargetAnalysis: [
+        {
+          path: "vitest.setup.ts",
+          decision: "RECOMMEND" as const,
+          reason:
+            "This intentionally inconsistent target verifies the relevant-file rule.",
+        },
+      ],
+    };
+
     expect(() =>
-      assertInvestigationProvenance(
-        {
-          ...diagnosis,
+      assertInvestigationProvenance(inconsistentDiagnosis, {
+        inspectedFiles: ["src/example.ts", "vitest.setup.ts"],
 
-          relevantFiles: ["src/example.ts"],
-        },
-        {
-          inspectedFiles: ["vitest.setup.ts", "src/example.ts"],
-
-          executedTests: [],
-          searchQueries: [],
-        },
-      ),
+        executedTests: [],
+        searchQueries: [],
+      }),
     ).toThrow(/not present in relevantFiles/i);
   });
 
   it("rejects TEST evidence that was never executed", () => {
+    const testEvidenceDiagnosis = {
+      ...diagnosis,
+
+      evidence: [
+        ...diagnosis.evidence,
+
+        {
+          kind: "TEST" as const,
+          source: "DarkMode",
+          observation: "The targeted suite reproduced the observed failure.",
+        },
+      ],
+    };
+
     expect(() =>
-      assertInvestigationProvenance(
-        {
-          ...diagnosis,
+      assertInvestigationProvenance(testEvidenceDiagnosis, {
+        inspectedFiles: ["vitest.setup.ts"],
 
-          evidence: [
-            {
-              kind: "TEST" as const,
-
-              source: "DarkMode",
-
-              observation: "The suite failed.",
-            },
-          ],
-        },
-        {
-          inspectedFiles: ["vitest.setup.ts"],
-
-          executedTests: [],
-          searchQueries: [],
-        },
-      ),
+        executedTests: [],
+        searchQueries: [],
+      }),
     ).toThrow(/was not executed/i);
   });
 
   it("accepts TEST evidence when that selector was executed", () => {
+    const testEvidenceDiagnosis = {
+      ...diagnosis,
+
+      evidence: [
+        ...diagnosis.evidence,
+
+        {
+          kind: "TEST" as const,
+          source: "DarkMode",
+          observation: "The targeted suite reproduced the observed failure.",
+        },
+      ],
+    };
+
     expect(() =>
-      assertInvestigationProvenance(
-        {
-          ...diagnosis,
+      assertInvestigationProvenance(testEvidenceDiagnosis, {
+        inspectedFiles: ["vitest.setup.ts"],
 
-          evidence: [
-            ...diagnosis.evidence,
+        executedTests: ["DarkMode"],
 
-            {
-              kind: "TEST" as const,
-
-              source: "DarkMode",
-
-              observation:
-                "The targeted suite reproduced the observed failure.",
-            },
-          ],
-        },
-
-        {
-          inspectedFiles: ["vitest.setup.ts"],
-
-          executedTests: ["DarkMode"],
-
-          searchQueries: [],
-        },
-      ),
+        searchQueries: [],
+      }),
     ).not.toThrow();
   });
-});
 
-it("rejects relevant files without FILE evidence", () => {
-  expect(() =>
-    assertInvestigationProvenance(
-      {
-        rootCause: "Shared cleanup is missing.",
+  it("rejects relevant files without FILE evidence", () => {
+    const missingFileEvidenceDiagnosis = {
+      rootCause: "Shared cleanup is missing.",
 
-        evidence: [
-          {
-            kind: "FILE",
-            source: "src/components/DarkMode.test.tsx",
-            observation: "The test renders DOM.",
-          },
-        ],
+      evidence: [
+        {
+          kind: "FILE" as const,
+          source: "src/components/DarkMode.test.tsx",
+          observation: "The test renders DOM.",
+        },
+      ],
 
-        relevantFiles: ["src/components/DarkMode.test.tsx", "vitest.setup.ts"],
+      relevantFiles: ["src/components/DarkMode.test.tsx", "vitest.setup.ts"],
 
-        recommendedPatchTargets: ["src/components/DarkMode.test.tsx"],
+      recommendedPatchTargets: ["src/components/DarkMode.test.tsx"],
 
-        confidence: "HIGH",
-      },
+      patchTargetAnalysis: [
+        {
+          path: "src/components/DarkMode.test.tsx",
 
-      {
+          decision: "RECOMMEND" as const,
+
+          reason:
+            "This test intentionally verifies that every relevant file requires FILE evidence.",
+        },
+      ],
+
+      confidence: "HIGH" as const,
+    };
+
+    expect(() =>
+      assertInvestigationProvenance(missingFileEvidenceDiagnosis, {
         inspectedFiles: ["src/components/DarkMode.test.tsx", "vitest.setup.ts"],
 
         executedTests: [],
         searchQueries: [],
-      },
-    ),
-  ).toThrow(/has no FILE evidence observation/i);
+      }),
+    ).toThrow(/has no FILE evidence observation/i);
+  });
 });

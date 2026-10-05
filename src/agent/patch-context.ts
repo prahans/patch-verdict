@@ -27,6 +27,14 @@ export function buildPatchAgentContext(
         verificationRole: classifyVerificationPath(path),
       })),
 
+    patchTargetAnalysis: investigation.diagnosis.patchTargetAnalysis.map(
+      (entry) => ({
+        ...entry,
+
+        verificationRole: classifyVerificationPath(entry.path),
+      }),
+    ),
+
     confidence: investigation.diagnosis.confidence,
   };
 }

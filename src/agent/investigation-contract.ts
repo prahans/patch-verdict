@@ -31,6 +31,16 @@ const investigationEvidenceSchema = z
   })
   .strict();
 
+const patchTargetAnalysisEntrySchema = z
+  .object({
+    path: repositoryPathSchema,
+
+    decision: z.enum(["RECOMMEND", "REJECT"]),
+
+    reason: z.string().trim().min(10).max(2000),
+  })
+  .strict();
+
 export const investigationDiagnosisSchema = z
   .object({
     rootCause: z.string().trim().min(1).max(4000),
@@ -40,6 +50,8 @@ export const investigationDiagnosisSchema = z
     relevantFiles: z.array(repositoryPathSchema).min(1).max(30),
 
     recommendedPatchTargets: z.array(repositoryPathSchema).min(1).max(10),
+
+    patchTargetAnalysis: z.array(patchTargetAnalysisEntrySchema).min(1).max(20),
 
     confidence: z.enum(["LOW", "MEDIUM", "HIGH"]),
   })

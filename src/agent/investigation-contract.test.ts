@@ -16,7 +16,6 @@ describe("parseInvestigationModelOutput", () => {
             {
               kind: "FILE",
               source: "vitest.setup.ts",
-
               observation:
                 "The setup file does not register Testing Library cleanup.",
             },
@@ -24,7 +23,6 @@ describe("parseInvestigationModelOutput", () => {
             {
               kind: "TEST",
               source: "DarkMode",
-
               observation:
                 "The targeted suite reproduces duplicate DOM elements.",
             },
@@ -37,6 +35,22 @@ describe("parseInvestigationModelOutput", () => {
 
           recommendedPatchTargets: ["vitest.setup.ts"],
 
+          patchTargetAnalysis: [
+            {
+              path: "vitest.setup.ts",
+              decision: "RECOMMEND",
+              reason:
+                "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
+            },
+
+            {
+              path: "src/components/DarkMode.test.tsx",
+              decision: "REJECT",
+              reason:
+                "Changing only the failing test would address the local symptom instead of the shared test lifecycle.",
+            },
+          ],
+
           confidence: "HIGH",
         },
       }),
@@ -46,6 +60,22 @@ describe("parseInvestigationModelOutput", () => {
 
     expect(result.diagnosis.recommendedPatchTargets).toEqual([
       "vitest.setup.ts",
+    ]);
+
+    expect(result.diagnosis.patchTargetAnalysis).toEqual([
+      {
+        path: "vitest.setup.ts",
+        decision: "RECOMMEND",
+        reason:
+          "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
+      },
+
+      {
+        path: "src/components/DarkMode.test.tsx",
+        decision: "REJECT",
+        reason:
+          "Changing only the failing test would address the local symptom instead of the shared test lifecycle.",
+      },
     ]);
 
     expect(result.diagnosis.confidence).toBe("HIGH");
@@ -71,6 +101,13 @@ describe("parseInvestigationModelOutput", () => {
     "recommendedPatchTargets": [
       "src/state.ts"
     ],
+    "patchTargetAnalysis": [
+      {
+        "path": "src/state.ts",
+        "decision": "RECOMMEND",
+        "reason": "This file contains the incorrect state transition and directly addresses the diagnosed root cause."
+      }
+    ],
     "confidence": "HIGH"
   }
 }
@@ -78,6 +115,15 @@ describe("parseInvestigationModelOutput", () => {
 `);
 
     expect(result.diagnosis.confidence).toBe("HIGH");
+
+    expect(result.diagnosis.patchTargetAnalysis).toEqual([
+      {
+        path: "src/state.ts",
+        decision: "RECOMMEND",
+        reason:
+          "This file contains the incorrect state transition and directly addresses the diagnosed root cause.",
+      },
+    ]);
   });
 
   it("rejects absolute patch targets", () => {
@@ -93,14 +139,27 @@ describe("parseInvestigationModelOutput", () => {
               {
                 kind: "FILE",
                 source: "src/example.ts",
-
                 observation: "Observed defect.",
               },
             ],
 
             relevantFiles: ["src/example.ts"],
 
+            /*
+             * Intentionally invalid.
+             */
             recommendedPatchTargets: ["/etc/passwd"],
+
+            patchTargetAnalysis: [
+              {
+                path: "src/example.ts",
+
+                decision: "REJECT",
+
+                reason:
+                  "This valid analysis entry keeps the test focused on the invalid recommended target path.",
+              },
+            ],
 
             confidence: "MEDIUM",
           },
@@ -122,14 +181,27 @@ describe("parseInvestigationModelOutput", () => {
               {
                 kind: "FILE",
                 source: "src/example.ts",
-
                 observation: "Observed defect.",
               },
             ],
 
             relevantFiles: ["src/example.ts"],
 
+            /*
+             * Intentionally invalid.
+             */
             recommendedPatchTargets: ["../secret.txt"],
+
+            patchTargetAnalysis: [
+              {
+                path: "src/example.ts",
+
+                decision: "REJECT",
+
+                reason:
+                  "This valid analysis entry keeps the test focused on repository path traversal rejection.",
+              },
+            ],
 
             confidence: "LOW",
           },
@@ -147,11 +219,25 @@ describe("parseInvestigationModelOutput", () => {
           diagnosis: {
             rootCause: "Something is wrong.",
 
+            /*
+             * Intentionally empty.
+             */
             evidence: [],
 
             relevantFiles: ["src/example.ts"],
 
             recommendedPatchTargets: ["src/example.ts"],
+
+            patchTargetAnalysis: [
+              {
+                path: "src/example.ts",
+
+                decision: "RECOMMEND",
+
+                reason:
+                  "This target is structurally valid so this test isolates the missing-evidence rule.",
+              },
+            ],
 
             confidence: "LOW",
           },

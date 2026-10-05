@@ -73,6 +73,17 @@ Rules:
 
 21. Do not decide whether the patch succeeded.
 
+22. Treat patchTargetAnalysis as the investigator's explicit comparison
+between plausible patch locations.
+
+23. Prefer paths marked RECOMMEND.
+
+24. Do not modify a path marked REJECT merely because it is easier to make
+    the tests pass.
+
+25. If repository evidence observed during patching clearly contradicts the
+investigation rationale, do not fabricate certainty.
+
 
 
 PatchVerdict's deterministic verifier will decide whether

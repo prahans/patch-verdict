@@ -30,6 +30,15 @@ describe("buildPatchAgentContext", () => {
           "src/components/DarkMode.tsx",
           "src/components/DarkMode.test.tsx",
         ],
+        patchTargetAnalysis: [
+          {
+            path: "vitest.setup.ts",
+
+            decision: "RECOMMEND",
+
+            reason: "This file directly addresses the diagnosed root cause.",
+          },
+        ],
 
         confidence: "HIGH",
       },

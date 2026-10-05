@@ -17,6 +17,7 @@ import {
 import { messageContentToText } from "./message-content.js";
 import { assertInvestigationProvenance } from "./investigation-provenance.js";
 import type { InvestigationBaselineContext } from "./investigation-context.js";
+import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -87,6 +88,13 @@ Use exactly this shape:
     "recommendedPatchTargets": [
       "src/example.ts"
     ],
+    "patchTargetAnalysis": [
+  {
+    "path": "src/example.ts",
+    "decision": "RECOMMEND",
+    "reason": "This location directly addresses the diagnosed root cause."
+  }
+],
     "confidence": "LOW"
   }
 }
@@ -96,6 +104,9 @@ FILE, TEST, SEARCH
 
 Allowed confidence values:
 LOW, MEDIUM, HIGH
+
+Allowed patch-target decisions:
+RECOMMEND, REJECT
 
 Do not use Markdown fences.
 Do not call tools.
@@ -257,6 +268,7 @@ Use list_files or search_code when necessary, then read_file the files that supp
 
           searchQueries: [...searchQueries],
         });
+        assertPatchTargetAnalysis(structured.diagnosis);
       } catch (error) {
         const reason =
           error instanceof Error
@@ -264,7 +276,14 @@ Use list_files or search_code when necessary, then read_file the files that supp
             : "Unknown provenance validation error";
 
         console.log(
-          "⊘ FINAL REPORT REJECTED — diagnosis is not grounded in observed evidence",
+          [
+            "⊘ FINAL REPORT REJECTED — diagnosis is not grounded in observed evidence",
+            "",
+            reason,
+            "",
+            "REJECTED DIAGNOSIS:",
+            JSON.stringify(structured.diagnosis, null, 2),
+          ].join("\n"),
         );
 
         messages.push({
@@ -534,6 +553,7 @@ Do not invent paths or evidence.
 
     searchQueries: [...searchQueries],
   });
+  assertPatchTargetAnalysis(structured.diagnosis);
 
   return {
     completed: true,
