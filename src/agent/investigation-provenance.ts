@@ -56,6 +56,20 @@ export function assertInvestigationProvenance(
     }
   }
 
+  const fileEvidenceSources = new Set(
+    diagnosis.evidence
+      .filter((evidence) => evidence.kind === "FILE")
+      .map((evidence) => normalizePath(evidence.source)),
+  );
+
+  for (const file of diagnosis.relevantFiles) {
+    const normalized = normalizePath(file);
+
+    if (!fileEvidenceSources.has(normalized)) {
+      errors.push(`Relevant file "${file}" has no FILE evidence observation.`);
+    }
+  }
+
   for (const evidence of diagnosis.evidence) {
     if (
       evidence.kind === "FILE" &&

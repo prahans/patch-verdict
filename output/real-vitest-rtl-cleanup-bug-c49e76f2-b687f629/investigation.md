@@ -1,3 +1,3 @@
 # Investigation Report
 
-Investigation of DarkMode test failures due to DOM state leakage from previous test suites.
+The DarkMode test suite fails because the DOM from previous test suites remains mounted, violating test isolation. The DarkMode tests use `renderWithContext` which wraps components in `DarkModeContextProvider`, but the test setup does not call `cleanup()` after each test. The `cleanup` function from `@testing-library/react` is imported but never invoked in the test file. This leaves DOM nodes from previous tests mounted, causing state leakage and query conflicts (e.g., `screen.getByText(/light/)` finds stale elements from prior tests). The root cause is missing explicit cleanup between tests.

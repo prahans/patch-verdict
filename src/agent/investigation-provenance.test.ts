@@ -113,15 +113,19 @@ describe("assertInvestigationProvenance", () => {
           ...diagnosis,
 
           evidence: [
+            ...diagnosis.evidence,
+
             {
               kind: "TEST" as const,
 
               source: "DarkMode",
 
-              observation: "The suite failed.",
+              observation:
+                "The targeted suite reproduced the observed failure.",
             },
           ],
         },
+
         {
           inspectedFiles: ["vitest.setup.ts"],
 
@@ -132,4 +136,35 @@ describe("assertInvestigationProvenance", () => {
       ),
     ).not.toThrow();
   });
+});
+
+it("rejects relevant files without FILE evidence", () => {
+  expect(() =>
+    assertInvestigationProvenance(
+      {
+        rootCause: "Shared cleanup is missing.",
+
+        evidence: [
+          {
+            kind: "FILE",
+            source: "src/components/DarkMode.test.tsx",
+            observation: "The test renders DOM.",
+          },
+        ],
+
+        relevantFiles: ["src/components/DarkMode.test.tsx", "vitest.setup.ts"],
+
+        recommendedPatchTargets: ["src/components/DarkMode.test.tsx"],
+
+        confidence: "HIGH",
+      },
+
+      {
+        inspectedFiles: ["src/components/DarkMode.test.tsx", "vitest.setup.ts"],
+
+        executedTests: [],
+        searchQueries: [],
+      },
+    ),
+  ).toThrow(/has no FILE evidence observation/i);
 });
