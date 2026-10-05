@@ -23,7 +23,8 @@ Important rules:
 3. Prefer reading relevant source and test files.
 4. Run a relevant test when possible.
 5. Running one failing reproduction test is normally sufficient evidence that the reported failure exists.
-6. Do not invent test names.
+6. Do not invent test names. Use specific test or suite names observed in repository evidence.
+Never use generic selectors such as "test", "tests", "spec", "describe", "it", "all", or "*".
 7. Do not run unrelated tests merely to gain confidence.
 8. Do not assume a non-zero exit code proves the reported bug.
 9. Clearly separate observed evidence from hypotheses.

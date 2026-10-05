@@ -92,7 +92,8 @@ export const investigationToolDefinitions = [
           testName: {
             type: "string",
             minLength: 1,
-            description: "Non-empty exact or partial test name to run.",
+            description:
+              "Specific exact or partial test/suite name observed in repository evidence. Do not use generic selectors such as test, tests, spec, describe, it, all, or *.",
           },
         },
 

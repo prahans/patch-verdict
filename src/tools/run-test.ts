@@ -3,11 +3,6 @@ import type { Sandbox } from "e2b";
 
 import type { ToolResult } from "../agent/types.js";
 import { runSandboxCommand } from "../sandbox/e2b.js";
-
-const RunTestInputSchema = z.object({
-  testName: z.string().min(1).max(200),
-});
-
 type RunTestOutput = {
   command: string;
   exitCode: number;
@@ -15,6 +10,39 @@ type RunTestOutput = {
   stderr: string;
   durationMs: number;
 };
+
+const RunTestInputSchema = z.object({
+  testName: z.string().trim().min(1).max(200),
+});
+
+const GENERIC_TEST_SELECTORS = new Set([
+  "test",
+  "tests",
+  "spec",
+  "specs",
+  "describe",
+  "it",
+  "all",
+  "*",
+]);
+
+function normalizeTestName(testName: string) {
+  const safeName = testName.replace(/["\\$`]/g, "").trim();
+
+  if (!safeName) {
+    throw new Error(
+      "run_test requires a non-empty test name after sanitization.",
+    );
+  }
+
+  if (GENERIC_TEST_SELECTORS.has(safeName.toLowerCase())) {
+    throw new Error(
+      `run_test rejected overly broad test selector "${safeName}". Use a specific test or suite name observed in the repository.`,
+    );
+  }
+
+  return safeName;
+}
 
 const PROJECT_ROOT = "/tmp/patchverdict";
 
@@ -25,7 +53,7 @@ export async function runTestTool(
   try {
     const parsed = RunTestInputSchema.parse(input);
 
-    const safeName = parsed.testName.replace(/["\\$`]/g, "");
+    const safeName = normalizeTestName(parsed.testName);
 
     const command = `npx vitest run -t "${safeName}"`;
 
