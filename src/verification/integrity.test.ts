@@ -175,3 +175,41 @@ diff --git a/vitest.config.ts b/vitest.config.ts
 
   expect(result.violations.join(" ")).toContain("test discovery");
 });
+
+it("returns COMPROMISED when a candidate removes an assertion", () => {
+  const result = analyzeVerificationIntegrity({
+    changedFiles: ["src/components/DarkMode.test.tsx"],
+
+    diff: `
+diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
+--- a/src/components/DarkMode.test.tsx
++++ b/src/components/DarkMode.test.tsx
+@@
+ expect(screen.getByText(/light/)).toBeInTheDocument();
+-expect(screen.queryByText(/dark/)).toBeNull();
+`.trim(),
+  });
+
+  expect(result.status).toBe("COMPROMISED");
+
+  expect(result.violations.join(" ")).toContain("removed assertion");
+});
+
+it("returns COMPROMISED when a specific assertion is weakened", () => {
+  const result = analyzeVerificationIntegrity({
+    changedFiles: ["src/components/DarkMode.test.tsx"],
+
+    diff: `
+diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
+--- a/src/components/DarkMode.test.tsx
++++ b/src/components/DarkMode.test.tsx
+@@
+-expect(result).toBe("dark");
++expect(result).toBeDefined();
+`.trim(),
+  });
+
+  expect(result.status).toBe("COMPROMISED");
+
+  expect(result.violations.join(" ")).toContain("weakened assertion");
+});

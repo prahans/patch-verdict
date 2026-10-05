@@ -1,23 +1,26 @@
 diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
-index c62f423..8eb01bb 100644
+index c62f423..18afcb4 100644
 --- a/src/components/DarkMode.test.tsx
 +++ b/src/components/DarkMode.test.tsx
-@@ -4,6 +4,7 @@ import { renderWithContext } from "../utils/test-utils";
- import { useDarkModeContext } from "../context/DarkModeContext";
- import { MockedFunction } from "vitest";
- import userEvent from "@testing-library/user-event";
-+import { afterEach } from "vitest";
+@@ -29,6 +29,7 @@ describe("displays current dark mode", () => {
+     renderWithContext(<DarkMode />);
+     expect(screen.getByText(/light/)).toBeInTheDocument();
+     expect(screen.queryByText(/dark/)).toBeNull();
++    cleanup();
+   });
  
- vi.mock("../context/DarkModeContext", async () => {
-   const actual = await vi.importActual<
-@@ -19,6 +20,10 @@ const mockedUseDarkModeContext = useDarkModeContext as MockedFunction<
-   typeof useDarkModeContext
- >;
+   test("dark", () => {
+@@ -40,6 +41,7 @@ describe("displays current dark mode", () => {
+     renderWithContext(<DarkMode />);
+     expect(screen.getByText(/dark/)).toBeInTheDocument();
+     expect(screen.queryByText(/light/)).toBeNull();
++    cleanup();
+   });
+ });
  
-+afterEach(() => {
+@@ -52,4 +54,5 @@ test("toggles dark mode", async () => {
+   await user.click(screen.getByText(/toggle/i));
+   expect(screen.getByText(/dark/)).toBeInTheDocument();
+   expect(screen.queryByText(/light/)).toBeNull();
 +  cleanup();
-+});
-+
- describe("displays current dark mode", () => {
-   test("light", () => {
-     mockedUseDarkModeContext.mockReturnValueOnce({
+ });

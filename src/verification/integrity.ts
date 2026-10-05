@@ -121,6 +121,82 @@ function addedLines(section: DiffSection) {
   );
 }
 
+function removedLines(section: DiffSection) {
+  return section.lines.filter(
+    (line) => line.startsWith("-") && !line.startsWith("---"),
+  );
+}
+
+function isActiveAssertion(line: string) {
+  const trimmed = line.trim();
+
+  if (
+    trimmed.startsWith("//") ||
+    trimmed.startsWith("/*") ||
+    trimmed.startsWith("*")
+  ) {
+    return false;
+  }
+
+  return /\bexpect(?:\.[A-Za-z_$][\w$]*)?\s*\(/.test(trimmed);
+}
+
+function hasSpecificMatcher(line: string) {
+  return /\.(?:toBe|toEqual|toStrictEqual|toThrow|toThrowError|toMatch|toMatchObject|toContain|toContainEqual|toHaveLength|toHaveProperty|toBeNull|toBeUndefined|toHaveTextContent|toHaveValue|toHaveBeenCalled|toHaveBeenCalledWith|toHaveBeenCalledTimes)\s*\(/.test(
+    line,
+  );
+}
+
+function hasWeakMatcher(line: string) {
+  return /\.(?:toBeDefined|toBeTruthy|toBeFalsy)\s*\(/.test(line);
+}
+
+function findAssertionIntegrityViolations(section: DiffSection) {
+  if (
+    !isDirectTestFile(section.oldPath) &&
+    !isDirectTestFile(section.newPath)
+  ) {
+    return [];
+  }
+
+  const removedAssertions = removedLines(section)
+    .map((line) => line.slice(1))
+    .filter(isActiveAssertion);
+
+  const addedAssertions = addedLines(section)
+    .map((line) => line.slice(1))
+    .filter(isActiveAssertion);
+
+  const violations: string[] = [];
+
+  /*
+   * Example:
+   *
+   * - expect(value).toBe(5);
+   *
+   * with no replacement assertion.
+   */
+  if (removedAssertions.length > addedAssertions.length) {
+    violations.push(`Candidate removed assertion(s) from ${section.newPath}.`);
+  }
+
+  /*
+   * Example:
+   *
+   * - expect(value).toBe(5);
+   * + expect(value).toBeDefined();
+   */
+  const removedSpecificAssertion = removedAssertions.some(hasSpecificMatcher);
+
+  const addedWeakAssertion = addedAssertions.some(hasWeakMatcher);
+
+  if (removedSpecificAssertion && addedWeakAssertion) {
+    violations.push(`Candidate weakened assertion(s) in ${section.newPath}.`);
+  }
+
+  return violations;
+}
+
 function introducesSkippedOrFocusedTest(section: DiffSection) {
   if (
     !isDirectTestFile(section.oldPath) &&
@@ -224,6 +300,10 @@ export function analyzeVerificationIntegrity({
         `Candidate modified test discovery configuration in ${section.newPath}.`,
       );
     }
+
+    const assertionViolations = findAssertionIntegrityViolations(section);
+
+    violations.push(...assertionViolations);
   }
 
   if (modifiesPackageTestScript(diff)) {

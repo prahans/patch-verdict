@@ -10,7 +10,11 @@ import { patchToolDefinitions } from "./tool-definitions.js";
 import { PATCH_SYSTEM_PROMPT } from "./patch-prompt.js";
 
 const MAX_PATCH_ITERATIONS = 4;
-const PATCH_ALLOWED_TOOLS = new Set<string>(["read_file", "apply_patch"]);
+const PATCH_ALLOWED_TOOLS = new Set<string>([
+  "list_files",
+  "read_file",
+  "apply_patch",
+]);
 
 export async function patchIssue(
   sandbox: Sandbox,

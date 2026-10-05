@@ -49,9 +49,19 @@ export async function readFileTool(
       },
     };
   } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown read_file error";
+
+    const looksLikeMissingPath = /does not exist|not found|ENOENT/i.test(
+      message,
+    );
+
     return {
       ok: false,
-      error: error instanceof Error ? error.message : "Unknown read_file error",
+
+      error: looksLikeMissingPath
+        ? `${message}. Use list_files to locate the correct repository-relative path instead of guessing.`
+        : message,
     };
   }
 }

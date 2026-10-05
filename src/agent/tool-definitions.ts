@@ -108,6 +108,35 @@ export const patchToolDefinitions = [
     type: "function" as const,
 
     function: {
+      name: "list_files",
+
+      description:
+        "List files in the repository. Use this to recover the correct repository-relative path instead of guessing.",
+
+      parameters: {
+        type: "object",
+
+        properties: {
+          depth: {
+            type: "number",
+            minimum: 1,
+            maximum: 5,
+
+            description: "Maximum directory depth to inspect.",
+          },
+        },
+
+        required: [],
+
+        additionalProperties: false,
+      },
+    },
+  },
+
+  {
+    type: "function" as const,
+
+    function: {
       name: "read_file",
 
       description: "Read a repository file before modifying it.",
@@ -122,6 +151,7 @@ export const patchToolDefinitions = [
         },
 
         required: ["path"],
+
         additionalProperties: false,
       },
     },
