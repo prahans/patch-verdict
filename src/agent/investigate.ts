@@ -9,12 +9,121 @@ import { investigationToolDefinitions } from "./tool-definitions.js";
 
 import { INVESTIGATION_SYSTEM_PROMPT } from "./prompt.js";
 
+import {
+  parseInvestigationModelOutput,
+  type InvestigationModelOutput,
+} from "./investigation-contract.js";
+
+import { messageContentToText } from "./message-content.js";
+
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
 const MAX_TEST_CALLS = 2;
 
 function createToolCallKey(toolName: string, input: unknown) {
   return `${toolName}:${JSON.stringify(input)}`;
+}
+
+async function parseFinalInvestigation(
+  messages: ChatMessages[],
+  content: unknown,
+): Promise<InvestigationModelOutput> {
+  const text = messageContentToText(content);
+
+  try {
+    return parseInvestigationModelOutput(text);
+  } catch (error) {
+    const reason =
+      error instanceof Error
+        ? error.message
+        : "Unknown structured-output error";
+
+    /*
+     * Give the model exactly one opportunity
+     * to repair malformed structured output.
+     *
+     * No tools are exposed during this repair.
+     */
+    messages.push({
+      role: "user",
+
+      content: `
+Your final investigation response did not satisfy PatchVerdict's structured investigation contract.
+
+Validation error:
+
+${reason}
+
+Return the final investigation again as ONLY valid JSON.
+
+Use exactly this shape:
+
+{
+  "report": "Human-readable investigation summary.",
+  "diagnosis": {
+    "rootCause": "Evidence-supported root cause hypothesis.",
+    "evidence": [
+      {
+        "kind": "FILE",
+        "source": "src/example.ts",
+        "observation": "Concrete observed evidence."
+      }
+    ],
+    "relevantFiles": [
+      "src/example.ts"
+    ],
+    "recommendedPatchTargets": [
+      "src/example.ts"
+    ],
+    "confidence": "LOW"
+  }
+}
+
+Allowed evidence kinds:
+FILE, TEST, SEARCH
+
+Allowed confidence values:
+LOW, MEDIUM, HIGH
+
+Do not use Markdown fences.
+Do not call tools.
+Do not include additional fields.
+`.trim(),
+    });
+
+    const repairResponse = await openRouter.chat.send({
+      chatRequest: {
+        model: AGENT_MODEL,
+        messages,
+        stream: false,
+      },
+    });
+
+    if (!("choices" in repairResponse)) {
+      throw new Error(
+        "Expected a non-streaming structured investigation repair response",
+      );
+    }
+
+    const repairMessage = repairResponse.choices[0]?.message;
+
+    if (!repairMessage) {
+      throw new Error(
+        "Model returned no structured investigation repair response",
+      );
+    }
+
+    messages.push(repairMessage);
+
+    const repairedText = messageContentToText(repairMessage.content);
+
+    /*
+     * No second repair attempt.
+     * If this fails, the investigation fails
+     * rather than silently accepting malformed data.
+     */
+    return parseInvestigationModelOutput(repairedText);
+  }
 }
 
 export async function investigateIssue(sandbox: Sandbox, issue: string) {
@@ -74,15 +183,19 @@ ${issue}
      * its investigation is finished.
      */
     if (!toolCalls || toolCalls.length === 0) {
+      const structured = await parseFinalInvestigation(
+        messages,
+        message.content,
+      );
+
       return {
         completed: true,
+
         iterations: iteration,
-        report:
-          typeof message.content === "string"
-            ? message.content
-            : (message.content ?? [])
-                .map((part) => (part.type === "text" ? part.text : ""))
-                .join("\n"),
+
+        report: structured.report,
+
+        diagnosis: structured.diagnosis,
       };
     }
 
@@ -279,11 +392,20 @@ ${issue}
     throw new Error("Model returned no final investigation report");
   }
 
+  messages.push(finalMessage);
+
+  const structured = await parseFinalInvestigation(
+    messages,
+    finalMessage.content,
+  );
+
   return {
     completed: true,
+
     iterations: completedIterations,
-    report:
-      finalMessage.content ??
-      "Investigation completed without a textual report.",
+
+    report: structured.report,
+
+    diagnosis: structured.diagnosis,
   };
 }

@@ -39,11 +39,52 @@ Important rules:
    - and have evidence for a likely root cause,
    stop using tools and return the investigation report.
 
-When finished, explain:
-- what you inspected
-- whether the reported failure was reproduced
-- the likely root cause
-- the evidence supporting that hypothesis
+When finished, stop using tools and return ONLY valid JSON.
 
-Do not propose or apply a code patch yet.
+Do not use Markdown fences.
+Do not include text before or after the JSON.
+
+The JSON must have exactly this structure:
+
+{
+  "report": "Human-readable investigation summary.",
+  "diagnosis": {
+    "rootCause": "The most likely root cause supported by the evidence.",
+    "evidence": [
+      {
+        "kind": "FILE",
+        "source": "src/example.ts",
+        "observation": "What was directly observed."
+      }
+    ],
+    "relevantFiles": [
+      "src/example.ts"
+    ],
+    "recommendedPatchTargets": [
+      "src/example.ts"
+    ],
+    "confidence": "HIGH"
+  }
+}
+
+Allowed evidence kinds:
+- FILE
+- TEST
+- SEARCH
+
+Structured-output rules:
+
+- rootCause is a hypothesis supported by observed evidence, not a verified fact.
+- evidence must contain concrete observations gathered through tools.
+- relevantFiles must use exact repository-relative paths discovered during investigation.
+- recommendedPatchTargets must use exact repository-relative paths.
+- recommendedPatchTargets should contain the smallest likely locations where the root cause should be fixed.
+- A file can be relevant evidence without being a recommended patch target.
+- Do not recommend changing a test merely because that test exposes the failure.
+- Prefer a shared root-cause location when the same defect affects multiple places.
+- Do not include failureReproduced; PatchVerdict determines reproduction independently.
+- Do not include a verdict.
+- Do not claim that any proposed patch is verified.
+
+Do not propose or apply the actual code patch yet.
 `.trim();

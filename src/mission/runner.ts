@@ -109,12 +109,7 @@ export async function runMission(
       throw new Error("AI investigation did not complete");
     }
 
-    const investigationReport =
-      typeof investigation.report === "string"
-        ? investigation.report
-        : investigation.report
-            .map((part) => (part.type === "text" ? part.text : ""))
-            .join("\n");
+    const investigationReport = investigation.report;
 
     investigationResult = {
       report: investigationReport,
