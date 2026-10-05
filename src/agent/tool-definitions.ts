@@ -93,7 +93,7 @@ export const investigationToolDefinitions = [
             type: "string",
             minLength: 1,
             description:
-              "Specific exact or partial test/suite name observed in repository evidence. Do not use generic selectors such as test, tests, spec, describe, it, all, or *.",
+              "Specific exact or partial test or suite name observed in repository evidence. Do not use generic selectors such as test, tests, spec, describe, it, all, *, or broad regex patterns.",
           },
         },
 

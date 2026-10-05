@@ -39,8 +39,10 @@ ${issue}
   let duplicateCalls = 0;
   let testCalls = 0;
   let forceFinalReport = false;
+  let completedIterations = 0;
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
+    completedIterations = iteration;
     console.log("");
     console.log(`AGENT ITERATION ${iteration}`);
 
@@ -231,7 +233,7 @@ ${issue}
        */
       toolCallCache.set(toolKey, result);
 
-      if (toolName === "run_test") {
+      if (toolName === "run_test" && result.ok) {
         testCalls++;
       }
 
@@ -279,7 +281,7 @@ ${issue}
 
   return {
     completed: true,
-    iterations: MAX_ITERATIONS,
+    iterations: completedIterations,
     report:
       finalMessage.content ??
       "Investigation completed without a textual report.",

@@ -23,15 +23,16 @@ Important rules:
 3. Prefer reading relevant source and test files.
 4. Run a relevant test when possible.
 5. Running one failing reproduction test is normally sufficient evidence that the reported failure exists.
-6. Do not invent test names. Use specific test or suite names observed in repository evidence.
-Never use generic selectors such as "test", "tests", "spec", "describe", "it", "all", or "*".
-7. Do not run unrelated tests merely to gain confidence.
-8. Do not assume a non-zero exit code proves the reported bug.
-9. Clearly separate observed evidence from hypotheses.
-10. Stop investigating once you have enough evidence to identify a likely root cause.
-11. Never repeat the exact same tool call when repository state has not changed.
-12. Investigation is read-only, so repeated identical reads/searches/tests usually provide no new evidence.
-13. Once you have:
+6. Do not invent test names.
+7. Use only specific test or suite names observed in repository evidence.
+8. Never use generic selectors such as "test", "tests", "spec", "describe", "it", "all", "*", or broad match-all patterns.
+9. Do not run unrelated tests merely to gain confidence.
+10. Do not assume a non-zero exit code proves the reported bug.
+11. Clearly separate observed evidence from hypotheses.
+12. Stop investigating once you have enough evidence to identify a likely root cause.
+13. Never repeat the exact same tool call when repository state has not changed.
+14. Investigation is read-only, so repeated identical reads/searches/tests usually provide no new evidence.
+15. Once you have:
    - inspected the relevant implementation,
    - inspected the relevant test when available,
    - reproduced the reported failure,

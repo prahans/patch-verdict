@@ -24,6 +24,11 @@ const GENERIC_TEST_SELECTORS = new Set([
   "it",
   "all",
   "*",
+  ".",
+  ".*",
+  ".+",
+  "^.*$",
+  "^.+$",
 ]);
 
 function normalizeTestName(testName: string) {
@@ -37,7 +42,8 @@ function normalizeTestName(testName: string) {
 
   if (GENERIC_TEST_SELECTORS.has(safeName.toLowerCase())) {
     throw new Error(
-      `run_test rejected overly broad test selector "${safeName}". Use a specific test or suite name observed in the repository.`,
+      `run_test rejected overly broad test selector "${safeName}". ` +
+        "Use a specific test or suite name observed in repository evidence.",
     );
   }
 
