@@ -172,17 +172,17 @@ export async function runMission(
     checks.verificationIntegrityPreserved =
       verificationIntegrityResult.preserved;
 
-    if (!verificationIntegrityResult.preserved) {
+    if (verificationIntegrityResult.status === "COMPROMISED") {
       record(
         "PATCHING",
-        `Verification integrity violation: ${verificationIntegrityResult.violations.join(
+        `Verification integrity compromised: ${verificationIntegrityResult.violations.join(
           " ",
         )}`,
       );
-    } else if (verificationIntegrityResult.reviewFlags.length > 0) {
+    } else if (verificationIntegrityResult.status === "REVIEW_REQUIRED") {
       record(
         "PATCHING",
-        `Verification integrity preserved with review flag: ${verificationIntegrityResult.reviewFlags.join(
+        `Verification requires human review: ${verificationIntegrityResult.reviewFlags.join(
           " ",
         )}`,
       );
@@ -255,8 +255,8 @@ export async function runMission(
 
       fullSuitePassesAfterPatch,
 
-      verificationIntegrityPreserved:
-        verificationIntegrityResult?.preserved ?? false,
+      verificationIntegrityStatus:
+        verificationIntegrityResult?.status ?? "COMPROMISED",
     });
 
     record("COMPLETED", `Mission completed with verdict ${verdict.status}`);
@@ -276,12 +276,16 @@ export async function runMission(
         patch: patchResult,
       }),
 
+      ...(reproductionResult && {
+        reproduction: reproductionResult,
+      }),
+
       ...(Object.keys(checks).length > 0 && {
         checks,
       }),
 
-      ...(reproductionResult && {
-        reproduction: reproductionResult,
+      ...(verificationIntegrityResult && {
+        verificationIntegrity: verificationIntegrityResult,
       }),
 
       ...(Object.keys(evidence).length > 0 && {
@@ -313,6 +317,10 @@ export async function runMission(
 
       ...(Object.keys(checks).length > 0 && {
         checks,
+      }),
+
+      ...(verificationIntegrityResult && {
+        verificationIntegrity: verificationIntegrityResult,
       }),
 
       ...(Object.keys(evidence).length > 0 && {

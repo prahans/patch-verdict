@@ -1,4 +1,11 @@
+export type VerificationIntegrityStatus =
+  | "PRESERVED"
+  | "REVIEW_REQUIRED"
+  | "COMPROMISED";
+
 export type VerificationIntegrity = {
+  status: VerificationIntegrityStatus;
+
   preserved: boolean;
 
   violations: string[];
@@ -82,7 +89,7 @@ export function analyzeVerificationIntegrity({
   const reviewFlags: string[] = [];
 
   if (protectedChangedFiles.length > 0) {
-    violations.push(
+    reviewFlags.push(
       `Candidate modified protected test file(s): ${protectedChangedFiles.join(
         ", ",
       )}`,
@@ -105,8 +112,17 @@ export function analyzeVerificationIntegrity({
     );
   }
 
+  const status: VerificationIntegrityStatus =
+    violations.length > 0
+      ? "COMPROMISED"
+      : reviewFlags.length > 0
+        ? "REVIEW_REQUIRED"
+        : "PRESERVED";
+
   return {
-    preserved: violations.length === 0,
+    status,
+
+    preserved: status === "PRESERVED",
 
     violations,
 

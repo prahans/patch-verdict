@@ -269,7 +269,7 @@ async function main() {
 
       // This legacy demo applies a trusted/manual patch rather than
       // an autonomous candidate patch that needs integrity analysis.
-      verificationIntegrityPreserved: true,
+      verificationIntegrityStatus: "PRESERVED",
     });
 
     console.log("");

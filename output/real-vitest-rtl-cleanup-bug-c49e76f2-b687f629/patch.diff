@@ -1,45 +1,23 @@
 diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
-index c62f423..2476298 100644
+index c62f423..8eb01bb 100644
 --- a/src/components/DarkMode.test.tsx
 +++ b/src/components/DarkMode.test.tsx
-@@ -26,9 +26,11 @@ describe("displays current dark mode", () => {
-       dispatch: () => {},
-     });
+@@ -4,6 +4,7 @@ import { renderWithContext } from "../utils/test-utils";
+ import { useDarkModeContext } from "../context/DarkModeContext";
+ import { MockedFunction } from "vitest";
+ import userEvent from "@testing-library/user-event";
++import { afterEach } from "vitest";
  
--    renderWithContext(<DarkMode />);
-+    const { unmount } = renderWithContext(<DarkMode />);
-     expect(screen.getByText(/light/)).toBeInTheDocument();
-     expect(screen.queryByText(/dark/)).toBeNull();
-+    cleanup();
-+    unmount();
-   });
+ vi.mock("../context/DarkModeContext", async () => {
+   const actual = await vi.importActual<
+@@ -19,6 +20,10 @@ const mockedUseDarkModeContext = useDarkModeContext as MockedFunction<
+   typeof useDarkModeContext
+ >;
  
-   test("dark", () => {
-@@ -37,19 +39,23 @@ describe("displays current dark mode", () => {
-       dispatch: () => {},
-     });
- 
--    renderWithContext(<DarkMode />);
-+    const { unmount } = renderWithContext(<DarkMode />);
-     expect(screen.getByText(/dark/)).toBeInTheDocument();
-     expect(screen.queryByText(/light/)).toBeNull();
-+    cleanup();
-+    unmount();
-   });
- });
- 
- test("toggles dark mode", async () => {
-   const user = userEvent.setup();
--  renderWithContext(<DarkMode />);
-+  const { unmount } = renderWithContext(<DarkMode />);
-   expect(screen.getByText(/light/)).toBeInTheDocument();
-   expect(screen.queryByText(/dark/)).toBeNull();
- 
-   await user.click(screen.getByText(/toggle/i));
-   expect(screen.getByText(/dark/)).toBeInTheDocument();
-   expect(screen.queryByText(/light/)).toBeNull();
--});
++afterEach(() => {
 +  cleanup();
-+  unmount();
 +});
-\ No newline at end of file
++
+ describe("displays current dark mode", () => {
+   test("light", () => {
+     mockedUseDarkModeContext.mockReturnValueOnce({

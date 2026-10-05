@@ -11,14 +11,23 @@
       "label": "Reported bug reproduction",
       "command": "npm test"
     },
-    "verificationIntegrity": null,
+    "verificationIntegrity": {
+      "preserved": false,
+      "violations": [],
+      "reviewFlags": [
+        "Candidate modified protected test file(s): src/components/DarkMode.test.tsx"
+      ],
+      "protectedChangedFiles": [
+        "src/components/DarkMode.test.tsx"
+      ]
+    },
     "fullSuite": {
       "label": "Repository full test suite",
       "command": "npm test"
     }
   },
   "status": "COMPLETED",
-  "verdict": "FAILED",
+  "verdict": "REVIEW_REQUIRED",
   "checks": {
     "bugReproducedBeforePatch": true,
     "verificationIntegrityPreserved": false,

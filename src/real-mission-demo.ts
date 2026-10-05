@@ -152,6 +152,23 @@ async function main() {
       console.log(baseline.stderr || "(empty)");
     }
 
+    if (result.evidence?.postPatchTest) {
+      const evidence = result.evidence.postPatchTest;
+
+      console.log("");
+      console.log("POST-PATCH EVIDENCE");
+      console.log("-------------------");
+      console.log(`Exit code: ${evidence.exitCode}`);
+
+      console.log("");
+      console.log("STDOUT:");
+      console.log(evidence.stdout || "(empty)");
+
+      console.log("");
+      console.log("STDERR:");
+      console.log(evidence.stderr || "(empty)");
+    }
+
     if (result.patch?.changedFiles.length) {
       console.log(`Changed files: ${result.patch.changedFiles.join(", ")}`);
     }

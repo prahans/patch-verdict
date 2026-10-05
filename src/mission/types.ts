@@ -39,7 +39,7 @@ export type MissionChecks = {
 export type MissionResult = {
   status: "COMPLETED" | "FAILED";
 
-  verdict?: "VERIFIED" | "FAILED";
+  verdict?: "VERIFIED" | "REVIEW_REQUIRED" | "FAILED";
 
   events: MissionEvent[];
 

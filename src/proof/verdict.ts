@@ -1,4 +1,6 @@
-export type VerdictStatus = "VERIFIED" | "FAILED";
+import type { VerificationIntegrityStatus } from "../verification/integrity.js";
+
+export type VerdictStatus = "VERIFIED" | "REVIEW_REQUIRED" | "FAILED";
 
 export type VerdictChecks = {
   bugReproducedBeforePatch: boolean;
@@ -9,7 +11,7 @@ export type VerdictChecks = {
 
   fullSuitePassesAfterPatch: boolean;
 
-  verificationIntegrityPreserved: boolean;
+  verificationIntegrityStatus: VerificationIntegrityStatus;
 };
 
 export type VerdictResult = {
@@ -18,15 +20,26 @@ export type VerdictResult = {
 };
 
 export function determineVerdict(checks: VerdictChecks): VerdictResult {
-  const verified =
+  const functionalChecksPassed =
     checks.bugReproducedBeforePatch &&
     checks.patchApplied &&
     checks.reproductionPassesAfterPatch &&
-    checks.fullSuitePassesAfterPatch &&
-    checks.verificationIntegrityPreserved;
+    checks.fullSuitePassesAfterPatch;
+
+  let status: VerdictStatus;
+
+  if (!functionalChecksPassed) {
+    status = "FAILED";
+  } else if (checks.verificationIntegrityStatus === "COMPROMISED") {
+    status = "FAILED";
+  } else if (checks.verificationIntegrityStatus === "REVIEW_REQUIRED") {
+    status = "REVIEW_REQUIRED";
+  } else {
+    status = "VERIFIED";
+  }
 
   return {
-    status: verified ? "VERIFIED" : "FAILED",
+    status,
     checks,
   };
 }
