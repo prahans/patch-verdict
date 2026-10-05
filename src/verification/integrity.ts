@@ -51,6 +51,25 @@ function isTestInfrastructureFile(filePath: string) {
   );
 }
 
+export type VerificationPathRole =
+  | "TEST_FILE"
+  | "TEST_INFRASTRUCTURE"
+  | "OTHER";
+
+export function classifyVerificationPath(
+  filePath: string,
+): VerificationPathRole {
+  if (isDirectTestFile(filePath)) {
+    return "TEST_FILE";
+  }
+
+  if (isTestInfrastructureFile(filePath)) {
+    return "TEST_INFRASTRUCTURE";
+  }
+
+  return "OTHER";
+}
+
 function modifiesPackageTestScript(diff: string) {
   let currentFile: string | undefined;
 

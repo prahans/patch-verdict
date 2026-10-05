@@ -8,6 +8,12 @@ import { executeTool, type ToolName } from "../tools/index.js";
 import { patchToolDefinitions } from "./tool-definitions.js";
 
 import { PATCH_SYSTEM_PROMPT } from "./patch-prompt.js";
+import {
+  buildPatchAgentContext,
+  type PatchInvestigationContext,
+} from "./patch-context.js";
+
+import { messageContentToText } from "./message-content.js";
 
 const MAX_PATCH_ITERATIONS = 4;
 const PATCH_ALLOWED_TOOLS = new Set<string>([
@@ -19,8 +25,9 @@ const PATCH_ALLOWED_TOOLS = new Set<string>([
 export async function patchIssue(
   sandbox: Sandbox,
   issue: string,
-  investigationReport: string,
+  investigation: PatchInvestigationContext,
 ) {
+  const patchContext = buildPatchAgentContext(investigation);
   const messages: ChatMessages[] = [
     {
       role: "system",
@@ -29,16 +36,17 @@ export async function patchIssue(
 
     {
       role: "user",
+
       content: `
 Reported issue:
 
 ${issue}
 
-Investigation report:
+Validated investigation context:
 
-${investigationReport}
+${JSON.stringify(patchContext, null, 2)}
 
-Apply the smallest reasonable candidate patch.
+Apply the smallest reasonable candidate patch that addresses the diagnosed root cause.
 `.trim(),
     },
   ];
@@ -76,7 +84,7 @@ Apply the smallest reasonable candidate patch.
       return {
         completed: true,
         patchApplied,
-        report: message.content ?? "",
+        report: messageContentToText(message.content),
       };
     }
 
@@ -117,7 +125,18 @@ Apply the smallest reasonable candidate patch.
 
       console.log(`→ ${toolName}`);
 
-      const result = await executeTool(sandbox, toolName, input);
+      let result;
+
+      try {
+        result = await executeTool(sandbox, toolName, input);
+      } catch (error) {
+        result = {
+          ok: false as const,
+
+          error:
+            error instanceof Error ? error.message : "Tool execution failed",
+        };
+      }
 
       if (result.ok) {
         console.log(`← ${toolName} OK`);

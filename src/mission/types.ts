@@ -1,6 +1,7 @@
 import type { VerificationPlan } from "../verification/types.js";
 import type { ReproductionClassification } from "../verification/reproduction.js";
 import type { VerificationIntegrity } from "../verification/integrity.js";
+import type { InvestigationDiagnosis } from "../agent/investigation-contract.js";
 
 export type MissionState =
   | "PREPARING"
@@ -45,7 +46,10 @@ export type MissionResult = {
 
   investigation?: {
     report: string;
+
     iterations: number;
+
+    diagnosis: InvestigationDiagnosis;
   };
 
   patch?: {

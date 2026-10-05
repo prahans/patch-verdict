@@ -113,7 +113,11 @@ export async function writeProofBundle({
       : null,
 
     investigation: result.investigation
-      ? { iterations: result.investigation.iterations }
+      ? {
+          iterations: result.investigation.iterations,
+
+          diagnosis: result.investigation.diagnosis,
+        }
       : null,
 
     patch: result.patch

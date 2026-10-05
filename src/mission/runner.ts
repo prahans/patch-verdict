@@ -113,7 +113,10 @@ export async function runMission(
 
     investigationResult = {
       report: investigationReport,
+
       iterations: investigation.iterations,
+
+      diagnosis: investigation.diagnosis,
     };
 
     record("INVESTIGATING", "AI investigation completed");
@@ -124,7 +127,11 @@ export async function runMission(
 
     record("PATCHING", "AI patch phase started");
 
-    const patch = await patchIssue(sandbox, input.issue, investigationReport);
+    const patch = await patchIssue(sandbox, input.issue, {
+      report: investigationReport,
+
+      diagnosis: investigation.diagnosis,
+    });
 
     if (!patch.patchApplied) {
       throw new Error("AI did not produce a candidate patch");

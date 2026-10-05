@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-
-import { analyzeVerificationIntegrity } from "./integrity.js";
+import {
+  analyzeVerificationIntegrity,
+  classifyVerificationPath,
+} from "./integrity.js";
 
 describe("analyzeVerificationIntegrity", () => {
   it("returns PRESERVED for normal source changes", () => {
@@ -212,4 +214,24 @@ diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
   expect(result.status).toBe("COMPROMISED");
 
   expect(result.violations.join(" ")).toContain("weakened assertion");
+});
+
+describe("classifyVerificationPath", () => {
+  it("classifies direct test files", () => {
+    expect(classifyVerificationPath("src/components/DarkMode.test.tsx")).toBe(
+      "TEST_FILE",
+    );
+  });
+
+  it("classifies test infrastructure", () => {
+    expect(classifyVerificationPath("vitest.setup.ts")).toBe(
+      "TEST_INFRASTRUCTURE",
+    );
+  });
+
+  it("classifies normal source files", () => {
+    expect(classifyVerificationPath("src/components/DarkMode.tsx")).toBe(
+      "OTHER",
+    );
+  });
 });

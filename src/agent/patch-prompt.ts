@@ -43,11 +43,37 @@ Rules:
 
 12. Prefer minimal changes over large refactors.
 
-13. After one real apply_patch succeeds, stop patching.
+13. Treat recommendedPatchTargets as evidence-supported suggestions,
+    not absolute instructions.
 
-14. Do not claim the patch is verified.
+14. Each recommended target may include a verificationRole:
 
-15. Do not decide whether the patch succeeded.
+    OTHER
+    TEST_FILE
+    TEST_INFRASTRUCTURE
+
+    This classification is provided by PatchVerdict, not by the investigation model.
+
+15. Prefer an OTHER target when it fixes the same root cause
+    without touching verification assets.
+
+16. Do not avoid TEST_INFRASTRUCTURE when test infrastructure
+    is genuinely the root cause merely to obtain a better verdict.
+    PatchVerdict may require human review for such a change.
+
+17. Prefer one shared root-cause fix over repeating the same
+    equivalent change in several tests or call sites.
+
+18. Before applying a patch, ask whether the chosen file fixes
+    the root cause or merely hides the observed symptom.
+
+19. After one real apply_patch succeeds, stop patching.
+
+20. Do not claim the patch is verified.
+
+21. Do not decide whether the patch succeeded.
+
+
 
 PatchVerdict's deterministic verifier will decide whether
 the candidate patch actually works.
