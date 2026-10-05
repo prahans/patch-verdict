@@ -15,6 +15,7 @@ import {
 } from "./investigation-contract.js";
 
 import { messageContentToText } from "./message-content.js";
+import { assertInvestigationProvenance } from "./investigation-provenance.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -22,6 +23,16 @@ const MAX_TEST_CALLS = 2;
 
 function createToolCallKey(toolName: string, input: unknown) {
   return `${toolName}:${JSON.stringify(input)}`;
+}
+
+function getInputString(input: unknown, key: string) {
+  if (typeof input !== "object" || input === null) {
+    return undefined;
+  }
+
+  const value = (input as Record<string, unknown>)[key];
+
+  return typeof value === "string" ? value.trim() : undefined;
 }
 
 async function parseFinalInvestigation(
@@ -149,6 +160,11 @@ ${issue}
   let testCalls = 0;
   let forceFinalReport = false;
   let completedIterations = 0;
+  const inspectedFiles = new Set<string>();
+
+  const executedTests = new Set<string>();
+
+  const searchQueries = new Set<string>();
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     completedIterations = iteration;
@@ -183,18 +199,84 @@ ${issue}
      * its investigation is finished.
      */
     if (!toolCalls || toolCalls.length === 0) {
+      /*
+       * A model cannot finish an investigation
+       * without inspecting repository evidence.
+       */
+      if (inspectedFiles.size === 0) {
+        console.log(
+          "⊘ FINAL REPORT REJECTED — no repository files were inspected",
+        );
+
+        messages.push({
+          role: "user",
+
+          content: `
+You cannot finalize the investigation yet.
+
+PatchVerdict has no successful read_file evidence from this investigation.
+
+Use repository tools to inspect the relevant implementation or test files before producing the final structured diagnosis.
+
+Do not guess file paths.
+Use list_files or search_code when necessary, then read_file the files that support your diagnosis.
+`.trim(),
+        });
+
+        continue;
+      }
+
       const structured = await parseFinalInvestigation(
         messages,
         message.content,
       );
 
+      try {
+        assertInvestigationProvenance(structured.diagnosis, {
+          inspectedFiles: [...inspectedFiles],
+
+          executedTests: [...executedTests],
+
+          searchQueries: [...searchQueries],
+        });
+      } catch (error) {
+        const reason =
+          error instanceof Error
+            ? error.message
+            : "Unknown provenance validation error";
+
+        console.log(
+          "⊘ FINAL REPORT REJECTED — diagnosis is not grounded in observed evidence",
+        );
+
+        messages.push({
+          role: "user",
+
+          content: `
+PatchVerdict rejected your structured diagnosis because some claims are not grounded in tool evidence.
+
+${reason}
+
+Use tools to inspect any missing files or revise the diagnosis so that:
+
+- every relevantFiles path was successfully read
+- every recommendedPatchTargets path was successfully read
+- every recommended patch target is also listed in relevantFiles
+- FILE evidence refers to a successfully read file
+- TEST evidence refers to a test selector actually executed during this investigation
+- SEARCH evidence refers to a search query actually executed during this investigation
+
+Do not invent paths or evidence.
+`.trim(),
+        });
+
+        continue;
+      }
+
       return {
         completed: true,
-
         iterations: iteration,
-
         report: structured.report,
-
         diagnosis: structured.diagnosis,
       };
     }
@@ -346,6 +428,34 @@ ${issue}
        */
       toolCallCache.set(toolKey, result);
 
+      if (result.ok) {
+        if (toolName === "read_file") {
+          const filePath = getInputString(input, "path");
+
+          if (filePath) {
+            inspectedFiles.add(
+              filePath.replace(/\\/g, "/").replace(/^\.\//, ""),
+            );
+          }
+        }
+
+        if (toolName === "run_test") {
+          const testName = getInputString(input, "testName");
+
+          if (testName) {
+            executedTests.add(testName);
+          }
+        }
+
+        if (toolName === "search_code") {
+          const query = getInputString(input, "query");
+
+          if (query) {
+            searchQueries.add(query);
+          }
+        }
+      }
+
       if (toolName === "run_test" && result.ok) {
         testCalls++;
       }
@@ -398,6 +508,14 @@ ${issue}
     messages,
     finalMessage.content,
   );
+
+  assertInvestigationProvenance(structured.diagnosis, {
+    inspectedFiles: [...inspectedFiles],
+
+    executedTests: [...executedTests],
+
+    searchQueries: [...searchQueries],
+  });
 
   return {
     completed: true,

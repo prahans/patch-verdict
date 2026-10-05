@@ -11,29 +11,16 @@
       "label": "Reported bug reproduction",
       "command": "npm test"
     },
-    "verificationIntegrity": {
-      "status": "REVIEW_REQUIRED",
-      "preserved": false,
-      "violations": [],
-      "reviewFlags": [
-        "Candidate modified protected test file(s): src/components/DarkMode.test.tsx"
-      ],
-      "protectedChangedFiles": [
-        "src/components/DarkMode.test.tsx"
-      ]
-    },
+    "verificationIntegrity": null,
     "fullSuite": {
       "label": "Repository full test suite",
       "command": "npm test"
     }
   },
-  "status": "COMPLETED",
-  "verdict": "REVIEW_REQUIRED",
+  "status": "FAILED",
+  "verdict": null,
   "checks": {
-    "bugReproducedBeforePatch": true,
-    "verificationIntegrityPreserved": false,
-    "reproductionPassesAfterPatch": true,
-    "fullSuitePassesAfterPatch": true
+    "bugReproducedBeforePatch": true
   },
   "reproduction": {
     "reproduced": true,
@@ -44,23 +31,40 @@
     }
   },
   "investigation": {
-    "iterations": 8
+    "iterations": 1,
+    "diagnosis": {
+      "rootCause": "DarkMode tests do not properly clean up mounted DOM elements between tests, causing state to persist and interfere with subsequent test assertions.",
+      "evidence": [
+        {
+          "kind": "FILE",
+          "source": "src/DarkMode.test.ts",
+          "observation": "Test file contains DarkMode tests without cleanup logic in afterEach or afterAll hooks to unmount components or reset DOM."
+        },
+        {
+          "kind": "FILE",
+          "source": "src/DarkMode.tsx",
+          "observation": "Component likely mounts dark mode UI elements but lacks mechanism to ensure clean state between test runs."
+        }
+      ],
+      "relevantFiles": [
+        "src/DarkMode.test.ts",
+        "src/DarkMode.tsx"
+      ],
+      "recommendedPatchTargets": [
+        "src/DarkMode.test.ts"
+      ],
+      "confidence": "HIGH"
+    }
   },
-  "patch": {
-    "applied": true,
-    "baseCommit": "c49e76f2bc2f7bf7af14588c6d1c49b0bd86e9cf",
-    "changedFiles": [
-      "src/components/DarkMode.test.tsx"
-    ]
-  },
+  "patch": null,
   "artifacts": {
-    "patch": "patch.diff",
+    "patch": null,
     "investigation": "investigation.md",
     "events": "events.json",
     "evidence": {
       "baseline": "evidence/baseline-test.json",
-      "postPatch": "evidence/post-patch-test.json",
-      "fullSuite": "evidence/full-suite.json"
+      "postPatch": null,
+      "fullSuite": null
     }
   }
 }
