@@ -79,3 +79,99 @@ diff --git a/package.json b/package.json
     expect(result.violations.length).toBeGreaterThan(0);
   });
 });
+
+it("returns COMPROMISED when a candidate skips a test", () => {
+  const result = analyzeVerificationIntegrity({
+    changedFiles: ["src/components/DarkMode.test.tsx"],
+
+    diff: `
+diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
+--- a/src/components/DarkMode.test.tsx
++++ b/src/components/DarkMode.test.tsx
+@@
+-test("dark mode", () => {
++test.skip("dark mode", () => {
+`.trim(),
+  });
+
+  expect(result.status).toBe("COMPROMISED");
+
+  expect(result.violations.join(" ")).toContain("skip");
+});
+
+it("returns COMPROMISED when a candidate focuses a test with only", () => {
+  const result = analyzeVerificationIntegrity({
+    changedFiles: ["src/components/DarkMode.test.tsx"],
+
+    diff: `
+diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
+--- a/src/components/DarkMode.test.tsx
++++ b/src/components/DarkMode.test.tsx
+@@
+-describe("dark mode", () => {
++describe.only("dark mode", () => {
+`.trim(),
+  });
+
+  expect(result.status).toBe("COMPROMISED");
+
+  expect(result.violations.join(" ")).toContain("focused or skipped");
+});
+
+it("returns COMPROMISED when a protected test file is deleted", () => {
+  const result = analyzeVerificationIntegrity({
+    changedFiles: ["src/components/DarkMode.test.tsx"],
+
+    diff: `
+diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
+deleted file mode 100644
+--- a/src/components/DarkMode.test.tsx
++++ /dev/null
+@@
+-test("dark mode", () => {});
+`.trim(),
+  });
+
+  expect(result.status).toBe("COMPROMISED");
+
+  expect(result.violations.join(" ")).toContain("deleted");
+});
+
+it("returns COMPROMISED when a test is renamed so it is no longer discovered as a test", () => {
+  const result = analyzeVerificationIntegrity({
+    changedFiles: ["src/components/DarkMode.tsx.disabled"],
+
+    diff: `
+diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.tsx.disabled
+similarity index 100%
+rename from src/components/DarkMode.test.tsx
+rename to src/components/DarkMode.tsx.disabled
+`.trim(),
+  });
+
+  expect(result.status).toBe("COMPROMISED");
+
+  expect(result.violations.join(" ")).toContain("renamed");
+});
+
+it("returns COMPROMISED when test discovery config excludes tests", () => {
+  const result = analyzeVerificationIntegrity({
+    changedFiles: ["vitest.config.ts"],
+
+    diff: `
+diff --git a/vitest.config.ts b/vitest.config.ts
+--- a/vitest.config.ts
++++ b/vitest.config.ts
+@@
+ export default defineConfig({
+   test: {
++    exclude: ["src/components/DarkMode.test.tsx"],
+   },
+ });
+`.trim(),
+  });
+
+  expect(result.status).toBe("COMPROMISED");
+
+  expect(result.violations.join(" ")).toContain("test discovery");
+});

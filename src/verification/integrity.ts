@@ -20,6 +20,12 @@ type AnalyzeVerificationIntegrityInput = {
   diff: string;
 };
 
+type DiffSection = {
+  oldPath: string;
+  newPath: string;
+  lines: string[];
+};
+
 function normalizePath(filePath: string) {
   return filePath.replace(/\\/g, "/");
 }
@@ -76,6 +82,102 @@ function modifiesPackageTestScript(diff: string) {
   return false;
 }
 
+function parseDiffSections(diff: string): DiffSection[] {
+  const sections: DiffSection[] = [];
+
+  let current: DiffSection | undefined;
+
+  for (const line of diff.split(/\r?\n/)) {
+    const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+
+    if (match) {
+      const oldPath = match[1];
+      const newPath = match[2];
+
+      if (!oldPath || !newPath) {
+        continue;
+      }
+
+      current = {
+        oldPath: normalizePath(oldPath),
+        newPath: normalizePath(newPath),
+        lines: [],
+      };
+
+      sections.push(current);
+
+      continue;
+    }
+
+    current?.lines.push(line);
+  }
+
+  return sections;
+}
+
+function addedLines(section: DiffSection) {
+  return section.lines.filter(
+    (line) => line.startsWith("+") && !line.startsWith("+++"),
+  );
+}
+
+function introducesSkippedOrFocusedTest(section: DiffSection) {
+  if (
+    !isDirectTestFile(section.oldPath) &&
+    !isDirectTestFile(section.newPath)
+  ) {
+    return false;
+  }
+
+  return addedLines(section).some(
+    (line) =>
+      /\b(?:describe|it|test)(?:\s*\.\s*[A-Za-z_$][\w$]*)*\s*\.\s*(?:skip|only)\s*\(/.test(
+        line,
+      ) || /\b(?:xdescribe|xit|xtest)\s*\(/.test(line),
+  );
+}
+
+function deletesProtectedTest(section: DiffSection) {
+  return (
+    isDirectTestFile(section.oldPath) &&
+    section.lines.some(
+      (line) =>
+        line === "+++ /dev/null" || line.startsWith("deleted file mode "),
+    )
+  );
+}
+
+function renamesTestOutOfDiscovery(section: DiffSection) {
+  const renameFrom = section.lines
+    .find((line) => line.startsWith("rename from "))
+    ?.slice("rename from ".length);
+
+  const renameTo = section.lines
+    .find((line) => line.startsWith("rename to "))
+    ?.slice("rename to ".length);
+
+  if (!renameFrom || !renameTo) {
+    return false;
+  }
+
+  return isDirectTestFile(renameFrom) && !isDirectTestFile(renameTo);
+}
+
+function changesTestDiscovery(section: DiffSection) {
+  if (
+    !isTestInfrastructureFile(section.newPath) &&
+    !isTestInfrastructureFile(section.oldPath)
+  ) {
+    return false;
+  }
+
+  return addedLines(section).some((line) =>
+    /\b(?:include|exclude|testMatch|testRegex|testPathIgnorePatterns|passWithNoTests)\b\s*[:=]/i.test(
+      line,
+    ),
+  );
+}
+
 export function analyzeVerificationIntegrity({
   changedFiles,
   diff,
@@ -88,12 +190,40 @@ export function analyzeVerificationIntegrity({
 
   const reviewFlags: string[] = [];
 
+  const diffSections = parseDiffSections(diff);
+
   if (protectedChangedFiles.length > 0) {
     reviewFlags.push(
       `Candidate modified protected test file(s): ${protectedChangedFiles.join(
         ", ",
       )}`,
     );
+  }
+
+  for (const section of diffSections) {
+    if (introducesSkippedOrFocusedTest(section)) {
+      violations.push(
+        `Candidate introduced a focused or skipped test in ${section.newPath}.`,
+      );
+    }
+
+    if (deletesProtectedTest(section)) {
+      violations.push(
+        `Candidate deleted protected test file: ${section.oldPath}.`,
+      );
+    }
+
+    if (renamesTestOutOfDiscovery(section)) {
+      violations.push(
+        `Candidate renamed a protected test so it may no longer be discovered: ${section.oldPath}.`,
+      );
+    }
+
+    if (changesTestDiscovery(section)) {
+      violations.push(
+        `Candidate modified test discovery configuration in ${section.newPath}.`,
+      );
+    }
   }
 
   if (modifiesPackageTestScript(diff)) {
