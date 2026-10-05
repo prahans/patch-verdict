@@ -103,6 +103,7 @@ ${issue}
        * Identical calls reuse previous evidence.
        * Never execute the same command twice.
        */
+
       if (cachedResult !== undefined) {
         duplicateCalls++;
 
@@ -132,11 +133,47 @@ ${issue}
             content:
               "You are repeating tool calls without gathering new evidence. Stop using tools and provide your investigation report now.",
           });
+
+          forceFinalReport = true;
         }
 
-        forceFinalReport = true;
-
         continue;
+      }
+
+      if (toolName === "run_test") {
+        const testName =
+          typeof input === "object" &&
+          input !== null &&
+          "testName" in input &&
+          typeof input.testName === "string"
+            ? input.testName.trim()
+            : "";
+
+        if (!testName) {
+          const invalidResult = {
+            ok: false as const,
+
+            error: "run_test requires a non-empty testName.",
+          };
+
+          /*
+           * Cache the rejection too, so the same
+           * malformed request is not handled repeatedly.
+           */
+          toolCallCache.set(toolKey, invalidResult);
+
+          console.log("⊘ run_test REJECTED — testName must be non-empty");
+
+          messages.push({
+            role: "tool",
+
+            toolCallId: toolCall.id,
+
+            content: JSON.stringify(invalidResult),
+          });
+
+          continue;
+        }
       }
 
       /*

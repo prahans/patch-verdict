@@ -91,7 +91,8 @@ export const investigationToolDefinitions = [
         properties: {
           testName: {
             type: "string",
-            description: "Exact or partial test name to run.",
+            minLength: 1,
+            description: "Non-empty exact or partial test name to run.",
           },
         },
 
