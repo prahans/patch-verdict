@@ -12,6 +12,22 @@ describe("parseInvestigationModelOutput", () => {
           rootCause:
             "Rendered DOM survives between tests because shared cleanup is not configured.",
 
+          scopeAnalysis: {
+            scope: "SHARED",
+            reason:
+              "The missing cleanup behavior belongs to shared test lifecycle setup rather than one individual test.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "vitest.setup.ts",
+              },
+              {
+                kind: "FILE",
+                source: "src/components/DarkMode.test.tsx",
+              },
+            ],
+          },
+
           evidence: [
             {
               kind: "FILE",
@@ -133,6 +149,16 @@ describe("parseInvestigationModelOutput", () => {
   "report": "Root cause identified.",
   "diagnosis": {
     "rootCause": "Incorrect state transition.",
+    "scopeAnalysis": {
+      "scope": "LOCAL",
+      "reason": "The incorrect transition is contained in the inspected state implementation.",
+      "evidenceRefs": [
+        {
+          "kind": "FILE",
+          "source": "src/state.ts"
+        }
+      ]
+    },
     "evidence": [
       {
         "kind": "FILE",
@@ -219,6 +245,20 @@ describe("parseInvestigationModelOutput", () => {
           diagnosis: {
             rootCause: "Example root cause.",
 
+            scopeAnalysis: {
+              scope: "UNKNOWN",
+
+              reason:
+                "This fixture does not establish whether the example defect is local or shared.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/example.ts",
+                },
+              ],
+            },
+
             evidence: [
               {
                 kind: "FILE",
@@ -283,6 +323,20 @@ describe("parseInvestigationModelOutput", () => {
           diagnosis: {
             rootCause: "Example root cause.",
 
+            scopeAnalysis: {
+              scope: "UNKNOWN",
+
+              reason:
+                "This fixture does not establish whether the example defect is local or shared.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/example.ts",
+                },
+              ],
+            },
+
             evidence: [
               {
                 kind: "FILE",
@@ -346,6 +400,20 @@ describe("parseInvestigationModelOutput", () => {
 
           diagnosis: {
             rootCause: "Something is wrong.",
+
+            scopeAnalysis: {
+              scope: "UNKNOWN",
+
+              reason:
+                "This fixture intentionally lacks evidence needed to establish failure scope.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/example.ts",
+                },
+              ],
+            },
 
             /*
              * Intentionally empty.
