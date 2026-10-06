@@ -21,6 +21,7 @@ import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 import { assertPatchIntentContract } from "./investigation-intents.js";
 import { assertFailureScopeAnalysis } from "./investigation-scope.js";
 import { validateDiscoveredReadPath } from "./investigation-paths.js";
+import { assertRootCauseAnalysisGrounding } from "./root-cause-contract.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -57,6 +58,12 @@ function assertFinalInvestigationContracts(
     searchQueries: context.searchQueries,
     trustedTestCommands: context.trustedTestCommands,
   });
+
+  assertRootCauseAnalysisGrounding(
+    structured.diagnosis.rootCauseAnalysis,
+    structured.diagnosis.evidence,
+    structured.diagnosis.confidence,
+  );
 
   assertFailureScopeAnalysis(structured.diagnosis, {
     inspectedFiles: context.inspectedFiles,
@@ -107,6 +114,20 @@ Use exactly this shape:
   "report": "Human-readable investigation summary.",
   "diagnosis": {
     "rootCause": "Evidence-supported root cause hypothesis.",
+    "rootCauseAnalysis": {
+      "failureMechanism": "Observable mechanism that produces the failure.",
+      "primaryCause": {
+        "layer": "UNKNOWN",
+        "hypothesis": "The most likely underlying cause supported by current evidence.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
+      },
+      "alternatives": []
+    },
     "scopeAnalysis": {
       "scope": "UNKNOWN",
       "reason": "Evidence-supported explanation of whether the failure is local, shared, or still uncertain.",
@@ -148,6 +169,7 @@ Use exactly this shape:
         "id": "intent-1",
         "path": "src/example.ts",
         "objective": "Correct the behavior identified by the investigation.",
+        "repairKind": "MITIGATION",
         "evidenceRefs": [
           {
             "kind": "FILE",
@@ -171,6 +193,22 @@ LOCAL, SHARED, UNKNOWN
 
 Allowed patch-target decisions:
 RECOMMEND, REJECT
+
+Allowed cause layers:
+APPLICATION_CODE, CONFIGURATION, DEPENDENCY_RUNTIME, TEST_INFRASTRUCTURE, TEST_SUPPORT, TEST_FILE, UNKNOWN
+
+Allowed repair kinds:
+ROOT_CAUSE_FIX, WORKAROUND, MITIGATION
+
+Root-cause rules:
+
+- rootCauseAnalysis.failureMechanism describes how the failure occurs, not merely where it appears
+- primaryCause.layer must identify the layer that owns the underlying cause, or UNKNOWN when evidence is insufficient
+- every rootCauseAnalysis evidenceRefs entry must exactly match diagnosis.evidence
+- DEPENDENCY_RUNTIME must cite TEST evidence
+- UNKNOWN primary cause cannot use HIGH confidence
+- consider plausible alternatives and mark them REJECTED or UNRESOLVED rather than silently collapsing competing explanations
+- do not label a workaround or mitigation as ROOT_CAUSE_FIX
 
 Failure-scope rules:
 
@@ -199,6 +237,8 @@ Patch-intent rules:
 - every patch intent path must be marked RECOMMEND in patchTargetAnalysis
 - every evidenceRefs entry must exactly match evidence already present in diagnosis.evidence
 - patch intent objectives should describe required behavior, not exact implementation syntax or API calls
+- every patch intent must include repairKind: ROOT_CAUSE_FIX, WORKAROUND, or MITIGATION
+- repairKind must be compatible with rootCauseAnalysis.primaryCause.layer and the target's verification role
 - do not introduce a repair objective that is unrelated to the diagnosed root cause
 
 Do not use Markdown fences.
@@ -413,6 +453,8 @@ Use tools to inspect any missing files or revise the diagnosis so that:
 - every recommended patch target has at least one patchIntents entry
 - every patch intent targets a RECOMMEND path
 - every patch intent evidenceRefs entry exactly matches existing diagnosis evidence
+- rootCauseAnalysis is grounded in existing diagnosis evidence
+- every patch intent repairKind is compatible with the identified primary cause
 
 Do not invent paths, evidence, or unrelated patch objectives.
 `.trim(),
@@ -716,7 +758,9 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 - runtime/baseline scope claims must cite the matching TEST evidenceRef
 - UNKNOWN scope cannot use HIGH confidence
 - if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
-- every RECOMMEND target must have a grounded patchIntent
+- rootCauseAnalysis must separate failure mechanism from underlying cause
+- every rootCauseAnalysis evidenceRef must already exist in diagnosis.evidence
+- every RECOMMEND target must have a grounded patchIntent with an explicit repairKind
 - do not invent new evidence, files, tests, commands, or patch objectives
 
 Return only the final structured JSON.
@@ -789,7 +833,9 @@ Important:
 - do not add files that were not successfully inspected
 - if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
 - every patchTargetAnalysis entry must cite existing evidence and include FILE evidence for its own path
+- rootCauseAnalysis must remain grounded in diagnosis.evidence
 - every recommended target must have a matching grounded patchIntent
+- every patchIntent must keep an evidence-grounded repairKind
 - every patchIntent evidenceRefs entry must exactly match diagnosis.evidence
 
 Return only corrected structured JSON.
