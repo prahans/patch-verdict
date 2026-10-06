@@ -219,7 +219,7 @@ Use exactly this shape:
 }
 
 Allowed evidence kinds:
-FILE, TEST, SEARCH
+FILE, TEST, SEARCH, EXPERIMENT
 
 Allowed confidence values:
 LOW, MEDIUM, HIGH
@@ -241,7 +241,7 @@ Root-cause rules:
 - rootCauseAnalysis.failureMechanism describes how the failure occurs, not merely where it appears
 - primaryCause.layer must identify the layer that owns the underlying cause, or UNKNOWN when evidence is insufficient
 - every rootCauseAnalysis evidenceRefs entry must exactly match diagnosis.evidence
-- DEPENDENCY_RUNTIME must cite TEST evidence
+- DEPENDENCY_RUNTIME must cite TEST or EXPERIMENT evidence
 - UNKNOWN primary cause cannot use HIGH confidence
 - HIGH confidence is not allowed while any competing cause remains UNRESOLVED
 - consider plausible alternatives and mark them REJECTED or UNRESOLVED rather than silently collapsing competing explanations
@@ -584,6 +584,7 @@ Use tools to inspect any missing files or revise the diagnosis so that:
   - the exact command returned by a successful run_test call
   - the authoritative baseline command supplied by PatchVerdict
 - SEARCH evidence refers to a search query actually executed during this investigation
+- EXPERIMENT evidence source must be the exact experimentId returned by a successful run_counterfactual call
 - failure scope is explicitly classified as LOCAL, SHARED, or UNKNOWN
 - failure-scope evidenceRefs exactly match existing diagnosis evidence
 - every patchTargetAnalysis entry cites existing diagnosis evidence
@@ -1050,7 +1051,7 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 - use alternatives: [] instead of a partial alternative object
 - every rootCauseAnalysis evidenceRef must already exist in diagnosis.evidence
 - every RECOMMEND target must have a grounded patchIntent with an explicit repairKind
-- do not invent new evidence, files, tests, commands, or patch objectives
+- do not invent new evidence, files, tests, experiments, commands, or patch objectives
 
 Return only the final structured JSON.
 `.trim(),
@@ -1120,7 +1121,7 @@ You may not call tools. Revise the JSON only from evidence already collected.
 
 Important:
 
-- do not invent evidence or claim new observations
+- do not invent evidence, experiments, or claim new observations
 - do not add files that were not successfully inspected
 - if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
 - every patchTargetAnalysis entry must cite existing evidence and include FILE evidence for its own path
