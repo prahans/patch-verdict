@@ -30,6 +30,10 @@ import {
   findUninspectedCausalContext,
 } from "./investigation-causal-context.js";
 import { assertNoSemanticDriftDuringContractRepair } from "./investigation-repair-guard.js";
+import {
+  reconnaissanceForModel,
+  type ReconnaissanceContext,
+} from "./reconnaissance.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -344,6 +348,7 @@ export async function investigateIssue(
   sandbox: Sandbox,
   issue: string,
   baseline: InvestigationBaselineContext,
+  reconnaissance: ReconnaissanceContext,
 ) {
   const messages: ChatMessages[] = [
     {
@@ -364,23 +369,50 @@ Authoritative baseline evidence:
 
 ${JSON.stringify(baseline, null, 2)}
 
+Deterministic reconnaissance already completed before this reasoning phase:
+
+${JSON.stringify(reconnaissanceForModel(reconnaissance), null, 2)}
+
 Important:
 
 - The baseline reproduction above is trusted PatchVerdict evidence.
+- Files listed in reconnaissance.preInspectedFiles were successfully read by PatchVerdict before the AI reasoning loop. Their supplied contents are trusted repository evidence.
+- The reconnaissance inventory is deterministic repository discovery, not a model guess.
+- Do not spend tool calls rereading pre-inspected files unless the supplied content is truncated and the missing portion is materially necessary.
+- Do not call list_files merely to rediscover the inventory already supplied. Use it only when you need deeper repository discovery.
 - You do not need to rerun the same failure merely to prove it exists.
 - Use run_test only when a more targeted execution would materially help distinguish competing root-cause hypotheses.
-- Focus your tool budget on locating and understanding the root cause.
+- Focus your tool budget on distinguishing causes, not rebuilding deterministic repository context.
 `.trim(),
     },
   ];
 
   const toolCallCache = new Map<string, unknown>();
+  const preloadedToolCalls = new Set<string>();
+
+  for (const file of reconnaissance.files) {
+    const key = createToolCallKey("read_file", {
+      path: file.path,
+    });
+
+    preloadedToolCalls.add(key);
+
+    toolCallCache.set(key, {
+      ok: true as const,
+      data: {
+        path: file.path,
+        content: file.content,
+      },
+    });
+  }
 
   let duplicateCalls = 0;
   let testCalls = 0;
   let forceFinalReport = false;
   let completedIterations = 0;
-  const inspectedFiles = new Set<string>();
+  const inspectedFiles = new Set<string>(
+    reconnaissance.preInspectedFiles,
+  );
 
   const executedTests = new Set<string>();
 
@@ -388,9 +420,11 @@ Important:
 
   const searchQueries = new Set<string>();
 
-  const discoveredFiles = new Set<string>();
+  const discoveredFiles = new Set<string>(
+    reconnaissance.inventory,
+  );
 
-  let discoveredDepth = 0;
+  let discoveredDepth = reconnaissance.inventoryDepth;
 
   let causalContextHintSent = false;
 
@@ -557,9 +591,17 @@ Do not invent paths, evidence, or unrelated patch objectives.
        */
 
       if (cachedResult !== undefined) {
-        duplicateCalls++;
+        const preloaded = preloadedToolCalls.has(toolKey);
 
-        console.log(`↻ ${toolName} DUPLICATE — using cached result`);
+        if (!preloaded) {
+          duplicateCalls++;
+        }
+
+        console.log(
+          preloaded
+            ? `↻ ${toolName} PRELOADED — using deterministic reconnaissance`
+            : `↻ ${toolName} DUPLICATE — using cached result`,
+        );
 
         const uninspectedCausalContext =
           findUninspectedCausalContext(
@@ -577,9 +619,11 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
             meta: {
               cached: true,
+              preloadedByReconnaissance: preloaded,
 
-              message:
-                "This identical tool call was already executed. Use the existing evidence and do not repeat this call.",
+              message: preloaded
+                ? "PatchVerdict already read this file during deterministic reconnaissance. Use the supplied evidence without spending another repository read."
+                : "This identical tool call was already executed. Use the existing evidence and do not repeat this call.",
 
               ...(uninspectedCausalContext.length > 0 && {
                 uninspectedCausalContext,
@@ -591,7 +635,7 @@ Do not invent paths, evidence, or unrelated patch objectives.
           }),
         });
 
-        if (duplicateCalls >= MAX_DUPLICATE_CALLS) {
+        if (!preloaded && duplicateCalls >= MAX_DUPLICATE_CALLS) {
           messages.push({
             role: "user",
 
