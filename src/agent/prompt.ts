@@ -230,7 +230,7 @@ FAILURE SCOPE RULES
 
 64. SHARED scope must cite at least one TEST evidence entry and at least one FILE evidence entry outside a direct test file.
 
-65. LOCAL scope must explicitly cite every inspected test-infrastructure candidate in scopeAnalysis.evidenceRefs. If shared infrastructure was inspected, local scope is not sufficiently grounded until that shared candidate is accounted for.
+65. LOCAL scope must explicitly cite every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate in scopeAnalysis.evidenceRefs. If shared verification support was inspected, local scope is not sufficiently grounded until those shared candidates are accounted for.
 
 66. Do not claim that multiple tests, components, packages, or consumers are affected unless the cited scope evidence actually demonstrates those affected cases.
     A passing unrelated test does not count as an affected case.
