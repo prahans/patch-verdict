@@ -517,6 +517,42 @@ Do not invent paths, evidence, or unrelated patch objectives.
         }
       }
 
+      if (toolName === "read_file") {
+        const requestedPath = getInputString(input, "path");
+
+        if (requestedPath) {
+          const validation = validateDiscoveredReadPath(
+            requestedPath,
+            [...discoveredFiles],
+            discoveredDepth,
+          );
+
+          if (!validation.ok) {
+            const rejectedResult = {
+              ok: false as const,
+              error: validation.error,
+              ...(validation.suggestions.length > 0 && {
+                suggestions: validation.suggestions,
+              }),
+            };
+
+            toolCallCache.set(toolKey, rejectedResult);
+
+            console.log(
+              "⊘ read_file REJECTED — path not present in discovered repository inventory",
+            );
+
+            messages.push({
+              role: "tool",
+              toolCallId: toolCall.id,
+              content: JSON.stringify(rejectedResult),
+            });
+
+            continue;
+          }
+        }
+      }
+
       /*
        * Only NEW run_test executions count
        * against the execution budget.
