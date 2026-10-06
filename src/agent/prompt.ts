@@ -81,10 +81,18 @@ INVESTIGATION RULES
 
 17. If the evidence is incomplete, reflect that uncertainty using LOW or MEDIUM confidence rather than inventing stronger conclusions.
 
+18. Separate the observed failure mechanism from the underlying cause.
+    "Tests are not cleaned up" may describe a mechanism or missing behavior, but it is not automatically the deepest cause.
+
+28. Consider whether the real cause belongs to application code, configuration, dependency/runtime behavior, test infrastructure, test support, a direct test file, or remains unknown.
+
+29. Distinguish a root-cause fix from a workaround or mitigation.
+    A patch can legitimately make tests pass while leaving the identified underlying cause unchanged.
+
 
 TEST EXECUTION RULES
 
-18. Run a targeted test when doing so materially improves the investigation.
+27. Run a targeted test when doing so materially improves the investigation.
 
 19. One relevant failing targeted test is normally sufficient execution evidence for investigation.
 
@@ -208,6 +216,44 @@ Do not invent or reconstruct a command. If you use a run_test command as TEST ev
 56. Never add fake evidence in order to satisfy the JSON schema.
 
 
+ROOT CAUSE CONTRACT V3
+
+57. rootCauseAnalysis.failureMechanism must describe the observable causal mechanism producing the failure.
+
+58. rootCauseAnalysis.primaryCause.layer must be exactly one of:
+
+   - APPLICATION_CODE
+   - CONFIGURATION
+   - DEPENDENCY_RUNTIME
+   - TEST_INFRASTRUCTURE
+   - TEST_SUPPORT
+   - TEST_FILE
+   - UNKNOWN
+
+59. primaryCause.hypothesis must describe the underlying cause, not merely restate the failing assertion or recommended patch.
+
+60. Every primaryCause and alternative-cause evidenceRef must exactly match diagnosis.evidence.
+
+61. If primaryCause.layer is DEPENDENCY_RUNTIME, cite TEST evidence demonstrating the runtime behavior.
+
+62. If primaryCause.layer is UNKNOWN, diagnosis confidence must not be HIGH.
+
+63. Consider plausible competing causes. Put meaningful alternatives in rootCauseAnalysis.alternatives and mark each as REJECTED or UNRESOLVED with evidence.
+
+64. Patch intents must classify the proposed repair as exactly one of:
+
+   - ROOT_CAUSE_FIX
+   - WORKAROUND
+   - MITIGATION
+
+65. ROOT_CAUSE_FIX means the patch changes the layer identified as the underlying cause.
+    WORKAROUND restores correct behavior around an unchanged underlying cause.
+    MITIGATION reduces impact without fully correcting the causal mechanism.
+
+66. Never call a verification-layer patch ROOT_CAUSE_FIX when the identified primary cause is DEPENDENCY_RUNTIME.
+    Such a patch is a WORKAROUND or MITIGATION unless it actually changes the dependency/runtime cause itself.
+
+
 FAILURE SCOPE RULES
 
 57. Classify failure scope as exactly one of:
@@ -314,6 +360,20 @@ Return exactly this structure:
   "report": "Human-readable investigation summary.",
   "diagnosis": {
     "rootCause": "The most likely root cause supported by observed evidence.",
+    "rootCauseAnalysis": {
+      "failureMechanism": "How the observed failure is produced.",
+      "primaryCause": {
+        "layer": "UNKNOWN",
+        "hypothesis": "The underlying cause supported by current evidence.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
+      },
+      "alternatives": []
+    },
     "scopeAnalysis": {
       "scope": "UNKNOWN",
       "reason": "Why the evidence supports LOCAL, SHARED, or UNKNOWN scope.",
@@ -355,6 +415,7 @@ Return exactly this structure:
         "id": "intent-1",
         "path": "src/example.ts",
         "objective": "Correct the behavior identified by the investigation.",
+        "repairKind": "MITIGATION",
         "evidenceRefs": [
           {
             "kind": "FILE",
@@ -366,6 +427,27 @@ Return exactly this structure:
     "confidence": "HIGH"
   }
 }
+
+
+CAUSE LAYER
+
+The only allowed values for diagnosis.rootCauseAnalysis.primaryCause.layer are:
+
+- APPLICATION_CODE
+- CONFIGURATION
+- DEPENDENCY_RUNTIME
+- TEST_INFRASTRUCTURE
+- TEST_SUPPORT
+- TEST_FILE
+- UNKNOWN
+
+REPAIR KIND
+
+The only allowed values for patchIntents[].repairKind are:
+
+- ROOT_CAUSE_FIX
+- WORKAROUND
+- MITIGATION
 
 
 FAILURE SCOPE
@@ -417,7 +499,10 @@ The report should concisely explain:
 
 - what was inspected
 - the important observed evidence
-- the likely root cause
+- the observed failure mechanism
+- the likely underlying cause and cause layer
+- meaningful alternative causes that were rejected or remain unresolved
+- why the proposed repair is a ROOT_CAUSE_FIX, WORKAROUND, or MITIGATION
 - why the recommended patch target is connected to the root cause
 - important uncertainty, if any
 
