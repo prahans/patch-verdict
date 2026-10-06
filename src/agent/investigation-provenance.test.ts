@@ -24,6 +24,12 @@ const diagnosis = {
       decision: "RECOMMEND",
       reason:
         "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
+      evidenceRefs: [
+        {
+          kind: "FILE",
+          source: "vitest.setup.ts",
+        },
+      ],
     },
   ],
 
@@ -88,6 +94,12 @@ describe("assertInvestigationProvenance", () => {
           decision: "RECOMMEND" as const,
           reason:
             "This file is intentionally used as an uninspected target for the test.",
+          evidenceRefs: [
+            {
+              kind: "FILE" as const,
+              source: "src/fake.ts",
+            },
+          ],
         },
       ],
     };
@@ -128,6 +140,12 @@ describe("assertInvestigationProvenance", () => {
           decision: "RECOMMEND" as const,
           reason:
             "This intentionally inconsistent target verifies the relevant-file rule.",
+          evidenceRefs: [
+            {
+              kind: "FILE" as const,
+              source: "vitest.setup.ts",
+            },
+          ],
         },
       ],
     };
@@ -217,6 +235,12 @@ describe("assertInvestigationProvenance", () => {
 
           reason:
             "This test intentionally verifies that every relevant file requires FILE evidence.",
+          evidenceRefs: [
+            {
+              kind: "FILE" as const,
+              source: "src/components/DarkMode.test.tsx",
+            },
+          ],
         },
       ],
 
