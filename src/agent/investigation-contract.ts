@@ -52,12 +52,6 @@ const patchTargetAnalysisEntrySchema = z
   .strict();
 
 const patchIntentEvidenceRefSchema = evidenceRefSchema;
-  .object({
-    kind: z.enum(["FILE", "TEST", "SEARCH"]),
-
-    source: z.string().trim().min(1).max(500),
-  })
-  .strict();
 
 const patchIntentSchema = z
   .object({
