@@ -40,6 +40,25 @@ describe("buildPatchAgentContext", () => {
           },
         ],
 
+        patchIntents: [
+          {
+            id: "intent-1",
+
+            path: "vitest.setup.ts",
+
+            objective:
+              "Ensure shared cleanup runs between affected test cases.",
+
+            evidenceRefs: [
+              {
+                kind: "FILE",
+
+                source: "vitest.setup.ts",
+              },
+            ],
+          },
+        ],
+
         confidence: "HIGH",
       },
     });
@@ -61,6 +80,27 @@ describe("buildPatchAgentContext", () => {
         path: "src/components/DarkMode.test.tsx",
 
         verificationRole: "TEST_FILE",
+      },
+    ]);
+
+    expect(result.patchIntents).toEqual([
+      {
+        id: "intent-1",
+
+        path: "vitest.setup.ts",
+
+        objective:
+          "Ensure shared cleanup runs between affected test cases.",
+
+        evidenceRefs: [
+          {
+            kind: "FILE",
+
+            source: "vitest.setup.ts",
+          },
+        ],
+
+        verificationRole: "TEST_INFRASTRUCTURE",
       },
     ]);
   });
