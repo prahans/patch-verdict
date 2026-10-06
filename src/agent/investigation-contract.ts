@@ -31,6 +31,14 @@ const investigationEvidenceSchema = z
   })
   .strict();
 
+const evidenceRefSchema = z
+  .object({
+    kind: z.enum(["FILE", "TEST", "SEARCH"]),
+
+    source: z.string().trim().min(1).max(500),
+  })
+  .strict();
+
 const patchTargetAnalysisEntrySchema = z
   .object({
     path: repositoryPathSchema,
@@ -38,10 +46,12 @@ const patchTargetAnalysisEntrySchema = z
     decision: z.enum(["RECOMMEND", "REJECT"]),
 
     reason: z.string().trim().min(10).max(2000),
+
+    evidenceRefs: z.array(evidenceRefSchema).min(1).max(10),
   })
   .strict();
 
-const patchIntentEvidenceRefSchema = z
+const patchIntentEvidenceRefSchema = evidenceRefSchema;
   .object({
     kind: z.enum(["FILE", "TEST", "SEARCH"]),
 
