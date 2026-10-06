@@ -483,11 +483,12 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
               if (
                 evidenceRef.kind !== "FILE" &&
                 evidenceRef.kind !== "TEST" &&
-                evidenceRef.kind !== "SEARCH"
+                evidenceRef.kind !== "SEARCH" &&
+                evidenceRef.kind !== "EXPERIMENT"
               ) {
                 invalid(
                   `proof.json patch.authorization.evidenceRefs[${index}].kind`,
-                  "FILE, TEST, or SEARCH",
+                  "FILE, TEST, SEARCH, or EXPERIMENT",
                 );
               }
 
