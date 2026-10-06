@@ -833,6 +833,20 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
       try {
         if (toolName === "run_counterfactual") {
+          const requestedExperimentId = getInputString(
+            input,
+            "experimentId",
+          );
+
+          if (
+            requestedExperimentId &&
+            executedExperiments.has(requestedExperimentId)
+          ) {
+            throw new Error(
+              `Counterfactual experiment id "${requestedExperimentId}" was already used. Experiment evidence ids must be unique.`,
+            );
+          }
+
           const requestedHypothesisIds =
             typeof input === "object" &&
             input !== null &&
@@ -871,6 +885,10 @@ Do not invent paths, evidence, or unrelated patch objectives.
               ],
             },
           );
+
+          counterfactualCalls++;
+          executedExperiments.add(evidence.experimentId);
+          counterfactualEvidence.push(evidence);
 
           result = {
             ok: true as const,
@@ -975,19 +993,6 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
       if (toolName === "run_test" && result.ok) {
         testCalls++;
-      }
-
-      if (
-        toolName === "run_counterfactual" &&
-        result.ok &&
-        "data" in result &&
-        typeof result.data === "object" &&
-        result.data !== null &&
-        "experimentId" in result.data &&
-        typeof result.data.experimentId === "string"
-      ) {
-        counterfactualCalls++;
-        executedExperiments.add(result.data.experimentId);
       }
 
       messages.push({
