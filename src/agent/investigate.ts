@@ -126,7 +126,20 @@ Use exactly this shape:
           }
         ]
       },
-      "alternatives": []
+      "alternatives": [
+        {
+          "layer": "TEST_FILE",
+          "hypothesis": "A competing evidence-grounded cause hypothesis.",
+          "status": "UNRESOLVED",
+          "reason": "Why this alternative remains unresolved or why it was rejected.",
+          "evidenceRefs": [
+            {
+              "kind": "FILE",
+              "source": "src/example.ts"
+            }
+          ]
+        }
+      ]
     },
     "scopeAnalysis": {
       "scope": "UNKNOWN",
@@ -209,6 +222,8 @@ Root-cause rules:
 - UNKNOWN primary cause cannot use HIGH confidence
 - HIGH confidence is not allowed while any competing cause remains UNRESOLVED
 - consider plausible alternatives and mark them REJECTED or UNRESOLVED rather than silently collapsing competing explanations
+- every alternatives entry must include exactly layer, hypothesis, status, reason, and evidenceRefs
+- if no grounded alternative exists, use alternatives: [] rather than a partial alternative object
 - do not label a workaround or mitigation as ROOT_CAUSE_FIX
 - no patch intent may be ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED
 
@@ -249,6 +264,14 @@ Do not include additional fields.
 `.trim(),
     });
 
+    console.log(
+      [
+        "⊘ STRUCTURED INVESTIGATION JSON REJECTED — requesting one no-tool schema repair",
+        "",
+        reason,
+      ].join("\n"),
+    );
+
     const repairResponse = await openRouter.chat.send({
       chatRequest: {
         model: AGENT_MODEL,
@@ -276,11 +299,26 @@ Do not include additional fields.
     const repairedText = messageContentToText(repairMessage.content);
 
     /*
-     * No second repair attempt.
-     * If this fails, the investigation fails
+     * No second schema-repair attempt.
+     * If this fails, the investigation fails closed
      * rather than silently accepting malformed data.
      */
-    return parseInvestigationModelOutput(repairedText);
+    try {
+      return parseInvestigationModelOutput(repairedText);
+    } catch (repairError) {
+      const repairReason =
+        repairError instanceof Error
+          ? repairError.message
+          : "Unknown structured-output repair error";
+
+      throw new Error(
+        [
+          "Investigation structured-output repair failed after one no-tool attempt.",
+          `Initial validation: ${reason}`,
+          `Repair validation: ${repairReason}`,
+        ].join("\n"),
+      );
+    }
   }
 }
 
@@ -762,6 +800,8 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 - if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
 - rootCauseAnalysis must separate failure mechanism from underlying cause
 - unresolved competing causes must prevent HIGH confidence and ROOT_CAUSE_FIX classification
+- every alternative cause entry must include layer, hypothesis, status, reason, and evidenceRefs
+- use alternatives: [] instead of a partial alternative object
 - every rootCauseAnalysis evidenceRef must already exist in diagnosis.evidence
 - every RECOMMEND target must have a grounded patchIntent with an explicit repairKind
 - do not invent new evidence, files, tests, commands, or patch objectives
@@ -837,6 +877,8 @@ Important:
 - if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
 - every patchTargetAnalysis entry must cite existing evidence and include FILE evidence for its own path
 - rootCauseAnalysis must remain grounded in diagnosis.evidence
+- every alternative cause must include layer, hypothesis, status, reason, and evidenceRefs
+- never keep a partial alternative object; use alternatives: [] if no grounded alternative exists
 - every recommended target must have a matching grounded patchIntent
 - every patchIntent must keep an evidence-grounded repairKind
 - every patchIntent evidenceRefs entry must exactly match diagnosis.evidence
