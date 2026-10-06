@@ -33,6 +33,15 @@ export type MissionResult = {
   };
   patch?: {
     applied: boolean;
+    authorization?: {
+      intentId: string;
+      authorizedPath: string;
+      objective: string;
+      evidenceRefs: Array<{
+        kind: "FILE" | "TEST" | "SEARCH";
+        source: string;
+      }>;
+    };
     baseCommit: string;
     changedFiles: string[];
     diff?: string;
@@ -42,6 +51,7 @@ export type MissionResult = {
     reproductionPassesAfterPatch?: boolean;
     fullSuitePassesAfterPatch?: boolean;
     verificationIntegrityPreserved?: boolean;
+    patchMatchesAuthorization?: boolean;
   };
   reproduction?: ReproductionClassification;
   verificationIntegrity?: VerificationIntegrity;

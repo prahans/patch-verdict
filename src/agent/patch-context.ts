@@ -16,6 +16,8 @@ export function buildPatchAgentContext(
 
     rootCause: investigation.diagnosis.rootCause,
 
+    scopeAnalysis: investigation.diagnosis.scopeAnalysis,
+
     evidence: investigation.diagnosis.evidence,
 
     relevantFiles: investigation.diagnosis.relevantFiles,
@@ -34,6 +36,12 @@ export function buildPatchAgentContext(
         verificationRole: classifyVerificationPath(entry.path),
       }),
     ),
+
+    patchIntents: investigation.diagnosis.patchIntents.map((intent) => ({
+      ...intent,
+
+      verificationRole: classifyVerificationPath(intent.path),
+    })),
 
     confidence: investigation.diagnosis.confidence,
   };

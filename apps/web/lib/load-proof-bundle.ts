@@ -273,6 +273,13 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       );
     }
 
+    if (checks.patchMatchesAuthorization !== undefined) {
+      parsedChecks.patchMatchesAuthorization = boolean(
+        checks.patchMatchesAuthorization,
+        "proof.json checks.patchMatchesAuthorization",
+      );
+    }
+
     if (Object.keys(parsedChecks).length > 0) {
       metadata.checks = parsedChecks;
     }
@@ -414,9 +421,74 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
     const patch = object(proof.patch, "proof.json patch");
     if (!Array.isArray(patch.changedFiles))
       invalid("proof.json patch.changedFiles", "an array of strings");
+    const authorization =
+      patch.authorization == null
+        ? undefined
+        : object(patch.authorization, "proof.json patch.authorization");
+
     metadata.patch = {
       applied: boolean(patch.applied, "proof.json patch.applied"),
+
+      ...(authorization && {
+        authorization: {
+          intentId: string(
+            authorization.intentId,
+            "proof.json patch.authorization.intentId",
+            true,
+          ),
+
+          authorizedPath: string(
+            authorization.authorizedPath,
+            "proof.json patch.authorization.authorizedPath",
+            true,
+          ),
+
+          objective: string(
+            authorization.objective,
+            "proof.json patch.authorization.objective",
+            true,
+          ),
+
+          evidenceRefs: (() => {
+            if (!Array.isArray(authorization.evidenceRefs)) {
+              return invalid(
+                "proof.json patch.authorization.evidenceRefs",
+                "an array",
+              );
+            }
+
+            return authorization.evidenceRefs.map((value, index) => {
+              const evidenceRef = object(
+                value,
+                `proof.json patch.authorization.evidenceRefs[${index}]`,
+              );
+
+              if (
+                evidenceRef.kind !== "FILE" &&
+                evidenceRef.kind !== "TEST" &&
+                evidenceRef.kind !== "SEARCH"
+              ) {
+                invalid(
+                  `proof.json patch.authorization.evidenceRefs[${index}].kind`,
+                  "FILE, TEST, or SEARCH",
+                );
+              }
+
+              return {
+                kind: evidenceRef.kind,
+                source: string(
+                  evidenceRef.source,
+                  `proof.json patch.authorization.evidenceRefs[${index}].source`,
+                  true,
+                ),
+              };
+            });
+          })(),
+        },
+      }),
+
       baseCommit: string(patch.baseCommit, "proof.json patch.baseCommit"),
+
       changedFiles: patch.changedFiles.map((file, index) =>
         string(file, `proof.json patch.changedFiles[${index}]`, true),
       ),

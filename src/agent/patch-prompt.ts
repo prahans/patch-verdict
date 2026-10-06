@@ -50,12 +50,13 @@ Rules:
 
     OTHER
     TEST_FILE
+    TEST_SUPPORT
     TEST_INFRASTRUCTURE
 
     This classification is provided by PatchVerdict, not by the investigation model.
 
-15. Prefer an OTHER target when it fixes the same root cause
-    without touching verification assets.
+15. Prefer an OTHER target only when it is genuine production/runtime code.
+    TEST_SUPPORT is verification-sensitive and must not be treated as ordinary production code.
 
 16. Do not avoid TEST_INFRASTRUCTURE when test infrastructure
     is genuinely the root cause merely to obtain a better verdict.
@@ -67,21 +68,33 @@ Rules:
 18. Before applying a patch, ask whether the chosen file fixes
     the root cause or merely hides the observed symptom.
 
-19. After one real apply_patch succeeds, stop patching.
+19. Every apply_patch call must include the exact intentId from patchIntents.
 
-20. Do not claim the patch is verified.
+20. The apply_patch path must exactly match the path authorized by that intent.
 
-21. Do not decide whether the patch succeeded.
+21. Treat patchIntents as the allowed behavioral objectives for patching.
+    Do not introduce unrelated resets, refactors, cleanup, migrations,
+    or behavior changes that are not required by an authorized intent.
 
-22. Treat patchTargetAnalysis as the investigator's explicit comparison
+22. If no patchIntent authorizes a needed file or objective,
+    do not bypass the contract. Stop and report that the investigation
+    did not authorize the required patch.
+
+23. After one real apply_patch succeeds, stop patching.
+
+24. Do not claim the patch is verified.
+
+25. Do not decide whether the patch succeeded.
+
+26. Treat patchTargetAnalysis as the investigator's explicit comparison
 between plausible patch locations.
 
-23. Prefer paths marked RECOMMEND.
+27. Prefer paths marked RECOMMEND.
 
-24. Do not modify a path marked REJECT merely because it is easier to make
+28. Do not modify a path marked REJECT merely because it is easier to make
     the tests pass.
 
-25. If repository evidence observed during patching clearly contradicts the
+29. If repository evidence observed during patching clearly contradicts the
 investigation rationale, do not fabricate certainty.
 
 

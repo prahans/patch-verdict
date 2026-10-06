@@ -14,6 +14,10 @@ import {
 } from "./patch-context.js";
 
 import { messageContentToText } from "./message-content.js";
+import {
+  authorizePatchToolInput,
+  type PatchAuthorizationEvidence,
+} from "./patch-authorization.js";
 
 const MAX_PATCH_ITERATIONS = 4;
 const PATCH_ALLOWED_TOOLS = new Set<string>([
@@ -52,6 +56,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
   ];
 
   let patchApplied = false;
+  let authorizationEvidence: PatchAuthorizationEvidence | undefined;
 
   for (let iteration = 1; iteration <= MAX_PATCH_ITERATIONS; iteration++) {
     console.log("");
@@ -84,6 +89,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
       return {
         completed: true,
         patchApplied,
+        authorization: authorizationEvidence,
         report: messageContentToText(message.content),
       };
     }
@@ -125,10 +131,46 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
 
       console.log(`→ ${toolName}`);
 
+      let executionInput = input;
+
+      if (toolName === "apply_patch") {
+        const authorization = authorizePatchToolInput(
+          input,
+          investigation.diagnosis.patchIntents,
+        );
+
+        if (!authorization.ok) {
+          const blockedResult = {
+            ok: false as const,
+            error: authorization.error,
+          };
+
+          console.log(`← ${toolName} BLOCKED: ${authorization.error}`);
+
+          messages.push({
+            role: "tool",
+
+            toolCallId: toolCall.id,
+
+            content: JSON.stringify(blockedResult),
+          });
+
+          continue;
+        }
+
+        authorizationEvidence = authorization.authorization;
+
+        console.log(
+          `  intent: ${authorization.authorization.intentId} -> ${authorization.authorization.authorizedPath}`,
+        );
+
+        executionInput = authorization.input;
+      }
+
       let result;
 
       try {
-        result = await executeTool(sandbox, toolName, input);
+        result = await executeTool(sandbox, toolName, executionInput);
       } catch (error) {
         result = {
           ok: false as const,
@@ -171,6 +213,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
       return {
         completed: true,
         patchApplied: true,
+        authorization: authorizationEvidence,
         report: "Candidate patch applied.",
       };
     }
@@ -179,6 +222,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
   return {
     completed: false,
     patchApplied,
+    authorization: authorizationEvidence,
     report: "Patch iteration budget exhausted.",
   };
 }

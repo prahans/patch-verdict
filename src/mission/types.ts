@@ -2,6 +2,7 @@ import type { VerificationPlan } from "../verification/types.js";
 import type { ReproductionClassification } from "../verification/reproduction.js";
 import type { VerificationIntegrity } from "../verification/integrity.js";
 import type { InvestigationDiagnosis } from "../agent/investigation-contract.js";
+import type { PatchAuthorizationEvidence } from "../agent/patch-authorization.js";
 
 export type MissionState =
   | "PREPARING"
@@ -35,6 +36,8 @@ export type MissionChecks = {
   fullSuitePassesAfterPatch?: boolean;
 
   verificationIntegrityPreserved?: boolean;
+
+  patchMatchesAuthorization?: boolean;
 };
 
 export type MissionResult = {
@@ -54,6 +57,8 @@ export type MissionResult = {
 
   patch?: {
     applied: boolean;
+
+    authorization?: PatchAuthorizationEvidence;
 
     baseCommit: string;
 

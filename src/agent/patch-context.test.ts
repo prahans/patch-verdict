@@ -10,6 +10,21 @@ describe("buildPatchAgentContext", () => {
       diagnosis: {
         rootCause: "DOM cleanup is not registered globally.",
 
+        scopeAnalysis: {
+          scope: "SHARED",
+
+          reason:
+            "The missing cleanup behavior belongs to shared test lifecycle configuration.",
+
+          evidenceRefs: [
+            {
+              kind: "FILE",
+
+              source: "vitest.setup.ts",
+            },
+          ],
+        },
+
         evidence: [
           {
             kind: "FILE",
@@ -37,11 +52,50 @@ describe("buildPatchAgentContext", () => {
             decision: "RECOMMEND",
 
             reason: "This file directly addresses the diagnosed root cause.",
+
+            evidenceRefs: [
+              {
+                kind: "FILE",
+
+                source: "vitest.setup.ts",
+              },
+            ],
+          },
+        ],
+
+        patchIntents: [
+          {
+            id: "intent-1",
+
+            path: "vitest.setup.ts",
+
+            objective:
+              "Ensure shared cleanup runs between affected test cases.",
+
+            evidenceRefs: [
+              {
+                kind: "FILE",
+
+                source: "vitest.setup.ts",
+              },
+            ],
           },
         ],
 
         confidence: "HIGH",
       },
+    });
+
+    expect(result.scopeAnalysis).toEqual({
+      scope: "SHARED",
+      reason:
+        "The missing cleanup behavior belongs to shared test lifecycle configuration.",
+      evidenceRefs: [
+        {
+          kind: "FILE",
+          source: "vitest.setup.ts",
+        },
+      ],
     });
 
     expect(result.recommendedPatchTargets).toEqual([
@@ -61,6 +115,27 @@ describe("buildPatchAgentContext", () => {
         path: "src/components/DarkMode.test.tsx",
 
         verificationRole: "TEST_FILE",
+      },
+    ]);
+
+    expect(result.patchIntents).toEqual([
+      {
+        id: "intent-1",
+
+        path: "vitest.setup.ts",
+
+        objective:
+          "Ensure shared cleanup runs between affected test cases.",
+
+        evidenceRefs: [
+          {
+            kind: "FILE",
+
+            source: "vitest.setup.ts",
+          },
+        ],
+
+        verificationRole: "TEST_INFRASTRUCTURE",
       },
     ]);
   });

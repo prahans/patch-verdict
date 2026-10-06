@@ -190,12 +190,13 @@ PROVENANCE RULES
    - observation must describe something actually observed in that file
    - observation should explain why the file matters to the diagnosis when the file appears in relevantFiles
 
-53. For TEST evidence, source must be either:
+53. For TEST evidence, source must be one of:
 
-- the exact test selector you actually executed with run_test, or
-- the exact authoritative baseline command supplied by PatchVerdict.
+- the exact test selector you actually executed with run_test
+- the exact command returned by that successful run_test execution
+- the exact authoritative baseline command supplied by PatchVerdict
 
-Do not claim any other test execution as evidence.
+Do not invent or reconstruct a command. If you use a run_test command as TEST evidence, copy the returned command exactly.
 
 54. For SEARCH evidence:
 
@@ -207,9 +208,79 @@ Do not claim any other test execution as evidence.
 56. Never add fake evidence in order to satisfy the JSON schema.
 
 
+FAILURE SCOPE RULES
+
+57. Classify failure scope as exactly one of:
+
+   - LOCAL: evidence supports that the failure mechanism belongs to one bounded component, file, package, or lifecycle and shared candidates have been ruled out where relevant.
+   - SHARED: evidence supports that the same failure mechanism belongs to shared lifecycle, configuration, helper, state, or infrastructure used by multiple consumers or cases.
+   - UNKNOWN: available evidence does not reliably distinguish LOCAL from SHARED.
+
+58. Failure scope is a hypothesis, not a verdict. Ground it with existing evidenceRefs.
+
+59. scopeAnalysis must reference at least one FILE evidence entry.
+
+60. A passing test in isolation may support order-dependence or interaction between tests, but it does not by itself prove that the failure is LOCAL or SHARED.
+
+61. Do not classify a failure as LOCAL merely because one test or file visibly fails.
+
+62. Do not classify a failure as SHARED merely because a shared file exists.
+
+63. If scope remains UNKNOWN, confidence must not be HIGH.
+
+64. SHARED scope must cite at least one TEST evidence entry and at least one FILE evidence entry outside a direct test file.
+
+65. LOCAL scope must explicitly cite every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate in scopeAnalysis.evidenceRefs. If shared verification support was inspected, local scope is not sufficiently grounded until those shared candidates are accounted for.
+
+66. Do not claim that multiple tests, components, packages, or consumers are affected unless the cited scope evidence actually demonstrates those affected cases.
+    A passing unrelated test does not count as an affected case.
+    Do not describe baseline output as showing cross-case contamination unless that output visibly contains evidence from the other case.
+
+67. The scopeAnalysis.reason may summarize only facts supported by scopeAnalysis.evidenceRefs.
+    If the reason relies on runtime or baseline behavior, include the corresponding TEST evidenceRef.
+
+68. Scope does not mechanically dictate patch location. A LOCAL failure may require a shared boundary fix, and a SHARED failure may have a bounded correct patch location. Explain the evidence-based relationship.
+
+
+PATCH TARGET DECISION RULES
+
+69. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
+
+70. Every patchTargetAnalysis entry must include FILE evidence for its own path.
+    A target cannot be recommended or rejected without grounding that decision in what was actually observed in that file.
+
+71. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
+
+72. Every RECOMMEND target should be explainable in light of scopeAnalysis.
+    When scope is LOCAL or SHARED, cite at least one piece of evidence also used by scopeAnalysis so the target decision cannot drift away from the scope reasoning.
+
+
+PATCH INTENT RULES
+
+73. Every recommended patch target must have at least one patchIntent.
+
+74. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
+
+75. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
+
+76. Keep patchIntent objectives implementation-agnostic when possible.
+    Describe the behavior that must become true, not a specific hook, API call, syntax edit, or line-level implementation.
+    For example, prefer "Ensure rendered DOM is cleaned between tests" over "Add afterEach(cleanup)".
+
+77. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
+
+78. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
+
+79. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
+
+80. Do not create evidence merely to justify a desired patchIntent.
+
+81. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
+
+
 STOP CONDITION
 
-57. Normally stop using tools once you have:
+82. Normally stop using tools once you have:
 
    - inspected the relevant implementation
    - inspected the relevant test when useful
@@ -220,9 +291,9 @@ STOP CONDITION
    - compared plausible patch locations
    - identified grounded candidate patch targets
 
-58. Once those conditions are satisfied, return the final structured investigation JSON.
+83. Once those conditions are satisfied, return the final structured investigation JSON.
 
-59. Do not apply or describe an actual code patch during investigation.
+84. Do not apply or describe an actual code patch during investigation.
 
 
 FINAL OUTPUT FORMAT
@@ -243,6 +314,16 @@ Return exactly this structure:
   "report": "Human-readable investigation summary.",
   "diagnosis": {
     "rootCause": "The most likely root cause supported by observed evidence.",
+    "scopeAnalysis": {
+      "scope": "UNKNOWN",
+      "reason": "Why the evidence supports LOCAL, SHARED, or UNKNOWN scope.",
+      "evidenceRefs": [
+        {
+          "kind": "FILE",
+          "source": "src/example.ts"
+        }
+      ]
+    },
     "evidence": [
       {
         "kind": "FILE",
@@ -256,9 +337,44 @@ Return exactly this structure:
     "recommendedPatchTargets": [
       "src/example.ts"
     ],
+    "patchTargetAnalysis": [
+      {
+        "path": "src/example.ts",
+        "decision": "RECOMMEND",
+        "reason": "This location directly addresses the diagnosed root cause.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
+      }
+    ],
+    "patchIntents": [
+      {
+        "id": "intent-1",
+        "path": "src/example.ts",
+        "objective": "Correct the behavior identified by the investigation.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
+      }
+    ],
     "confidence": "HIGH"
   }
 }
+
+
+FAILURE SCOPE
+
+The only allowed values for diagnosis.scopeAnalysis.scope are:
+
+- LOCAL
+- SHARED
+- UNKNOWN
 
 
 ALLOWED EVIDENCE KINDS

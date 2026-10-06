@@ -12,12 +12,35 @@ describe("parseInvestigationModelOutput", () => {
           rootCause:
             "Rendered DOM survives between tests because shared cleanup is not configured.",
 
+          scopeAnalysis: {
+            scope: "SHARED",
+            reason:
+              "The missing cleanup behavior belongs to shared test lifecycle setup rather than one individual test.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "vitest.setup.ts",
+              },
+              {
+                kind: "FILE",
+                source: "src/components/DarkMode.test.tsx",
+              },
+            ],
+          },
+
           evidence: [
             {
               kind: "FILE",
               source: "vitest.setup.ts",
               observation:
                 "The setup file does not register Testing Library cleanup.",
+            },
+
+            {
+              kind: "FILE",
+              source: "src/components/DarkMode.test.tsx",
+              observation:
+                "The failing test renders DOM and exposes the accumulated-state symptom.",
             },
 
             {
@@ -41,6 +64,12 @@ describe("parseInvestigationModelOutput", () => {
               decision: "RECOMMEND",
               reason:
                 "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
             },
 
             {
@@ -48,6 +77,26 @@ describe("parseInvestigationModelOutput", () => {
               decision: "REJECT",
               reason:
                 "Changing only the failing test would address the local symptom instead of the shared test lifecycle.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
+            },
+          ],
+
+          patchIntents: [
+            {
+              id: "intent-1",
+              path: "vitest.setup.ts",
+              objective: "Ensure rendered DOM is cleaned between tests.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
             },
           ],
 
@@ -68,6 +117,12 @@ describe("parseInvestigationModelOutput", () => {
         decision: "RECOMMEND",
         reason:
           "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "vitest.setup.ts",
+          },
+        ],
       },
 
       {
@@ -75,6 +130,12 @@ describe("parseInvestigationModelOutput", () => {
         decision: "REJECT",
         reason:
           "Changing only the failing test would address the local symptom instead of the shared test lifecycle.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "src/components/DarkMode.test.tsx",
+          },
+        ],
       },
     ]);
 
@@ -88,6 +149,16 @@ describe("parseInvestigationModelOutput", () => {
   "report": "Root cause identified.",
   "diagnosis": {
     "rootCause": "Incorrect state transition.",
+    "scopeAnalysis": {
+      "scope": "LOCAL",
+      "reason": "The incorrect transition is contained in the inspected state implementation.",
+      "evidenceRefs": [
+        {
+          "kind": "FILE",
+          "source": "src/state.ts"
+        }
+      ]
+    },
     "evidence": [
       {
         "kind": "FILE",
@@ -105,7 +176,26 @@ describe("parseInvestigationModelOutput", () => {
       {
         "path": "src/state.ts",
         "decision": "RECOMMEND",
-        "reason": "This file contains the incorrect state transition and directly addresses the diagnosed root cause."
+        "reason": "This file contains the incorrect state transition and directly addresses the diagnosed root cause.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/state.ts"
+          }
+        ]
+      }
+    ],
+    "patchIntents": [
+      {
+        "id": "intent-1",
+        "path": "src/state.ts",
+        "objective": "Correct the incorrect state transition.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/state.ts"
+          }
+        ]
       }
     ],
     "confidence": "HIGH"
@@ -122,6 +212,26 @@ describe("parseInvestigationModelOutput", () => {
         decision: "RECOMMEND",
         reason:
           "This file contains the incorrect state transition and directly addresses the diagnosed root cause.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "src/state.ts",
+          },
+        ],
+      },
+    ]);
+
+    expect(result.diagnosis.patchIntents).toEqual([
+      {
+        id: "intent-1",
+        path: "src/state.ts",
+        objective: "Correct the incorrect state transition.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "src/state.ts",
+          },
+        ],
       },
     ]);
   });
@@ -134,6 +244,20 @@ describe("parseInvestigationModelOutput", () => {
 
           diagnosis: {
             rootCause: "Example root cause.",
+
+            scopeAnalysis: {
+              scope: "UNKNOWN",
+
+              reason:
+                "This fixture does not establish whether the example defect is local or shared.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/example.ts",
+                },
+              ],
+            },
 
             evidence: [
               {
@@ -158,6 +282,28 @@ describe("parseInvestigationModelOutput", () => {
 
                 reason:
                   "This valid analysis entry keeps the test focused on the invalid recommended target path.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+            ],
+
+            patchIntents: [
+              {
+                id: "intent-1",
+                path: "src/example.ts",
+                objective:
+                  "Keep the remaining fixture structurally valid while testing absolute target rejection.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
               },
             ],
 
@@ -176,6 +322,20 @@ describe("parseInvestigationModelOutput", () => {
 
           diagnosis: {
             rootCause: "Example root cause.",
+
+            scopeAnalysis: {
+              scope: "UNKNOWN",
+
+              reason:
+                "This fixture does not establish whether the example defect is local or shared.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/example.ts",
+                },
+              ],
+            },
 
             evidence: [
               {
@@ -200,6 +360,28 @@ describe("parseInvestigationModelOutput", () => {
 
                 reason:
                   "This valid analysis entry keeps the test focused on repository path traversal rejection.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+            ],
+
+            patchIntents: [
+              {
+                id: "intent-1",
+                path: "src/example.ts",
+                objective:
+                  "Keep the remaining fixture structurally valid while testing path traversal rejection.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
               },
             ],
 
@@ -219,6 +401,20 @@ describe("parseInvestigationModelOutput", () => {
           diagnosis: {
             rootCause: "Something is wrong.",
 
+            scopeAnalysis: {
+              scope: "UNKNOWN",
+
+              reason:
+                "This fixture intentionally lacks evidence needed to establish failure scope.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/example.ts",
+                },
+              ],
+            },
+
             /*
              * Intentionally empty.
              */
@@ -236,6 +432,28 @@ describe("parseInvestigationModelOutput", () => {
 
                 reason:
                   "This target is structurally valid so this test isolates the missing-evidence rule.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+            ],
+
+            patchIntents: [
+              {
+                id: "intent-1",
+                path: "src/example.ts",
+                objective:
+                  "Keep the remaining fixture structurally valid while testing the missing-evidence rule.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
               },
             ],
 
