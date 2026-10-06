@@ -10,6 +10,21 @@ describe("buildPatchAgentContext", () => {
       diagnosis: {
         rootCause: "DOM cleanup is not registered globally.",
 
+        scopeAnalysis: {
+          scope: "SHARED",
+
+          reason:
+            "The missing cleanup behavior belongs to shared test lifecycle configuration.",
+
+          evidenceRefs: [
+            {
+              kind: "FILE",
+
+              source: "vitest.setup.ts",
+            },
+          ],
+        },
+
         evidence: [
           {
             kind: "FILE",
@@ -69,6 +84,18 @@ describe("buildPatchAgentContext", () => {
 
         confidence: "HIGH",
       },
+    });
+
+    expect(result.scopeAnalysis).toEqual({
+      scope: "SHARED",
+      reason:
+        "The missing cleanup behavior belongs to shared test lifecycle configuration.",
+      evidenceRefs: [
+        {
+          kind: "FILE",
+          source: "vitest.setup.ts",
+        },
+      ],
     });
 
     expect(result.recommendedPatchTargets).toEqual([
