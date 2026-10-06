@@ -101,6 +101,15 @@ export function assertRootCauseAnalysisGrounding(
     );
 
     if (
+      alternative.layer === "DEPENDENCY_RUNTIME" &&
+      !alternative.evidenceRefs.some((ref) => ref.kind === "TEST")
+    ) {
+      errors.push(
+        `Alternative DEPENDENCY_RUNTIME cause "${alternative.hypothesis}" must cite TEST evidence for the observed runtime behavior.`,
+      );
+    }
+
+    if (
       alternative.layer === analysis.primaryCause.layer &&
       alternative.hypothesis.trim().toLowerCase() ===
         analysis.primaryCause.hypothesis.trim().toLowerCase()
