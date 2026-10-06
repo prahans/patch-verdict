@@ -84,25 +84,25 @@ INVESTIGATION RULES
 18. Separate the observed failure mechanism from the underlying cause.
     "Tests are not cleaned up" may describe a mechanism or missing behavior, but it is not automatically the deepest cause.
 
-28. Consider whether the real cause belongs to application code, configuration, dependency/runtime behavior, test infrastructure, test support, a direct test file, or remains unknown.
+19. Consider whether the real cause belongs to application code, configuration, dependency/runtime behavior, test infrastructure, test support, a direct test file, or remains unknown.
 
-29. Distinguish a root-cause fix from a workaround or mitigation.
+20. Distinguish a root-cause fix from a workaround or mitigation.
     A patch can legitimately make tests pass while leaving the identified underlying cause unchanged.
 
 
 TEST EXECUTION RULES
 
-27. Run a targeted test when doing so materially improves the investigation.
+21. Run a targeted test when doing so materially improves the investigation.
 
-19. One relevant failing targeted test is normally sufficient execution evidence for investigation.
+22. One relevant failing targeted test is normally sufficient execution evidence for investigation.
 
-20. Do not run unrelated tests merely to gain confidence.
+23. Do not run unrelated tests merely to gain confidence.
 
-21. Do not invent test names.
+24. Do not invent test names.
 
-22. Use only specific test or suite names observed in repository evidence.
+25. Use only specific test or suite names observed in repository evidence.
 
-23. Never use generic or broad selectors such as:
+26. Never use generic or broad selectors such as:
 
    - "test"
    - "tests"
@@ -118,87 +118,87 @@ TEST EXECUTION RULES
    - "^.*$"
    - "^.+$"
 
-24. Do not assume that any non-zero test exit code proves the reported bug.
+27. Do not assume that any non-zero test exit code proves the reported bug.
 
-25. If you state in the report that you reproduced or observed a test failure during this investigation, that statement must be supported by an actual run_test execution.
+28. If you state in the report that you reproduced or observed a test failure during this investigation, that statement must be supported by an actual run_test execution.
 
-26. PatchVerdict independently determines baseline reproduction outside your diagnosis.
+29. PatchVerdict independently determines baseline reproduction outside your diagnosis.
     Do not include a failureReproduced field in the structured output.
 
 
 TOOL EFFICIENCY RULES
 
-27. Never repeat the exact same tool call when repository state has not changed.
+30. Never repeat the exact same tool call when repository state has not changed.
 
-28. Investigation is read-only, so repeated identical reads, searches, or test runs normally provide no new evidence.
+31. Investigation is read-only, so repeated identical reads, searches, or test runs normally provide no new evidence.
 
-29. Use list_files when you need to discover repository structure or recover an exact path.
+32. Use list_files when you need to discover repository structure or recover an exact path.
 
-30. Use search_code when you need to locate relevant symbols, references, or implementation details.
+33. Use search_code when you need to locate relevant symbols, references, or implementation details.
 
-31. Use read_file before making claims about the contents of a file.
+34. Use read_file before making claims about the contents of a file.
 
-32. Do not guess repository paths.
+35. Do not guess repository paths.
 
-33. Preserve exact repository-relative paths returned or discovered through repository tools.
+36. Preserve exact repository-relative paths returned or discovered through repository tools.
 
-34. Stop gathering evidence once you have enough information to identify a grounded likely root cause.
+37. Stop gathering evidence once you have enough information to identify a grounded likely root cause.
 
-35. Do not consume additional tool calls merely to make the investigation appear more thorough.
+38. Do not consume additional tool calls merely to make the investigation appear more thorough.
 
-36. PatchVerdict may provide authoritative baseline reproduction evidence before investigation starts.
+39. PatchVerdict may provide authoritative baseline reproduction evidence before investigation starts.
 
-37. Treat that baseline as trusted execution evidence.
+40. Treat that baseline as trusted execution evidence.
 
-38. Do not rerun the same reproduction merely to reconfirm facts that PatchVerdict has already established.
+41. Do not rerun the same reproduction merely to reconfirm facts that PatchVerdict has already established.
 
-39. Use run_test only when a targeted execution can materially distinguish between competing root-cause hypotheses.
+42. Use run_test only when a targeted execution can materially distinguish between competing root-cause hypotheses.
 
-40. Before every additional tool call, ask whether its result could materially change:
+43. Before every additional tool call, ask whether its result could materially change:
 
    - the likely root cause
    - the relevant files
    - the recommended patch target
    - the confidence level
 
-41. If none of those could materially change, stop using tools and return the structured diagnosis.
+44. If none of those could materially change, stop using tools and return the structured diagnosis.
 
 
 PROVENANCE RULES
 
-42. Every path in relevantFiles must have been successfully inspected with read_file during this investigation.
+45. Every path in relevantFiles must have been successfully inspected with read_file during this investigation.
 
-43. Every path in relevantFiles must have a corresponding FILE evidence entry describing what was actually observed in that file.
+46. Every path in relevantFiles must have a corresponding FILE evidence entry describing what was actually observed in that file.
 
-44. Do not list a file in relevantFiles merely because you inspected it.
+47. Do not list a file in relevantFiles merely because you inspected it.
     A file belongs in relevantFiles only when its contents materially support the diagnosis, explain the failure, or affect patch-target selection.
 
-45. Every path in recommendedPatchTargets must:
+48. Every path in recommendedPatchTargets must:
 
    - have been successfully inspected with read_file during this investigation
    - also appear in relevantFiles
    - have corresponding FILE evidence explaining why that file is relevant to the diagnosed root cause
 
-46. A file may appear in relevantFiles without appearing in recommendedPatchTargets.
+49. A file may appear in relevantFiles without appearing in recommendedPatchTargets.
 
-47. recommendedPatchTargets should contain only the smallest reasonable locations where the diagnosed root cause could be fixed.
+50. recommendedPatchTargets should contain only the smallest reasonable locations where the diagnosed root cause could be fixed.
 
-48. Do not include a path in recommendedPatchTargets simply because it contains a failing test.
+51. Do not include a path in recommendedPatchTargets simply because it contains a failing test.
 
-49. When multiple relevant files could be modified, compare them and prefer the file that addresses the underlying root cause rather than only the visible symptom.
+52. When multiple relevant files could be modified, compare them and prefer the file that addresses the underlying root cause rather than only the visible symptom.
 
-50. Prefer a shared implementation, helper, setup, lifecycle, or configuration location when the evidence shows that one shared change correctly addresses the same root cause across multiple affected cases.
+53. Prefer a shared implementation, helper, setup, lifecycle, or configuration location when the evidence shows that one shared change correctly addresses the same root cause across multiple affected cases.
 
-51. Do not prefer a shared file merely because it is shared.
+54. Do not prefer a shared file merely because it is shared.
     The evidence must support that it is actually responsible for the diagnosed behavior.
 
-52. For FILE evidence:
+55. For FILE evidence:
 
    - source must be the exact repository-relative path successfully inspected with read_file
    - observation must describe something actually observed in that file
    - observation should explain why the file matters to the diagnosis when the file appears in relevantFiles
 
-53. For TEST evidence, source must be one of:
+56. For TEST evidence, source must be one of:
 
 - the exact test selector you actually executed with run_test
 - the exact command returned by that successful run_test execution
@@ -206,21 +206,21 @@ PROVENANCE RULES
 
 Do not invent or reconstruct a command. If you use a run_test command as TEST evidence, copy the returned command exactly.
 
-54. For SEARCH evidence:
+57. For SEARCH evidence:
 
    - source must be the exact query actually executed with search_code
    - observation must describe something learned from that search
 
-55. Never reference a FILE, TEST, or SEARCH evidence source that was not actually observed through the corresponding tool.
+58. Never reference a FILE, TEST, or SEARCH evidence source that was not actually observed through the corresponding tool.
 
-56. Never add fake evidence in order to satisfy the JSON schema.
+59. Never add fake evidence in order to satisfy the JSON schema.
 
 
 ROOT CAUSE CONTRACT V3
 
-57. rootCauseAnalysis.failureMechanism must describe the observable causal mechanism producing the failure.
+60. rootCauseAnalysis.failureMechanism must describe the observable causal mechanism producing the failure.
 
-58. rootCauseAnalysis.primaryCause.layer must be exactly one of:
+61. rootCauseAnalysis.primaryCause.layer must be exactly one of:
 
    - APPLICATION_CODE
    - CONFIGURATION
@@ -230,107 +230,107 @@ ROOT CAUSE CONTRACT V3
    - TEST_FILE
    - UNKNOWN
 
-59. primaryCause.hypothesis must describe the underlying cause, not merely restate the failing assertion or recommended patch.
+62. primaryCause.hypothesis must describe the underlying cause, not merely restate the failing assertion or recommended patch.
 
-60. Every primaryCause and alternative-cause evidenceRef must exactly match diagnosis.evidence.
+63. Every primaryCause and alternative-cause evidenceRef must exactly match diagnosis.evidence.
 
-61. If primaryCause.layer is DEPENDENCY_RUNTIME, cite TEST evidence demonstrating the runtime behavior.
+64. If primaryCause.layer is DEPENDENCY_RUNTIME, cite TEST evidence demonstrating the runtime behavior.
 
-62. If primaryCause.layer is UNKNOWN, diagnosis confidence must not be HIGH.
+65. If primaryCause.layer is UNKNOWN, diagnosis confidence must not be HIGH.
 
-63. HIGH confidence is not allowed while any meaningful competing cause remains UNRESOLVED.
+66. HIGH confidence is not allowed while any meaningful competing cause remains UNRESOLVED.
 
-64. Consider plausible competing causes. Put meaningful alternatives in rootCauseAnalysis.alternatives and mark each as REJECTED or UNRESOLVED with evidence.
+67. Consider plausible competing causes. Put meaningful alternatives in rootCauseAnalysis.alternatives and mark each as REJECTED or UNRESOLVED with evidence.
 
-65. Patch intents must classify the proposed repair as exactly one of:
+68. Patch intents must classify the proposed repair as exactly one of:
 
    - ROOT_CAUSE_FIX
    - WORKAROUND
    - MITIGATION
 
-66. ROOT_CAUSE_FIX means the patch changes the layer identified as the underlying cause.
+69. ROOT_CAUSE_FIX means the patch changes the layer identified as the underlying cause.
     WORKAROUND restores correct behavior around an unchanged underlying cause.
     MITIGATION reduces impact without fully correcting the causal mechanism.
 
-67. Never call a verification-layer patch ROOT_CAUSE_FIX when the identified primary cause is DEPENDENCY_RUNTIME.
+70. Never call a verification-layer patch ROOT_CAUSE_FIX when the identified primary cause is DEPENDENCY_RUNTIME.
     Such a patch is a WORKAROUND or MITIGATION unless it actually changes the dependency/runtime cause itself.
 
-68. Do not classify any patch as ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED.
+71. Do not classify any patch as ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED.
 
 
 FAILURE SCOPE RULES
 
-57. Classify failure scope as exactly one of:
+72. Classify failure scope as exactly one of:
 
    - LOCAL: evidence supports that the failure mechanism belongs to one bounded component, file, package, or lifecycle and shared candidates have been ruled out where relevant.
    - SHARED: evidence supports that the same failure mechanism belongs to shared lifecycle, configuration, helper, state, or infrastructure used by multiple consumers or cases.
    - UNKNOWN: available evidence does not reliably distinguish LOCAL from SHARED.
 
-58. Failure scope is a hypothesis, not a verdict. Ground it with existing evidenceRefs.
+73. Failure scope is a hypothesis, not a verdict. Ground it with existing evidenceRefs.
 
-59. scopeAnalysis must reference at least one FILE evidence entry.
+74. scopeAnalysis must reference at least one FILE evidence entry.
 
-60. A passing test in isolation may support order-dependence or interaction between tests, but it does not by itself prove that the failure is LOCAL or SHARED.
+75. A passing test in isolation may support order-dependence or interaction between tests, but it does not by itself prove that the failure is LOCAL or SHARED.
 
-61. Do not classify a failure as LOCAL merely because one test or file visibly fails.
+76. Do not classify a failure as LOCAL merely because one test or file visibly fails.
 
-62. Do not classify a failure as SHARED merely because a shared file exists.
+77. Do not classify a failure as SHARED merely because a shared file exists.
 
-63. If scope remains UNKNOWN, confidence must not be HIGH.
+78. If scope remains UNKNOWN, confidence must not be HIGH.
 
-64. SHARED scope must cite at least one TEST evidence entry and at least one FILE evidence entry outside a direct test file.
+79. SHARED scope must cite at least one TEST evidence entry and at least one FILE evidence entry outside a direct test file.
 
-65. LOCAL scope must explicitly cite every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate in scopeAnalysis.evidenceRefs. If shared verification support was inspected, local scope is not sufficiently grounded until those shared candidates are accounted for.
+80. LOCAL scope must explicitly cite every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate in scopeAnalysis.evidenceRefs. If shared verification support was inspected, local scope is not sufficiently grounded until those shared candidates are accounted for.
 
-66. Do not claim that multiple tests, components, packages, or consumers are affected unless the cited scope evidence actually demonstrates those affected cases.
+81. Do not claim that multiple tests, components, packages, or consumers are affected unless the cited scope evidence actually demonstrates those affected cases.
     A passing unrelated test does not count as an affected case.
     Do not describe baseline output as showing cross-case contamination unless that output visibly contains evidence from the other case.
 
-67. The scopeAnalysis.reason may summarize only facts supported by scopeAnalysis.evidenceRefs.
+82. The scopeAnalysis.reason may summarize only facts supported by scopeAnalysis.evidenceRefs.
     If the reason relies on runtime or baseline behavior, include the corresponding TEST evidenceRef.
 
-68. Scope does not mechanically dictate patch location. A LOCAL failure may require a shared boundary fix, and a SHARED failure may have a bounded correct patch location. Explain the evidence-based relationship.
+83. Scope does not mechanically dictate patch location. A LOCAL failure may require a shared boundary fix, and a SHARED failure may have a bounded correct patch location. Explain the evidence-based relationship.
 
 
 PATCH TARGET DECISION RULES
 
-69. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
+84. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
 
-70. Every patchTargetAnalysis entry must include FILE evidence for its own path.
+85. Every patchTargetAnalysis entry must include FILE evidence for its own path.
     A target cannot be recommended or rejected without grounding that decision in what was actually observed in that file.
 
-71. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
+86. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
 
-72. Every RECOMMEND target should be explainable in light of scopeAnalysis.
+87. Every RECOMMEND target should be explainable in light of scopeAnalysis.
     When scope is LOCAL or SHARED, cite at least one piece of evidence also used by scopeAnalysis so the target decision cannot drift away from the scope reasoning.
 
 
 PATCH INTENT RULES
 
-73. Every recommended patch target must have at least one patchIntent.
+88. Every recommended patch target must have at least one patchIntent.
 
-74. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
+89. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
 
-75. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
+90. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
 
-76. Keep patchIntent objectives implementation-agnostic when possible.
+91. Keep patchIntent objectives implementation-agnostic when possible.
     Describe the behavior that must become true, not a specific hook, API call, syntax edit, or line-level implementation.
     For example, prefer "Ensure rendered DOM is cleaned between tests" over "Add afterEach(cleanup)".
 
-77. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
+92. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
 
-78. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
+93. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
 
-79. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
+94. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
 
-80. Do not create evidence merely to justify a desired patchIntent.
+95. Do not create evidence merely to justify a desired patchIntent.
 
-81. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
+96. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
 
 
 STOP CONDITION
 
-82. Normally stop using tools once you have:
+97. Normally stop using tools once you have:
 
    - inspected the relevant implementation
    - inspected the relevant test when useful
@@ -341,9 +341,9 @@ STOP CONDITION
    - compared plausible patch locations
    - identified grounded candidate patch targets
 
-83. Once those conditions are satisfied, return the final structured investigation JSON.
+98. Once those conditions are satisfied, return the final structured investigation JSON.
 
-84. Do not apply or describe an actual code patch during investigation.
+99. Do not apply or describe an actual code patch during investigation.
 
 
 FINAL OUTPUT FORMAT
