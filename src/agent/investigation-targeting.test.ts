@@ -33,6 +33,12 @@ const diagnosis = {
 
       reason:
         "This shared lifecycle setup can establish cleanup for every affected test.",
+      evidenceRefs: [
+        {
+          kind: "FILE",
+          source: "vitest.setup.ts",
+        },
+      ],
     },
 
     {
@@ -42,6 +48,12 @@ const diagnosis = {
 
       reason:
         "Changing only this test would fix the local symptom rather than the shared lifecycle.",
+      evidenceRefs: [
+        {
+          kind: "FILE",
+          source: "src/components/DarkMode.test.tsx",
+        },
+      ],
     },
   ],
 
@@ -92,6 +104,12 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "This is only the visible failure location and not the shared root cause.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
             },
           ],
         },
@@ -116,6 +134,12 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "Example unsupported extra recommendation for validation.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.tsx",
+                },
+              ],
             },
           ],
 
@@ -145,6 +169,12 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "This file is intentionally unrelated for the validation test.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/unrelated.ts",
+                },
+              ],
             },
           ],
         },
@@ -168,12 +198,70 @@ describe("assertPatchTargetAnalysis", () => {
               decision: "RECOMMEND",
 
               reason: "The test file is proposed as the patch location.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
             },
           ],
         },
         targetingContext,
       ),
     ).toThrow(/missing analysis for: vitest\.setup\.ts/i);
+  });
+
+  it("rejects target analysis that cites unknown evidence", () => {
+    expect(() =>
+      assertPatchTargetAnalysis(
+        {
+          ...diagnosis,
+
+          patchTargetAnalysis: [
+            {
+              ...diagnosis.patchTargetAnalysis[0]!,
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/made-up.ts",
+                },
+              ],
+            },
+
+            diagnosis.patchTargetAnalysis[1]!,
+          ],
+        },
+        targetingContext,
+      ),
+    ).toThrow(/does not exist in diagnosis\.evidence/i);
+  });
+
+  it("requires each target decision to cite FILE evidence for its own path", () => {
+    expect(() =>
+      assertPatchTargetAnalysis(
+        {
+          ...diagnosis,
+
+          patchTargetAnalysis: [
+            {
+              ...diagnosis.patchTargetAnalysis[0]!,
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
+            },
+
+            diagnosis.patchTargetAnalysis[1]!,
+          ],
+        },
+        targetingContext,
+      ),
+    ).toThrow(/must reference FILE evidence for that same path/i);
   });
 
   it("allows a direct test recommendation when inspected infrastructure is explicitly rejected", () => {
@@ -212,6 +300,12 @@ describe("assertPatchTargetAnalysis", () => {
               decision: "RECOMMEND",
 
               reason: "The lifecycle defect is isolated to this direct test.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
             },
 
             {
@@ -221,6 +315,12 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "The shared setup is already correct and should not be modified for this isolated lifecycle defect.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
             },
           ],
 
