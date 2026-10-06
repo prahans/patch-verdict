@@ -7,6 +7,22 @@ import { assertPatchIntentContract } from "./investigation-intents.js";
 const diagnosis = {
   rootCause: "Shared test cleanup is missing.",
 
+  scopeAnalysis: {
+    scope: "SHARED",
+    reason:
+      "The missing lifecycle behavior belongs to shared test setup.",
+    evidenceRefs: [
+      {
+        kind: "FILE",
+        source: "vitest.setup.ts",
+      },
+      {
+        kind: "TEST",
+        source: "npm test",
+      },
+    ],
+  },
+
   evidence: [
     {
       kind: "FILE",
