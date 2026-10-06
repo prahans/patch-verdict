@@ -165,7 +165,7 @@ export const patchToolDefinitions = [
       name: "apply_patch",
 
       description:
-        "Replace the contents of one repository file with a candidate fixed version authorized by a validated patch intent."
+        "Replace the contents of one repository file with a candidate fixed version authorized by a validated patch intent.",
 
       parameters: {
         type: "object",
