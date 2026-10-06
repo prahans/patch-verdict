@@ -177,6 +177,8 @@ Failure-scope rules:
 - UNKNOWN scope cannot use HIGH confidence
 - LOCAL or SHARED scope must be supported by evidence, not inferred only from where the failure surfaced
 - a passing isolated test may support order-dependence but does not by itself prove LOCAL or SHARED scope
+- do not claim multiple affected tests/components/consumers unless the cited evidence actually demonstrates those affected cases
+- if scopeAnalysis.reason relies on baseline/runtime behavior, include the matching TEST evidenceRef
 
 Patch-target decision rules:
 
@@ -636,6 +638,8 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 
 - every relevant file and recommended target must be grounded in observed evidence
 - failure scope must be LOCAL, SHARED, or UNKNOWN and grounded in existing evidence
+- scopeAnalysis.reason may only summarize facts supported by its evidenceRefs
+- runtime/baseline scope claims must cite the matching TEST evidenceRef
 - UNKNOWN scope cannot use HIGH confidence
 - if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
 - every RECOMMEND target must have a grounded patchIntent
