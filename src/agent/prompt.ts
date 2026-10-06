@@ -207,9 +207,28 @@ Do not claim any other test execution as evidence.
 56. Never add fake evidence in order to satisfy the JSON schema.
 
 
+PATCH INTENT RULES
+
+57. Every recommended patch target must have at least one patchIntent.
+
+58. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
+
+59. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
+
+60. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
+
+61. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
+
+62. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
+
+63. Do not create evidence merely to justify a desired patchIntent.
+
+64. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
+
+
 STOP CONDITION
 
-57. Normally stop using tools once you have:
+65. Normally stop using tools once you have:
 
    - inspected the relevant implementation
    - inspected the relevant test when useful
@@ -220,9 +239,9 @@ STOP CONDITION
    - compared plausible patch locations
    - identified grounded candidate patch targets
 
-58. Once those conditions are satisfied, return the final structured investigation JSON.
+66. Once those conditions are satisfied, return the final structured investigation JSON.
 
-59. Do not apply or describe an actual code patch during investigation.
+67. Do not apply or describe an actual code patch during investigation.
 
 
 FINAL OUTPUT FORMAT
@@ -255,6 +274,26 @@ Return exactly this structure:
     ],
     "recommendedPatchTargets": [
       "src/example.ts"
+    ],
+    "patchTargetAnalysis": [
+      {
+        "path": "src/example.ts",
+        "decision": "RECOMMEND",
+        "reason": "This location directly addresses the diagnosed root cause."
+      }
+    ],
+    "patchIntents": [
+      {
+        "id": "intent-1",
+        "path": "src/example.ts",
+        "objective": "Correct the behavior identified by the investigation.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
+      }
     ],
     "confidence": "HIGH"
   }
