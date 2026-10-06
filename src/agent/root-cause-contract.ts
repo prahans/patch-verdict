@@ -153,8 +153,11 @@ export function assertRepairKindCompatibleWithCause(input: {
     );
   }
 
+  if (input.repairKind !== "ROOT_CAUSE_FIX") {
+    return;
+  }
+
   if (
-    input.repairKind === "ROOT_CAUSE_FIX" &&
     input.causeLayer === "DEPENDENCY_RUNTIME" &&
     (input.targetRole === "TEST_FILE" ||
       input.targetRole === "TEST_SUPPORT" ||
@@ -162,6 +165,23 @@ export function assertRepairKindCompatibleWithCause(input: {
   ) {
     throw new Error(
       `A ${input.targetRole} patch cannot be classified as ROOT_CAUSE_FIX when the identified cause is DEPENDENCY_RUNTIME. Classify it as WORKAROUND or MITIGATION unless the dependency/runtime cause itself is changed.`,
+    );
+  }
+
+  const requiredRoleByCauseLayer: Partial<
+    Record<CauseLayer, VerificationRole>
+  > = {
+    APPLICATION_CODE: "OTHER",
+    TEST_FILE: "TEST_FILE",
+    TEST_SUPPORT: "TEST_SUPPORT",
+    TEST_INFRASTRUCTURE: "TEST_INFRASTRUCTURE",
+  };
+
+  const requiredRole = requiredRoleByCauseLayer[input.causeLayer];
+
+  if (requiredRole && input.targetRole !== requiredRole) {
+    throw new Error(
+      `A patch targeting ${input.targetRole} cannot be classified as ROOT_CAUSE_FIX when the identified cause layer is ${input.causeLayer}; expected target role ${requiredRole}.`,
     );
   }
 }
