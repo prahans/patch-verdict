@@ -25,6 +25,10 @@ import { assertPatchIntentContract } from "./investigation-intents.js";
 import { assertFailureScopeAnalysis } from "./investigation-scope.js";
 import { validateDiscoveredReadPath } from "./investigation-paths.js";
 import { assertRootCauseAnalysisGrounding } from "./root-cause-contract.js";
+import {
+  assertCausalContextCoverage,
+  findUninspectedCausalContext,
+} from "./investigation-causal-context.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -52,6 +56,7 @@ function assertFinalInvestigationContracts(
     executedTestCommands: readonly string[];
     searchQueries: readonly string[];
     trustedTestCommands: readonly string[];
+    discoveredFiles: readonly string[];
   },
 ) {
   assertInvestigationProvenance(structured.diagnosis, {
@@ -67,6 +72,11 @@ function assertFinalInvestigationContracts(
     structured.diagnosis.evidence,
     structured.diagnosis.confidence,
   );
+
+  assertCausalContextCoverage(structured.diagnosis, {
+    discoveredFiles: context.discoveredFiles,
+    inspectedFiles: context.inspectedFiles,
+  });
 
   assertFailureScopeAnalysis(structured.diagnosis, {
     inspectedFiles: context.inspectedFiles,
@@ -453,6 +463,7 @@ Use list_files or search_code when necessary, then read_file the files that supp
           executedTestCommands: [...executedTestCommands],
           searchQueries: [...searchQueries],
           trustedTestCommands: [baseline.command],
+          discoveredFiles: [...discoveredFiles],
         });
       } catch (error) {
         const reason =
@@ -501,6 +512,8 @@ Use tools to inspect any missing files or revise the diagnosis so that:
 - every patch intent targets a RECOMMEND path
 - every patch intent evidenceRefs entry exactly matches existing diagnosis evidence
 - rootCauseAnalysis is grounded in existing diagnosis evidence
+- HIGH-confidence or ROOT_CAUSE_FIX claims about TEST_INFRASTRUCTURE, CONFIGURATION, or DEPENDENCY_RUNTIME must inspect and account for discovered package/test-runner context
+- absence of a compensating hook in a patch target is not, by itself, proof that the target owns the underlying cause
 - every patch intent repairKind is compatible with the identified primary cause
 
 Do not invent paths, evidence, or unrelated patch objectives.
@@ -543,6 +556,12 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
         console.log(`↻ ${toolName} DUPLICATE — using cached result`);
 
+        const uninspectedCausalContext =
+          findUninspectedCausalContext(
+            [...discoveredFiles],
+            [...inspectedFiles],
+          );
+
         messages.push({
           role: "tool",
 
@@ -556,6 +575,13 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
               message:
                 "This identical tool call was already executed. Use the existing evidence and do not repeat this call.",
+
+              ...(uninspectedCausalContext.length > 0 && {
+                uninspectedCausalContext,
+
+                guidance:
+                  "Before making a HIGH-confidence or ROOT_CAUSE_FIX claim about test infrastructure, configuration, or dependency/runtime behavior, inspect the discovered package/test-runner context listed here if it can distinguish competing causes.",
+              }),
             },
           }),
         });
@@ -806,6 +832,9 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 - UNKNOWN scope cannot use HIGH confidence
 - if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
 - rootCauseAnalysis must separate failure mechanism from underlying cause
+- do not infer the cause layer from the easiest patch location
+- when discovered package/test-runner context could distinguish TEST_INFRASTRUCTURE, CONFIGURATION, and DEPENDENCY_RUNTIME, inspect and account for it before HIGH confidence or ROOT_CAUSE_FIX
+- if that context was not inspected, prefer uncertainty plus WORKAROUND/MITIGATION over fabricated causal certainty
 - unresolved competing causes must prevent HIGH confidence and ROOT_CAUSE_FIX classification
 - every alternative cause entry must include layer, hypothesis, status, reason, and evidenceRefs
 - use alternatives: [] instead of a partial alternative object
@@ -848,6 +877,7 @@ Return only the final structured JSON.
     executedTestCommands: [...executedTestCommands],
     searchQueries: [...searchQueries],
     trustedTestCommands: [baseline.command],
+    discoveredFiles: [...discoveredFiles],
   };
 
   try {
@@ -884,6 +914,8 @@ Important:
 - if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
 - every patchTargetAnalysis entry must cite existing evidence and include FILE evidence for its own path
 - rootCauseAnalysis must remain grounded in diagnosis.evidence
+- do not use unobserved external-library/API behavior as if it were repository evidence
+- if package/test-runner context was discovered but not inspected, do not preserve a HIGH-confidence or ROOT_CAUSE_FIX claim about test infrastructure/configuration/runtime
 - every alternative cause must include layer, hypothesis, status, reason, and evidenceRefs
 - never keep a partial alternative object; use alternatives: [] if no grounded alternative exists
 - every recommended target must have a matching grounded patchIntent
