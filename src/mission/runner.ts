@@ -182,6 +182,11 @@ export async function runMission(
 
     patchResult = {
       applied: patch.patchApplied,
+
+      ...(patch.authorization && {
+        authorization: patch.authorization,
+      }),
+
       baseCommit: gitEvidence.data.baseCommit,
       changedFiles: gitEvidence.data.changedFiles,
       diff: gitEvidence.data.diff,
