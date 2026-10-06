@@ -3,6 +3,7 @@ import type { ReproductionClassification } from "../verification/reproduction.js
 import type { VerificationIntegrity } from "../verification/integrity.js";
 import type { InvestigationDiagnosis } from "../agent/investigation-contract.js";
 import type { PatchAuthorizationEvidence } from "../agent/patch-authorization.js";
+import type { ReconnaissanceSummary } from "../agent/reconnaissance.js";
 
 export type MissionState =
   | "PREPARING"
@@ -51,6 +52,8 @@ export type MissionResult = {
     report: string;
 
     iterations: number;
+
+    reconnaissance?: ReconnaissanceSummary;
 
     diagnosis: InvestigationDiagnosis;
   };
