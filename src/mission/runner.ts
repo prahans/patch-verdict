@@ -164,6 +164,8 @@ export async function runMission(
 
       hypothesisBoard: investigation.hypothesisBoard,
 
+      experiments: investigation.experiments,
+
       diagnosis: investigation.diagnosis,
     };
 
