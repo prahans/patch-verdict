@@ -18,7 +18,7 @@ export const repairKindSchema = z.enum([
 
 const evidenceRefSchema = z
   .object({
-    kind: z.enum(["FILE", "TEST", "SEARCH"]),
+    kind: z.enum(["FILE", "TEST", "SEARCH", "EXPERIMENT"]),
     source: z.string().trim().min(1).max(500),
   })
   .strict();
@@ -54,7 +54,7 @@ export type RepairKind = z.infer<typeof repairKindSchema>;
 export type RootCauseAnalysis = z.infer<typeof rootCauseAnalysisSchema>;
 
 type Evidence = {
-  kind: "FILE" | "TEST" | "SEARCH";
+  kind: "FILE" | "TEST" | "SEARCH" | "EXPERIMENT";
   source: string;
 };
 
@@ -102,10 +102,12 @@ export function assertRootCauseAnalysisGrounding(
 
     if (
       alternative.layer === "DEPENDENCY_RUNTIME" &&
-      !alternative.evidenceRefs.some((ref) => ref.kind === "TEST")
+      !alternative.evidenceRefs.some(
+        (ref) => ref.kind === "TEST" || ref.kind === "EXPERIMENT",
+      )
     ) {
       errors.push(
-        `Alternative DEPENDENCY_RUNTIME cause "${alternative.hypothesis}" must cite TEST evidence for the observed runtime behavior.`,
+        `Alternative DEPENDENCY_RUNTIME cause "${alternative.hypothesis}" must cite TEST or EXPERIMENT evidence for the observed runtime behavior.`,
       );
     }
 
@@ -139,12 +141,12 @@ export function assertRootCauseAnalysisGrounding(
 
   if (analysis.primaryCause.layer === "DEPENDENCY_RUNTIME") {
     const hasRuntimeEvidence = analysis.primaryCause.evidenceRefs.some(
-      (ref) => ref.kind === "TEST",
+      (ref) => ref.kind === "TEST" || ref.kind === "EXPERIMENT",
     );
 
     if (!hasRuntimeEvidence) {
       errors.push(
-        "Primary cause layer DEPENDENCY_RUNTIME must cite TEST evidence for the observed runtime behavior.",
+        "Primary cause layer DEPENDENCY_RUNTIME must cite TEST or EXPERIMENT evidence for the observed runtime behavior.",
       );
     }
   }
