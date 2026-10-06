@@ -208,44 +208,68 @@ Do not invent or reconstruct a command. If you use a run_test command as TEST ev
 56. Never add fake evidence in order to satisfy the JSON schema.
 
 
+FAILURE SCOPE RULES
+
+57. Classify failure scope as exactly one of:
+
+   - LOCAL: evidence supports that the failure mechanism belongs to one bounded component, file, package, or lifecycle and shared candidates have been ruled out where relevant.
+   - SHARED: evidence supports that the same failure mechanism belongs to shared lifecycle, configuration, helper, state, or infrastructure used by multiple consumers or cases.
+   - UNKNOWN: available evidence does not reliably distinguish LOCAL from SHARED.
+
+58. Failure scope is a hypothesis, not a verdict. Ground it with existing evidenceRefs.
+
+59. scopeAnalysis must reference at least one FILE evidence entry.
+
+60. A passing test in isolation may support order-dependence or interaction between tests, but it does not by itself prove that the failure is LOCAL or SHARED.
+
+61. Do not classify a failure as LOCAL merely because one test or file visibly fails.
+
+62. Do not classify a failure as SHARED merely because a shared file exists.
+
+63. If scope remains UNKNOWN, confidence must not be HIGH.
+
+64. Scope does not mechanically dictate patch location. A LOCAL failure may require a shared boundary fix, and a SHARED failure may have a bounded correct patch location. Explain the evidence-based relationship.
+
+
 PATCH TARGET DECISION RULES
 
-57. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
+65. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
 
-58. Every patchTargetAnalysis entry must include FILE evidence for its own path.
+66. Every patchTargetAnalysis entry must include FILE evidence for its own path.
     A target cannot be recommended or rejected without grounding that decision in what was actually observed in that file.
 
-59. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
+67. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
 
-60. Do not claim that a failure is local, shared, isolated, global, or infrastructure-wide unless the cited evidence supports that scope claim.
+68. Every RECOMMEND target should be explainable in light of scopeAnalysis.
+    When scope is LOCAL or SHARED, cite at least one piece of evidence also used by scopeAnalysis so the target decision cannot drift away from the scope reasoning.
 
 
 PATCH INTENT RULES
 
-61. Every recommended patch target must have at least one patchIntent.
+69. Every recommended patch target must have at least one patchIntent.
 
-62. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
+70. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
 
-63. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
+71. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
 
-64. Keep patchIntent objectives implementation-agnostic when possible.
+72. Keep patchIntent objectives implementation-agnostic when possible.
     Describe the behavior that must become true, not a specific hook, API call, syntax edit, or line-level implementation.
     For example, prefer "Ensure rendered DOM is cleaned between tests" over "Add afterEach(cleanup)".
 
-65. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
+73. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
 
-66. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
+74. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
 
-67. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
+75. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
 
-68. Do not create evidence merely to justify a desired patchIntent.
+76. Do not create evidence merely to justify a desired patchIntent.
 
-69. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
+77. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
 
 
 STOP CONDITION
 
-70. Normally stop using tools once you have:
+78. Normally stop using tools once you have:
 
    - inspected the relevant implementation
    - inspected the relevant test when useful
@@ -256,9 +280,9 @@ STOP CONDITION
    - compared plausible patch locations
    - identified grounded candidate patch targets
 
-71. Once those conditions are satisfied, return the final structured investigation JSON.
+79. Once those conditions are satisfied, return the final structured investigation JSON.
 
-72. Do not apply or describe an actual code patch during investigation.
+80. Do not apply or describe an actual code patch during investigation.
 
 
 FINAL OUTPUT FORMAT
@@ -279,6 +303,16 @@ Return exactly this structure:
   "report": "Human-readable investigation summary.",
   "diagnosis": {
     "rootCause": "The most likely root cause supported by observed evidence.",
+    "scopeAnalysis": {
+      "scope": "UNKNOWN",
+      "reason": "Why the evidence supports LOCAL, SHARED, or UNKNOWN scope.",
+      "evidenceRefs": [
+        {
+          "kind": "FILE",
+          "source": "src/example.ts"
+        }
+      ]
+    },
     "evidence": [
       {
         "kind": "FILE",
@@ -321,6 +355,15 @@ Return exactly this structure:
     "confidence": "HIGH"
   }
 }
+
+
+FAILURE SCOPE
+
+The only allowed values for diagnosis.scopeAnalysis.scope are:
+
+- LOCAL
+- SHARED
+- UNKNOWN
 
 
 ALLOWED EVIDENCE KINDS
