@@ -55,7 +55,7 @@ function isTestInfrastructureFile(filePath: string) {
   const normalized = normalizePath(filePath);
 
   return (
-    /(^|\/)(vitest|jest|playwright|cypress)\.config\.[^/]+$/i.test(
+    /(^|\/)(vite|vitest|jest|playwright|cypress)\.config\.[^/]+$/i.test(
       normalized,
     ) ||
     /(^|\/)(vitest|jest)\.setup\.[^/]+$/i.test(normalized) ||
