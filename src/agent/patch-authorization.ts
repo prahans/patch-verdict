@@ -39,6 +39,31 @@ function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
 
+export function assertPatchAuthorizationMatchesChangedFiles(
+  authorization: PatchAuthorizationEvidence,
+  changedFiles: readonly string[],
+) {
+  const normalizedAuthorizedPath = normalizePath(authorization.authorizedPath);
+
+  const normalizedChangedFiles = [
+    ...new Set(changedFiles.map(normalizePath)),
+  ];
+
+  if (normalizedChangedFiles.length !== 1) {
+    throw new Error(
+      `Patch authorization "${authorization.intentId}" permits exactly one changed file ("${authorization.authorizedPath}"), but Git reported ${normalizedChangedFiles.length}: ${normalizedChangedFiles.join(", ") || "none"}.`,
+    );
+  }
+
+  const actualPath = normalizedChangedFiles[0]!;
+
+  if (actualPath !== normalizedAuthorizedPath) {
+    throw new Error(
+      `Patch authorization "${authorization.intentId}" permits "${authorization.authorizedPath}", but Git reported a change to "${changedFiles[0]}".`,
+    );
+  }
+}
+
 export function authorizePatchToolInput(
   input: unknown,
   patchIntents: InvestigationDiagnosis["patchIntents"],
