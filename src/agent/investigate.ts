@@ -215,6 +215,8 @@ Important:
 
   const executedTests = new Set<string>();
 
+  const executedTestCommands = new Set<string>();
+
   const searchQueries = new Set<string>();
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
@@ -288,6 +290,8 @@ Use list_files or search_code when necessary, then read_file the files that supp
 
           executedTests: [...executedTests],
 
+          executedTestCommands: [...executedTestCommands],
+
           searchQueries: [...searchQueries],
           trustedTestCommands: [baseline.command],
         });
@@ -329,8 +333,10 @@ Use tools to inspect any missing files or revise the diagnosis so that:
   every inspected test-infrastructure candidate must be included in relevantFiles
   and explicitly accounted for in patchTargetAnalysis as RECOMMEND or REJECT
 - FILE evidence refers to a successfully read file
-- TEST evidence must refer either to a test selector actually executed
-with run_test or to the authoritative baseline command supplied by PatchVerdict
+- TEST evidence must refer to either:
+  - the exact test selector passed to a successful run_test call
+  - the exact command returned by a successful run_test call
+  - the authoritative baseline command supplied by PatchVerdict
 - SEARCH evidence refers to a search query actually executed during this investigation
 - every recommended patch target has at least one patchIntents entry
 - every patch intent targets a RECOMMEND path
@@ -515,6 +521,16 @@ Do not invent paths, evidence, or unrelated patch objectives.
           if (testName) {
             executedTests.add(testName);
           }
+
+          if (
+            "data" in result &&
+            typeof result.data === "object" &&
+            result.data !== null &&
+            "command" in result.data &&
+            typeof result.data.command === "string"
+          ) {
+            executedTestCommands.add(result.data.command.trim());
+          }
         }
 
         if (toolName === "search_code") {
@@ -583,6 +599,8 @@ Do not invent paths, evidence, or unrelated patch objectives.
     inspectedFiles: [...inspectedFiles],
 
     executedTests: [...executedTests],
+
+    executedTestCommands: [...executedTestCommands],
 
     searchQueries: [...searchQueries],
     trustedTestCommands: [baseline.command],
