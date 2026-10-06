@@ -391,6 +391,8 @@ Important:
 
   let discoveredDepth = 0;
 
+  let causalContextHintSent = false;
+
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     completedIterations = iteration;
     console.log("");
@@ -530,6 +532,8 @@ Do not invent paths, evidence, or unrelated patch objectives.
         diagnosis: structured.diagnosis,
       };
     }
+
+    let shouldSendCausalContextHint = false;
 
     for (const toolCall of toolCalls) {
       const toolName = toolCall.function.name as ToolName;
@@ -753,6 +757,18 @@ Do not invent paths, evidence, or unrelated patch objectives.
           ) {
             discoveredDepth = Math.max(discoveredDepth, input.depth);
           }
+
+          if (!causalContextHintSent) {
+            const uninspectedCausalContext =
+              findUninspectedCausalContext(
+                [...discoveredFiles],
+                [...inspectedFiles],
+              );
+
+            if (uninspectedCausalContext.length > 0) {
+              shouldSendCausalContextHint = true;
+            }
+          }
         }
 
         if (toolName === "read_file") {
@@ -804,6 +820,29 @@ Do not invent paths, evidence, or unrelated patch objectives.
         content: JSON.stringify(result),
       });
     }
+    if (shouldSendCausalContextHint && !causalContextHintSent) {
+      const uninspectedCausalContext =
+        findUninspectedCausalContext(
+          [...discoveredFiles],
+          [...inspectedFiles],
+        );
+
+      if (uninspectedCausalContext.length > 0) {
+        messages.push({
+          role: "user",
+          content: [
+            "Repository discovery found environment files that may distinguish test infrastructure, configuration, and dependency/runtime causes:",
+            ...uninspectedCausalContext.map((path) => `- ${path}`),
+            "",
+            "If your causal hypothesis involves those layers, prioritize inspecting this context before spending more calls on repeated implementation/test reads.",
+            "A repair location is not proof that the same file owns the underlying cause.",
+          ].join("\n"),
+        });
+
+        causalContextHintSent = true;
+      }
+    }
+
     if (forceFinalReport) {
       break;
     }
