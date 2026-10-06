@@ -228,48 +228,55 @@ FAILURE SCOPE RULES
 
 63. If scope remains UNKNOWN, confidence must not be HIGH.
 
-64. Scope does not mechanically dictate patch location. A LOCAL failure may require a shared boundary fix, and a SHARED failure may have a bounded correct patch location. Explain the evidence-based relationship.
+64. Do not claim that multiple tests, components, packages, or consumers are affected unless the cited scope evidence actually demonstrates those affected cases.
+    A passing unrelated test does not count as an affected case.
+    Do not describe baseline output as showing cross-case contamination unless that output visibly contains evidence from the other case.
+
+65. The scopeAnalysis.reason may summarize only facts supported by scopeAnalysis.evidenceRefs.
+    If the reason relies on runtime or baseline behavior, include the corresponding TEST evidenceRef.
+
+66. Scope does not mechanically dictate patch location. A LOCAL failure may require a shared boundary fix, and a SHARED failure may have a bounded correct patch location. Explain the evidence-based relationship.
 
 
 PATCH TARGET DECISION RULES
 
-65. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
+67. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
 
-66. Every patchTargetAnalysis entry must include FILE evidence for its own path.
+68. Every patchTargetAnalysis entry must include FILE evidence for its own path.
     A target cannot be recommended or rejected without grounding that decision in what was actually observed in that file.
 
-67. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
+69. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
 
-68. Every RECOMMEND target should be explainable in light of scopeAnalysis.
+70. Every RECOMMEND target should be explainable in light of scopeAnalysis.
     When scope is LOCAL or SHARED, cite at least one piece of evidence also used by scopeAnalysis so the target decision cannot drift away from the scope reasoning.
 
 
 PATCH INTENT RULES
 
-69. Every recommended patch target must have at least one patchIntent.
+71. Every recommended patch target must have at least one patchIntent.
 
-70. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
+72. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
 
-71. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
+73. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
 
-72. Keep patchIntent objectives implementation-agnostic when possible.
+74. Keep patchIntent objectives implementation-agnostic when possible.
     Describe the behavior that must become true, not a specific hook, API call, syntax edit, or line-level implementation.
     For example, prefer "Ensure rendered DOM is cleaned between tests" over "Add afterEach(cleanup)".
 
-73. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
+75. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
 
-74. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
+76. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
 
-75. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
+77. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
 
-76. Do not create evidence merely to justify a desired patchIntent.
+78. Do not create evidence merely to justify a desired patchIntent.
 
-77. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
+79. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
 
 
 STOP CONDITION
 
-78. Normally stop using tools once you have:
+80. Normally stop using tools once you have:
 
    - inspected the relevant implementation
    - inspected the relevant test when useful
@@ -280,9 +287,9 @@ STOP CONDITION
    - compared plausible patch locations
    - identified grounded candidate patch targets
 
-79. Once those conditions are satisfied, return the final structured investigation JSON.
+81. Once those conditions are satisfied, return the final structured investigation JSON.
 
-80. Do not apply or describe an actual code patch during investigation.
+82. Do not apply or describe an actual code patch during investigation.
 
 
 FINAL OUTPUT FORMAT
