@@ -244,14 +244,14 @@ ROOT CAUSE CONTRACT V3
 
 63. Every primaryCause and alternative-cause evidenceRef must exactly match diagnosis.evidence.
 
-64. If primaryCause.layer is DEPENDENCY_RUNTIME, cite TEST evidence demonstrating the runtime behavior.
+64. If primaryCause.layer is DEPENDENCY_RUNTIME, cite TEST or EXPERIMENT evidence demonstrating the runtime behavior.
 
-65. For HIGH-confidence or ROOT_CAUSE_FIX claims in TEST_INFRASTRUCTURE, CONFIGURATION, or DEPENDENCY_RUNTIME, primaryCause.evidenceRefs must include TEST evidence and you must inspect discovered package/test-runner context when available (for example package.json and the active test-runner configuration) and account for it in primaryCause or alternative-cause evidence.
+65. For HIGH-confidence or ROOT_CAUSE_FIX claims in TEST_INFRASTRUCTURE, CONFIGURATION, or DEPENDENCY_RUNTIME, primaryCause.evidenceRefs must include TEST or EXPERIMENT evidence and you must inspect discovered package/test-runner context when available (for example package.json and the active test-runner configuration) and account for it in primaryCause or alternative-cause evidence.
 
 66. Do not infer the underlying cause from the easiest repair location.
     A missing compensating hook, reset, cleanup call, or guard in a candidate patch file proves that the workaround is absent; it does not by itself prove that this file owns the underlying cause.
 
-67. Treat external library/runtime/API behavior that was not observed in repository or test evidence as a hypothesis, not as evidence. Do not use model memory of "recommended practice" to reject competing causes. A DEPENDENCY_RUNTIME alternative must cite TEST evidence.
+67. Treat external library/runtime/API behavior that was not observed in repository or test evidence as a hypothesis, not as evidence. Do not use model memory of "recommended practice" to reject competing causes. A DEPENDENCY_RUNTIME alternative must cite TEST or EXPERIMENT evidence.
 
 68. If discovered environment context that could distinguish TEST_INFRASTRUCTURE, CONFIGURATION, and DEPENDENCY_RUNTIME remains uninspected, prefer UNKNOWN or a lower-confidence cause plus WORKAROUND/MITIGATION over fabricated certainty.
 
@@ -326,7 +326,7 @@ PATCH TARGET DECISION RULES
 90. Every patchTargetAnalysis entry must include FILE evidence for its own path.
     A target cannot be recommended or rejected without grounding that decision in what was actually observed in that file.
 
-91. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
+91. Use TEST, SEARCH, or EXPERIMENT evidenceRefs when they materially support why one target is preferred over another.
 
 92. Every RECOMMEND target should be explainable in light of scopeAnalysis.
     When scope is LOCAL or SHARED, cite at least one piece of evidence also used by scopeAnalysis so the target decision cannot drift away from the scope reasoning.
