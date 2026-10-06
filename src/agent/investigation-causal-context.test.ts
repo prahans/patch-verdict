@@ -124,6 +124,7 @@ describe("causal environment context", () => {
     expect(findCausalContextCandidates(discoveredFiles)).toEqual({
       packageManifests: ["package.json"],
       runnerConfigs: ["vite.config.ts"],
+      testSetups: ["vitest.setup.ts"],
     });
   });
 
@@ -205,4 +206,86 @@ describe("causal environment context", () => {
       ),
     ).not.toThrow();
   });
+  it("requires strong test-infrastructure claims to compare configuration and dependency-runtime layers", () => {
+    expect(() =>
+      assertCausalContextCoverage(
+        {
+          ...diagnosis,
+          rootCauseAnalysis: {
+            ...diagnosis.rootCauseAnalysis,
+            primaryCause: {
+              ...diagnosis.rootCauseAnalysis.primaryCause,
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
+            },
+            alternatives: [],
+          },
+        },
+        {
+          discoveredFiles,
+          inspectedFiles: [
+            "vitest.setup.ts",
+            "vite.config.ts",
+            "package.json",
+          ],
+        },
+      ),
+    ).toThrow(/did not compare a discovered competing cause layer/i);
+  });
+
+  it("accepts strong test-infrastructure claim when competing environment layers are explicitly rejected with their own evidence", () => {
+    expect(() =>
+      assertCausalContextCoverage(
+        {
+          ...diagnosis,
+          rootCauseAnalysis: {
+            ...diagnosis.rootCauseAnalysis,
+            alternatives: [
+              {
+                layer: "CONFIGURATION",
+                hypothesis:
+                  "The test runner configuration may be responsible for the lifecycle behavior.",
+                status: "REJECTED",
+                reason:
+                  "The inspected configuration does not establish a configuration-owned defect in this fixture.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "vite.config.ts",
+                  },
+                ],
+              },
+              {
+                layer: "DEPENDENCY_RUNTIME",
+                hypothesis:
+                  "The installed test/runtime dependency behavior may own the missing lifecycle hook.",
+                status: "REJECTED",
+                reason:
+                  "The fixture intentionally treats the inspected dependency context as ruled out.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "package.json",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          discoveredFiles,
+          inspectedFiles: [
+            "vitest.setup.ts",
+            "vite.config.ts",
+            "package.json",
+          ],
+        },
+      ),
+    ).not.toThrow();
+  });
+
 });
