@@ -19,6 +19,7 @@ import { assertInvestigationProvenance } from "./investigation-provenance.js";
 import type { InvestigationBaselineContext } from "./investigation-context.js";
 import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 import { assertPatchIntentContract } from "./investigation-intents.js";
+import { assertFailureScopeAnalysis } from "./investigation-scope.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -55,6 +56,8 @@ function assertFinalInvestigationContracts(
     searchQueries: context.searchQueries,
     trustedTestCommands: context.trustedTestCommands,
   });
+
+  assertFailureScopeAnalysis(structured.diagnosis);
 
   assertPatchTargetAnalysis(structured.diagnosis, {
     inspectedFiles: context.inspectedFiles,
@@ -101,6 +104,16 @@ Use exactly this shape:
   "report": "Human-readable investigation summary.",
   "diagnosis": {
     "rootCause": "Evidence-supported root cause hypothesis.",
+    "scopeAnalysis": {
+      "scope": "UNKNOWN",
+      "reason": "Evidence-supported explanation of whether the failure is local, shared, or still uncertain.",
+      "evidenceRefs": [
+        {
+          "kind": "FILE",
+          "source": "src/example.ts"
+        }
+      ]
+    },
     "evidence": [
       {
         "kind": "FILE",
@@ -150,8 +163,20 @@ FILE, TEST, SEARCH
 Allowed confidence values:
 LOW, MEDIUM, HIGH
 
+Allowed failure scope values:
+LOCAL, SHARED, UNKNOWN
+
 Allowed patch-target decisions:
 RECOMMEND, REJECT
+
+Failure-scope rules:
+
+- scope must be LOCAL, SHARED, or UNKNOWN
+- scopeAnalysis evidenceRefs must exactly match diagnosis.evidence
+- scopeAnalysis must cite at least one FILE evidence entry
+- UNKNOWN scope cannot use HIGH confidence
+- LOCAL or SHARED scope must be supported by evidence, not inferred only from where the failure surfaced
+- a passing isolated test may support order-dependence but does not by itself prove LOCAL or SHARED scope
 
 Patch-target decision rules:
 
@@ -370,6 +395,8 @@ Use tools to inspect any missing files or revise the diagnosis so that:
   - the exact command returned by a successful run_test call
   - the authoritative baseline command supplied by PatchVerdict
 - SEARCH evidence refers to a search query actually executed during this investigation
+- failure scope is explicitly classified as LOCAL, SHARED, or UNKNOWN
+- failure-scope evidenceRefs exactly match existing diagnosis evidence
 - every patchTargetAnalysis entry cites existing diagnosis evidence
 - every patchTargetAnalysis entry includes FILE evidence for its own path
 - every recommended patch target has at least one patchIntents entry
@@ -608,6 +635,8 @@ Based only on the evidence already collected, provide your final investigation r
 Before returning the JSON, re-check all PatchVerdict contracts:
 
 - every relevant file and recommended target must be grounded in observed evidence
+- failure scope must be LOCAL, SHARED, or UNKNOWN and grounded in existing evidence
+- UNKNOWN scope cannot use HIGH confidence
 - if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
 - every RECOMMEND target must have a grounded patchIntent
 - do not invent new evidence, files, tests, commands, or patch objectives
