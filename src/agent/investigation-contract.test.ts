@@ -242,6 +242,28 @@ describe("parseInvestigationModelOutput", () => {
 
                 reason:
                   "This valid analysis entry keeps the test focused on the invalid recommended target path.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+            ],
+
+            patchIntents: [
+              {
+                id: "intent-1",
+                path: "src/example.ts",
+                objective:
+                  "Keep the remaining fixture structurally valid while testing absolute target rejection.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
               },
             ],
 
@@ -284,6 +306,28 @@ describe("parseInvestigationModelOutput", () => {
 
                 reason:
                   "This valid analysis entry keeps the test focused on repository path traversal rejection.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+            ],
+
+            patchIntents: [
+              {
+                id: "intent-1",
+                path: "src/example.ts",
+                objective:
+                  "Keep the remaining fixture structurally valid while testing path traversal rejection.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
               },
             ],
 
@@ -320,6 +364,28 @@ describe("parseInvestigationModelOutput", () => {
 
                 reason:
                   "This target is structurally valid so this test isolates the missing-evidence rule.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+            ],
+
+            patchIntents: [
+              {
+                id: "intent-1",
+                path: "src/example.ts",
+                objective:
+                  "Keep the remaining fixture structurally valid while testing the missing-evidence rule.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
               },
             ],
 
