@@ -32,6 +32,12 @@ const diagnosis = {
       decision: "RECOMMEND",
       reason:
         "The shared setup controls the lifecycle for the affected tests.",
+      evidenceRefs: [
+        {
+          kind: "FILE",
+          source: "vitest.setup.ts",
+        },
+      ],
     },
   ],
 
@@ -134,6 +140,12 @@ describe("assertPatchIntentContract", () => {
             decision: "REJECT",
             reason:
               "This fixture intentionally rejects the target for validation.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "vitest.setup.ts",
+              },
+            ],
           },
         ],
       }),
