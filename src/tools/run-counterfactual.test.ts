@@ -222,4 +222,43 @@ describe("runCounterfactualWithAccess", () => {
       }),
     ).rejects.toThrow(/must not contain duplicates/i);
   });
+  it("rejects a model-supplied command field", async () => {
+    const harness = createHarness();
+
+    await expect(
+      runCounterfactualWithAccess({
+        request: {
+          ...request,
+          command: "echo model-controlled-command",
+        },
+        context,
+        access: harness.access,
+      }),
+    ).rejects.toThrow();
+
+    expect(harness.content).toBe(harness.original);
+  });
+
+  it("fails closed if the executed command is not the trusted reproduction command", async () => {
+    const harness = createHarness({
+      evidence: {
+        command: "different command",
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        durationMs: 10,
+      },
+    });
+
+    await expect(
+      runCounterfactualWithAccess({
+        request,
+        context,
+        access: harness.access,
+      }),
+    ).rejects.toThrow(/other than the trusted reproduction command/i);
+
+    expect(harness.content).toBe(harness.original);
+  });
+
 });
