@@ -14,6 +14,7 @@ import { getGitEvidence } from "../tools/git-evidence.js";
 import { classifyReproduction } from "../verification/reproduction.js";
 import { analyzeVerificationIntegrity } from "../verification/integrity.js";
 import { createInvestigationBaselineContext } from "../agent/investigation-context.js";
+import { assertPatchAuthorizationMatchesChangedFiles } from "../agent/patch-authorization.js";
 
 import type {
   MissionEvent,
@@ -191,6 +192,32 @@ export async function runMission(
       changedFiles: gitEvidence.data.changedFiles,
       diff: gitEvidence.data.diff,
     };
+
+    if (!patch.authorization) {
+      checks.patchMatchesAuthorization = false;
+
+      throw new Error(
+        "Candidate patch was applied without patch authorization evidence.",
+      );
+    }
+
+    try {
+      assertPatchAuthorizationMatchesChangedFiles(
+        patch.authorization,
+        gitEvidence.data.changedFiles,
+      );
+
+      checks.patchMatchesAuthorization = true;
+
+      record(
+        "PATCHING",
+        `Git diff matches authorized intent ${patch.authorization.intentId}`,
+      );
+    } catch (error) {
+      checks.patchMatchesAuthorization = false;
+
+      throw error;
+    }
 
     record("PATCHING", "Git diff captured");
 
