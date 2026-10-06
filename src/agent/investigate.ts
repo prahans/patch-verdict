@@ -18,6 +18,7 @@ import { messageContentToText } from "./message-content.js";
 import { assertInvestigationProvenance } from "./investigation-provenance.js";
 import type { InvestigationBaselineContext } from "./investigation-context.js";
 import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
+import { assertPatchIntentContract } from "./investigation-intents.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -89,12 +90,25 @@ Use exactly this shape:
       "src/example.ts"
     ],
     "patchTargetAnalysis": [
-  {
-    "path": "src/example.ts",
-    "decision": "RECOMMEND",
-    "reason": "This location directly addresses the diagnosed root cause."
-  }
-],
+      {
+        "path": "src/example.ts",
+        "decision": "RECOMMEND",
+        "reason": "This location directly addresses the diagnosed root cause."
+      }
+    ],
+    "patchIntents": [
+      {
+        "id": "intent-1",
+        "path": "src/example.ts",
+        "objective": "Correct the behavior identified by the investigation.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
+      }
+    ],
     "confidence": "LOW"
   }
 }
@@ -107,6 +121,14 @@ LOW, MEDIUM, HIGH
 
 Allowed patch-target decisions:
 RECOMMEND, REJECT
+
+Patch-intent rules:
+
+- intent ids must use intent-1, intent-2, and so on
+- every patch intent path must be a recommendedPatchTargets path
+- every patch intent path must be marked RECOMMEND in patchTargetAnalysis
+- every evidenceRefs entry must exactly match evidence already present in diagnosis.evidence
+- do not introduce a repair objective that is unrelated to the diagnosed root cause
 
 Do not use Markdown fences.
 Do not call tools.
@@ -272,6 +294,7 @@ Use list_files or search_code when necessary, then read_file the files that supp
         assertPatchTargetAnalysis(structured.diagnosis, {
           inspectedFiles: [...inspectedFiles],
         });
+        assertPatchIntentContract(structured.diagnosis);
       } catch (error) {
         const reason =
           error instanceof Error
@@ -309,8 +332,11 @@ Use tools to inspect any missing files or revise the diagnosis so that:
 - TEST evidence must refer either to a test selector actually executed
 with run_test or to the authoritative baseline command supplied by PatchVerdict
 - SEARCH evidence refers to a search query actually executed during this investigation
+- every recommended patch target has at least one patchIntents entry
+- every patch intent targets a RECOMMEND path
+- every patch intent evidenceRefs entry exactly matches existing diagnosis evidence
 
-Do not invent paths or evidence.
+Do not invent paths, evidence, or unrelated patch objectives.
 `.trim(),
         });
 
@@ -564,6 +590,7 @@ Do not invent paths or evidence.
   assertPatchTargetAnalysis(structured.diagnosis, {
     inspectedFiles: [...inspectedFiles],
   });
+  assertPatchIntentContract(structured.diagnosis);
 
   return {
     completed: true,
