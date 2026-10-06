@@ -32,6 +32,10 @@ const diagnosis = {
           kind: "FILE",
           source: "package.json",
         },
+        {
+          kind: "TEST",
+          source: "npm test",
+        },
       ],
     },
 
@@ -132,6 +136,35 @@ describe("causal environment context", () => {
     expect(
       findUninspectedCausalContext(discoveredFiles, ["vitest.setup.ts"]),
     ).toEqual(["package.json", "vite.config.ts"]);
+  });
+
+
+  it("rejects strong test-stack cause that does not cite runtime evidence", () => {
+    expect(() =>
+      assertCausalContextCoverage(
+        {
+          ...diagnosis,
+          rootCauseAnalysis: {
+            ...diagnosis.rootCauseAnalysis,
+            primaryCause: {
+              ...diagnosis.rootCauseAnalysis.primaryCause,
+              evidenceRefs:
+                diagnosis.rootCauseAnalysis.primaryCause.evidenceRefs.filter(
+                  (ref) => ref.kind !== "TEST",
+                ),
+            },
+          },
+        },
+        {
+          discoveredFiles,
+          inspectedFiles: [
+            "vitest.setup.ts",
+            "vite.config.ts",
+            "package.json",
+          ],
+        },
+      ),
+    ).toThrow(/must cite TEST evidence/i);
   });
 
   it("rejects high-confidence test-infrastructure cause without environment inspection", () => {
