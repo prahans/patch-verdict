@@ -126,6 +126,10 @@ export async function writeProofBundle({
       ? {
           iterations: result.investigation.iterations,
 
+          reconnaissance: result.investigation.reconnaissance ?? null,
+
+          hypothesisBoard: result.investigation.hypothesisBoard ?? null,
+
           diagnosis: result.investigation.diagnosis,
         }
       : null,
