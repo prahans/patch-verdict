@@ -21,6 +21,7 @@ export type PatchAuthorizationEvidence = {
   intentId: string;
   authorizedPath: string;
   objective: string;
+  repairKind: InvestigationDiagnosis["patchIntents"][number]["repairKind"];
   evidenceRefs: InvestigationDiagnosis["patchIntents"][number]["evidenceRefs"];
 };
 
@@ -111,6 +112,7 @@ export function authorizePatchToolInput(
       intentId: intent.id,
       authorizedPath: intent.path,
       objective: intent.objective,
+      repairKind: intent.repairKind,
       evidenceRefs: intent.evidenceRefs,
     },
     input: {
