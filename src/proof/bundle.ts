@@ -130,6 +130,8 @@ export async function writeProofBundle({
 
           hypothesisBoard: result.investigation.hypothesisBoard ?? null,
 
+          experiments: result.investigation.experiments ?? [],
+
           diagnosis: result.investigation.diagnosis,
         }
       : null,
