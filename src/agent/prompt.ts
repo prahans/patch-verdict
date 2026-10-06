@@ -1,3 +1,13 @@
+import { z } from "zod";
+
+import { investigationModelOutputSchema } from "./investigation-contract.js";
+
+export const INVESTIGATION_OUTPUT_JSON_SCHEMA = JSON.stringify(
+  z.toJSONSchema(investigationModelOutputSchema),
+  null,
+  2,
+);
+
 export const INVESTIGATION_SYSTEM_PROMPT = `
 You are the investigation agent inside PatchVerdict.
 
@@ -538,4 +548,12 @@ Do not claim that the proposed patch target is guaranteed to fix the issue.
 Do not claim that anything is verified.
 
 PatchVerdict's patching and deterministic verification phases will decide what happens next.
+
+
+AUTHORITATIVE STRUCTURED OUTPUT SCHEMA
+
+The JSON Schema below is generated directly from PatchVerdict's runtime Zod contract.
+It is authoritative when the prose or examples above are incomplete.
+
+${INVESTIGATION_OUTPUT_JSON_SCHEMA}
 `.trim();
