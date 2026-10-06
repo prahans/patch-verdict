@@ -4,6 +4,7 @@ import type { InvestigationBaselineContext } from "./investigation-context.js";
 import {
   buildReconnaissanceContext,
   reconnaissanceForModel,
+  reconnaissanceSummary,
 } from "./reconnaissance.js";
 
 const baseline: InvestigationBaselineContext = {
@@ -178,6 +179,20 @@ describe("deterministic reconnaissance", () => {
     });
 
     expect(context.files[0]?.truncated).toBe(true);
+  });
+
+  it("omits packageSummary from the mission summary when no package manifest was available", async () => {
+    const context = await buildReconnaissanceContext({
+      baseline,
+      access: {
+        listFiles: async () => ["src/components/DarkMode.test.tsx"],
+        readFile: async (filePath) => files[filePath]!,
+      },
+    });
+
+    const summary = reconnaissanceSummary(context);
+
+    expect("packageSummary" in summary).toBe(false);
   });
 
 });
