@@ -117,6 +117,17 @@ export function assertRootCauseAnalysisGrounding(
     );
   }
 
+  if (
+    confidence === "HIGH" &&
+    analysis.alternatives.some(
+      (alternative) => alternative.status === "UNRESOLVED",
+    )
+  ) {
+    errors.push(
+      "HIGH diagnosis confidence is not allowed while a competing cause remains UNRESOLVED.",
+    );
+  }
+
   if (analysis.primaryCause.layer === "DEPENDENCY_RUNTIME") {
     const hasRuntimeEvidence = analysis.primaryCause.evidenceRefs.some(
       (ref) => ref.kind === "TEST",
