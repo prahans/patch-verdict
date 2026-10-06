@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { InvestigationDiagnosis } from "./investigation-contract.js";
 
-import { authorizePatchToolInput } from "./patch-authorization.js";
+import {
+  assertPatchAuthorizationMatchesChangedFiles,
+  authorizePatchToolInput,
+} from "./patch-authorization.js";
 
 const patchIntents = [
   {
@@ -144,5 +147,57 @@ describe("authorizePatchToolInput", () => {
       error:
         'Patch intent "intent-1" is ambiguous because the validated investigation contains duplicate intent ids.',
     });
+  });
+});
+
+
+describe("assertPatchAuthorizationMatchesChangedFiles", () => {
+  const authorization = {
+    intentId: "intent-1",
+    authorizedPath: "vitest.setup.ts",
+    objective: "Ensure rendered DOM is cleaned between tests.",
+    evidenceRefs: [
+      {
+        kind: "FILE" as const,
+        source: "vitest.setup.ts",
+      },
+    ],
+  };
+
+  it("accepts a Git diff that changes only the authorized path", () => {
+    expect(() =>
+      assertPatchAuthorizationMatchesChangedFiles(authorization, [
+        "vitest.setup.ts",
+      ]),
+    ).not.toThrow();
+  });
+
+  it("accepts an equivalent normalized authorized path", () => {
+    expect(() =>
+      assertPatchAuthorizationMatchesChangedFiles(
+        {
+          ...authorization,
+          authorizedPath: "./vitest.setup.ts",
+        },
+        ["vitest.setup.ts"],
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects a Git diff that changes a different path", () => {
+    expect(() =>
+      assertPatchAuthorizationMatchesChangedFiles(authorization, [
+        "src/components/DarkMode.test.tsx",
+      ]),
+    ).toThrow(/Git reported a change/i);
+  });
+
+  it("rejects extra changed files outside the one authorized patch", () => {
+    expect(() =>
+      assertPatchAuthorizationMatchesChangedFiles(authorization, [
+        "vitest.setup.ts",
+        "package.json",
+      ]),
+    ).toThrow(/permits exactly one changed file/i);
   });
 });
