@@ -1,5 +1,7 @@
 import type { InvestigationDiagnosis } from "./investigation-contract.js";
 
+import { classifyVerificationPath } from "../verification/integrity.js";
+
 function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
@@ -8,8 +10,13 @@ function createEvidenceKey(kind: string, source: string) {
   return `${kind}:${source.trim()}`;
 }
 
+export type FailureScopeAnalysisContext = {
+  inspectedFiles: readonly string[];
+};
+
 export function assertFailureScopeAnalysis(
   diagnosis: InvestigationDiagnosis,
+  context: FailureScopeAnalysisContext,
 ) {
   const errors: string[] = [];
 
@@ -22,6 +29,10 @@ export function assertFailureScopeAnalysis(
   const scopeEvidenceKeys = new Set<string>();
 
   let hasFileEvidence = false;
+
+  let hasTestEvidence = false;
+
+  const scopeFileEvidencePaths = new Set<string>();
 
   for (const evidenceRef of diagnosis.scopeAnalysis.evidenceRefs) {
     const key = createEvidenceKey(evidenceRef.kind, evidenceRef.source);
@@ -42,6 +53,12 @@ export function assertFailureScopeAnalysis(
 
     if (evidenceRef.kind === "FILE") {
       hasFileEvidence = true;
+
+      scopeFileEvidencePaths.add(normalizePath(evidenceRef.source));
+    }
+
+    if (evidenceRef.kind === "TEST") {
+      hasTestEvidence = true;
     }
   }
 
@@ -49,6 +66,51 @@ export function assertFailureScopeAnalysis(
     errors.push(
       "Failure scope must reference at least one FILE evidence observation.",
     );
+  }
+
+  if (diagnosis.scopeAnalysis.scope === "SHARED") {
+    const hasNonTestFileEvidence = [...scopeFileEvidencePaths].some(
+      (path) => classifyVerificationPath(path) !== "TEST_FILE",
+    );
+
+    if (!hasNonTestFileEvidence) {
+      errors.push(
+        "Failure scope SHARED must reference FILE evidence outside a direct test file.",
+      );
+    }
+
+    if (!hasTestEvidence) {
+      errors.push(
+        "Failure scope SHARED must reference TEST evidence so the shared-scope claim remains connected to observed execution behavior.",
+      );
+    }
+  }
+
+  if (diagnosis.scopeAnalysis.scope === "LOCAL") {
+    const inspectedTestInfrastructure = [
+      ...new Set(
+        context.inspectedFiles
+          .map(normalizePath)
+          .filter(
+            (path) =>
+              classifyVerificationPath(path) === "TEST_INFRASTRUCTURE",
+          ),
+      ),
+    ];
+
+    const missingInfrastructureEvidence = inspectedTestInfrastructure.filter(
+      (path) => !scopeFileEvidencePaths.has(path),
+    );
+
+    if (missingInfrastructureEvidence.length > 0) {
+      errors.push(
+        [
+          "Failure scope LOCAL was selected after test infrastructure was inspected.",
+          "The local-scope analysis must explicitly cite FILE evidence for every inspected test-infrastructure candidate so shared scope is not dismissed implicitly.",
+          `Missing scope evidence for: ${missingInfrastructureEvidence.join(", ")}.`,
+        ].join(" "),
+      );
+    }
   }
 
   if (
