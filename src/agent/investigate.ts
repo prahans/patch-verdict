@@ -825,7 +825,53 @@ Do not invent paths, evidence, or unrelated patch objectives.
       let result;
 
       try {
-        result = await executeTool(sandbox, toolName, input);
+        if (toolName === "run_counterfactual") {
+          const requestedHypothesisIds =
+            typeof input === "object" &&
+            input !== null &&
+            "hypothesisIds" in input &&
+            Array.isArray(input.hypothesisIds)
+              ? input.hypothesisIds.filter(
+                  (value): value is string => typeof value === "string",
+                )
+              : [];
+
+          const boardHypothesisIds = new Set<string>(
+            hypothesisBoard.hypotheses.map((hypothesis) => hypothesis.id),
+          );
+
+          const unknownHypothesisIds = requestedHypothesisIds.filter(
+            (id) => !boardHypothesisIds.has(id),
+          );
+
+          if (unknownHypothesisIds.length > 0) {
+            throw new Error(
+              `Counterfactual experiment references hypothesis ids not present in the initial board: ${unknownHypothesisIds.join(", ")}.`,
+            );
+          }
+
+          const evidence = await runCounterfactualExperiment(
+            sandbox,
+            input,
+            {
+              projectRoot,
+              trustedCommand: baseline.command,
+              baselineExitCode: baseline.exitCode,
+              requiredOutput: baseline.requiredOutput,
+              allowedPaths: [
+                ...reconnaissance.runnerConfigs,
+                ...reconnaissance.testSetups,
+              ],
+            },
+          );
+
+          result = {
+            ok: true as const,
+            data: evidence,
+          };
+        } else {
+          result = await executeTool(sandbox, toolName, input);
+        }
       } catch (error) {
         result = {
           ok: false as const,
