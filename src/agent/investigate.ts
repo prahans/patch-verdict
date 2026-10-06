@@ -391,6 +391,10 @@ Important:
   const preloadedToolCalls = new Set<string>();
 
   for (const file of reconnaissance.files) {
+    if (file.truncated) {
+      continue;
+    }
+
     const key = createToolCallKey("read_file", {
       path: file.path,
     });
