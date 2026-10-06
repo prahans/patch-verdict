@@ -615,7 +615,9 @@ Do not invent paths, evidence, or unrelated patch objectives.
     let shouldSendCausalContextHint = false;
 
     for (const toolCall of toolCalls) {
-      const toolName = toolCall.function.name as ToolName;
+      const toolName = toolCall.function.name as
+        | ToolName
+        | "run_counterfactual";
 
       let input: unknown;
 
@@ -763,6 +765,27 @@ Do not invent paths, evidence, or unrelated patch objectives.
             continue;
           }
         }
+      }
+
+      if (
+        toolName === "run_counterfactual" &&
+        counterfactualCalls >= MAX_COUNTERFACTUAL_EXPERIMENTS
+      ) {
+        console.log(
+          "⊘ run_counterfactual BLOCKED — causal experiment budget exhausted",
+        );
+
+        messages.push({
+          role: "tool",
+          toolCallId: toolCall.id,
+          content: JSON.stringify({
+            ok: false,
+            error:
+              "Counterfactual experiment budget exhausted. Use the causal evidence already collected.",
+          }),
+        });
+
+        continue;
       }
 
       /*
