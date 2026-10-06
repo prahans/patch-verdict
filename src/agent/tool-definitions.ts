@@ -165,14 +165,22 @@ export const patchToolDefinitions = [
       name: "apply_patch",
 
       description:
-        "Replace the contents of one repository file with a candidate fixed version.",
+        "Replace the contents of one repository file with a candidate fixed version authorized by a validated patch intent."
 
       parameters: {
         type: "object",
 
         properties: {
+          intentId: {
+            type: "string",
+            description:
+              "Exact patch intent id from the validated investigation context, for example intent-1.",
+          },
+
           path: {
             type: "string",
+            description:
+              "Repository-relative path authorized by the selected patch intent.",
           },
 
           content: {
@@ -180,7 +188,7 @@ export const patchToolDefinitions = [
           },
         },
 
-        required: ["path", "content"],
+        required: ["intentId", "path", "content"],
 
         additionalProperties: false,
       },
