@@ -76,7 +76,8 @@ const context = {
   trustedCommand: "npm test",
   baselineExitCode: 1,
   requiredOutput: ["Found multiple elements"],
-  allowedPaths: ["vite.config.ts", "vitest.setup.ts"],
+  runnerConfigPaths: ["vite.config.ts"],
+  testSetupPaths: ["vitest.setup.ts"],
 };
 
 describe("runCounterfactualWithAccess", () => {
@@ -91,6 +92,7 @@ describe("runCounterfactualWithAccess", () => {
 
     expect(result.outcome).toBe("FAILURE_REMOVED");
     expect(result.repositoryRestored).toBe(true);
+    expect(result.intervention.role).toBe("RUNNER_CONFIGURATION");
     expect(harness.content).toBe(harness.original);
   });
 
@@ -258,6 +260,26 @@ describe("runCounterfactualWithAccess", () => {
       }),
     ).rejects.toThrow(/other than the trusted reproduction command/i);
 
+    expect(harness.content).toBe(harness.original);
+  });
+
+  it("classifies shared test-setup interventions as compensating controls", async () => {
+    const harness = createHarness({
+      original: "afterEach(existingCleanup);",
+    });
+
+    const result = await runCounterfactualWithAccess({
+      request: {
+        ...request,
+        path: "vitest.setup.ts",
+        find: "existingCleanup",
+        replace: "alternativeCleanup",
+      },
+      context,
+      access: harness.access,
+    });
+
+    expect(result.intervention.role).toBe("TEST_SETUP_CONTROL");
     expect(harness.content).toBe(harness.original);
   });
 
