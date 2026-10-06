@@ -270,6 +270,7 @@ describe("assertFailureScopeAnalysis", () => {
               id: "intent-1",
               path: "src/components/DarkMode.test.tsx",
               objective: "Ensure DOM is cleaned between direct test cases.",
+              repairKind: "WORKAROUND",
               evidenceRefs: [
                 {
                   kind: "FILE",
@@ -327,6 +328,7 @@ describe("assertFailureScopeAnalysis", () => {
               id: "intent-1",
               path: "src/components/DarkMode.test.tsx",
               objective: "Ensure DOM is cleaned between direct test cases.",
+              repairKind: "WORKAROUND",
               evidenceRefs: [
                 {
                   kind: "FILE",
