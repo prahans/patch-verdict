@@ -14,6 +14,7 @@ import {
 } from "./patch-context.js";
 
 import { messageContentToText } from "./message-content.js";
+import { authorizePatchToolInput } from "./patch-authorization.js";
 
 const MAX_PATCH_ITERATIONS = 4;
 const PATCH_ALLOWED_TOOLS = new Set<string>([
@@ -125,10 +126,40 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
 
       console.log(`→ ${toolName}`);
 
+      let executionInput = input;
+
+      if (toolName === "apply_patch") {
+        const authorization = authorizePatchToolInput(
+          input,
+          investigation.diagnosis.patchIntents,
+        );
+
+        if (!authorization.ok) {
+          const blockedResult = {
+            ok: false as const,
+            error: authorization.error,
+          };
+
+          console.log(`← ${toolName} BLOCKED: ${authorization.error}`);
+
+          messages.push({
+            role: "tool",
+
+            toolCallId: toolCall.id,
+
+            content: JSON.stringify(blockedResult),
+          });
+
+          continue;
+        }
+
+        executionInput = authorization.input;
+      }
+
       let result;
 
       try {
-        result = await executeTool(sandbox, toolName, input);
+        result = await executeTool(sandbox, toolName, executionInput);
       } catch (error) {
         result = {
           ok: false as const,
