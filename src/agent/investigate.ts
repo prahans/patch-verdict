@@ -58,7 +58,9 @@ function assertFinalInvestigationContracts(
     trustedTestCommands: context.trustedTestCommands,
   });
 
-  assertFailureScopeAnalysis(structured.diagnosis);
+  assertFailureScopeAnalysis(structured.diagnosis, {
+    inspectedFiles: context.inspectedFiles,
+  });
 
   assertPatchTargetAnalysis(structured.diagnosis, {
     inspectedFiles: context.inspectedFiles,
@@ -177,6 +179,8 @@ Failure-scope rules:
 - scopeAnalysis must cite at least one FILE evidence entry
 - UNKNOWN scope cannot use HIGH confidence
 - LOCAL or SHARED scope must be supported by evidence, not inferred only from where the failure surfaced
+- SHARED scope must cite at least one TEST evidence entry and FILE evidence outside a direct test file
+- LOCAL scope must cite every inspected test-infrastructure candidate so shared scope is ruled out explicitly
 - a passing isolated test may support order-dependence but does not by itself prove LOCAL or SHARED scope
 - do not claim multiple affected tests/components/consumers unless the cited evidence actually demonstrates those affected cases
 - if scopeAnalysis.reason relies on baseline/runtime behavior, include the matching TEST evidenceRef
@@ -706,6 +710,8 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 
 - every relevant file and recommended target must be grounded in observed evidence
 - failure scope must be LOCAL, SHARED, or UNKNOWN and grounded in existing evidence
+- SHARED scope must include TEST evidence and non-direct-test FILE evidence
+- LOCAL scope must explicitly cite every inspected test-infrastructure candidate
 - scopeAnalysis.reason may only summarize facts supported by its evidenceRefs
 - runtime/baseline scope claims must cite the matching TEST evidenceRef
 - UNKNOWN scope cannot use HIGH confidence
