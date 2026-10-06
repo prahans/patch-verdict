@@ -37,6 +37,14 @@ describe("buildPatchAgentContext", () => {
             decision: "RECOMMEND",
 
             reason: "This file directly addresses the diagnosed root cause.",
+
+            evidenceRefs: [
+              {
+                kind: "FILE",
+
+                source: "vitest.setup.ts",
+              },
+            ],
           },
         ],
 
