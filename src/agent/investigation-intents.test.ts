@@ -186,6 +186,33 @@ describe("assertPatchIntentContract", () => {
       }),
     ).toThrow(/not marked RECOMMEND/i);
   });
+  it("rejects ROOT_CAUSE_FIX while a competing cause remains unresolved", () => {
+    expect(() =>
+      assertPatchIntentContract({
+        ...diagnosis,
+        rootCauseAnalysis: {
+          ...diagnosis.rootCauseAnalysis,
+          alternatives: [
+            {
+              layer: "CONFIGURATION",
+              hypothesis:
+                "A configuration-level cause remains plausible for this fixture.",
+              status: "UNRESOLVED",
+              reason:
+                "The available fixture evidence does not rule out the configuration explanation.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
+            },
+          ],
+        },
+      }),
+    ).toThrow(/competing cause remains UNRESOLVED/i);
+  });
+
   it("rejects ROOT_CAUSE_FIX when a dependency-runtime cause is patched through test infrastructure", () => {
     expect(() =>
       assertPatchIntentContract({
