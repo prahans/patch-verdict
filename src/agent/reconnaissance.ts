@@ -241,10 +241,16 @@ export async function buildReconnaissanceContext(input: {
 
   const files: ReconnaissanceFile[] = [];
   const readFailures: string[] = [];
+  let packageSummary: ReconnaissancePackageSummary | undefined;
 
   for (const filePath of filesToInspect) {
     try {
       const rawContent = await input.access.readFile(filePath);
+
+      if (filePath === "package.json") {
+        packageSummary = summarizePackageJson(rawContent);
+      }
+
       const truncated = truncateContent(rawContent);
 
       files.push({
@@ -260,14 +266,6 @@ export async function buildReconnaissanceContext(input: {
       readFailures.push(filePath);
     }
   }
-
-  const packageManifest = files.find(
-    (file) => file.path === "package.json",
-  );
-
-  const packageSummary = packageManifest
-    ? summarizePackageJson(packageManifest.content)
-    : undefined;
 
   const preInspectedFiles = files.map((file) => file.path);
 
