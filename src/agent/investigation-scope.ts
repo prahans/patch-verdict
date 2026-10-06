@@ -87,27 +87,32 @@ export function assertFailureScopeAnalysis(
   }
 
   if (diagnosis.scopeAnalysis.scope === "LOCAL") {
-    const inspectedTestInfrastructure = [
+    const inspectedSharedVerificationCandidates = [
       ...new Set(
         context.inspectedFiles
           .map(normalizePath)
-          .filter(
-            (path) =>
-              classifyVerificationPath(path) === "TEST_INFRASTRUCTURE",
-          ),
+          .filter((path) => {
+            const role = classifyVerificationPath(path);
+
+            return (
+              role === "TEST_INFRASTRUCTURE" ||
+              role === "TEST_SUPPORT"
+            );
+          }),
       ),
     ];
 
-    const missingInfrastructureEvidence = inspectedTestInfrastructure.filter(
-      (path) => !scopeFileEvidencePaths.has(path),
-    );
+    const missingSharedCandidateEvidence =
+      inspectedSharedVerificationCandidates.filter(
+        (path) => !scopeFileEvidencePaths.has(path),
+      );
 
-    if (missingInfrastructureEvidence.length > 0) {
+    if (missingSharedCandidateEvidence.length > 0) {
       errors.push(
         [
-          "Failure scope LOCAL was selected after test infrastructure was inspected.",
-          "The local-scope analysis must explicitly cite FILE evidence for every inspected test-infrastructure candidate so shared scope is not dismissed implicitly.",
-          `Missing scope evidence for: ${missingInfrastructureEvidence.join(", ")}.`,
+          "Failure scope LOCAL was selected after shared verification support was inspected.",
+          "The local-scope analysis must explicitly cite FILE evidence for every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate so shared scope is not dismissed implicitly.",
+          `Missing scope evidence for: ${missingSharedCandidateEvidence.join(", ")}.`,
         ].join(" "),
       );
     }
