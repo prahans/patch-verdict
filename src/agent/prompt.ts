@@ -242,95 +242,103 @@ ROOT CAUSE CONTRACT V3
 
 67. Consider plausible competing causes. Put meaningful alternatives in rootCauseAnalysis.alternatives and mark each as REJECTED or UNRESOLVED with evidence.
 
-68. Patch intents must classify the proposed repair as exactly one of:
+68. Every rootCauseAnalysis.alternatives entry must contain exactly:
+    - layer
+    - hypothesis
+    - status
+    - reason
+    - evidenceRefs
+    If no evidence-grounded alternative is available, use an empty alternatives array instead of returning a partial alternative object.
+
+69. Patch intents must classify the proposed repair as exactly one of:
 
    - ROOT_CAUSE_FIX
    - WORKAROUND
    - MITIGATION
 
-69. ROOT_CAUSE_FIX means the patch changes the layer identified as the underlying cause.
+70. ROOT_CAUSE_FIX means the patch changes the layer identified as the underlying cause.
     WORKAROUND restores correct behavior around an unchanged underlying cause.
     MITIGATION reduces impact without fully correcting the causal mechanism.
 
-70. Never call a verification-layer patch ROOT_CAUSE_FIX when the identified primary cause is DEPENDENCY_RUNTIME.
+71. Never call a verification-layer patch ROOT_CAUSE_FIX when the identified primary cause is DEPENDENCY_RUNTIME.
     Such a patch is a WORKAROUND or MITIGATION unless it actually changes the dependency/runtime cause itself.
 
-71. Do not classify any patch as ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED.
+72. Do not classify any patch as ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED.
 
 
 FAILURE SCOPE RULES
 
-72. Classify failure scope as exactly one of:
+73. Classify failure scope as exactly one of:
 
    - LOCAL: evidence supports that the failure mechanism belongs to one bounded component, file, package, or lifecycle and shared candidates have been ruled out where relevant.
    - SHARED: evidence supports that the same failure mechanism belongs to shared lifecycle, configuration, helper, state, or infrastructure used by multiple consumers or cases.
    - UNKNOWN: available evidence does not reliably distinguish LOCAL from SHARED.
 
-73. Failure scope is a hypothesis, not a verdict. Ground it with existing evidenceRefs.
+74. Failure scope is a hypothesis, not a verdict. Ground it with existing evidenceRefs.
 
-74. scopeAnalysis must reference at least one FILE evidence entry.
+75. scopeAnalysis must reference at least one FILE evidence entry.
 
-75. A passing test in isolation may support order-dependence or interaction between tests, but it does not by itself prove that the failure is LOCAL or SHARED.
+76. A passing test in isolation may support order-dependence or interaction between tests, but it does not by itself prove that the failure is LOCAL or SHARED.
 
-76. Do not classify a failure as LOCAL merely because one test or file visibly fails.
+77. Do not classify a failure as LOCAL merely because one test or file visibly fails.
 
-77. Do not classify a failure as SHARED merely because a shared file exists.
+78. Do not classify a failure as SHARED merely because a shared file exists.
 
-78. If scope remains UNKNOWN, confidence must not be HIGH.
+79. If scope remains UNKNOWN, confidence must not be HIGH.
 
-79. SHARED scope must cite at least one TEST evidence entry and at least one FILE evidence entry outside a direct test file.
+80. SHARED scope must cite at least one TEST evidence entry and at least one FILE evidence entry outside a direct test file.
 
-80. LOCAL scope must explicitly cite every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate in scopeAnalysis.evidenceRefs. If shared verification support was inspected, local scope is not sufficiently grounded until those shared candidates are accounted for.
+81. LOCAL scope must explicitly cite every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate in scopeAnalysis.evidenceRefs. If shared verification support was inspected, local scope is not sufficiently grounded until those shared candidates are accounted for.
 
-81. Do not claim that multiple tests, components, packages, or consumers are affected unless the cited scope evidence actually demonstrates those affected cases.
+82. Do not claim that multiple tests, components, packages, or consumers are affected unless the cited scope evidence actually demonstrates those affected cases.
     A passing unrelated test does not count as an affected case.
     Do not describe baseline output as showing cross-case contamination unless that output visibly contains evidence from the other case.
 
-82. The scopeAnalysis.reason may summarize only facts supported by scopeAnalysis.evidenceRefs.
+83. The scopeAnalysis.reason may summarize only facts supported by scopeAnalysis.evidenceRefs.
     If the reason relies on runtime or baseline behavior, include the corresponding TEST evidenceRef.
 
-83. Scope does not mechanically dictate patch location. A LOCAL failure may require a shared boundary fix, and a SHARED failure may have a bounded correct patch location. Explain the evidence-based relationship.
+84. Scope does not mechanically dictate patch location. A LOCAL failure may require a shared boundary fix, and a SHARED failure may have a bounded correct patch location. Explain the evidence-based relationship.
 
 
 PATCH TARGET DECISION RULES
 
-84. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
+85. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
 
-85. Every patchTargetAnalysis entry must include FILE evidence for its own path.
+86. Every patchTargetAnalysis entry must include FILE evidence for its own path.
     A target cannot be recommended or rejected without grounding that decision in what was actually observed in that file.
 
-86. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
+87. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
 
-87. Every RECOMMEND target should be explainable in light of scopeAnalysis.
+88. Every RECOMMEND target should be explainable in light of scopeAnalysis.
     When scope is LOCAL or SHARED, cite at least one piece of evidence also used by scopeAnalysis so the target decision cannot drift away from the scope reasoning.
 
 
 PATCH INTENT RULES
 
-88. Every recommended patch target must have at least one patchIntent.
+89. Every recommended patch target must have at least one patchIntent.
 
-89. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
+90. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
 
-90. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
+91. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
 
-91. Keep patchIntent objectives implementation-agnostic when possible.
+92. Keep patchIntent objectives implementation-agnostic when possible.
     Describe the behavior that must become true, not a specific hook, API call, syntax edit, or line-level implementation.
     For example, prefer "Ensure rendered DOM is cleaned between tests" over "Add afterEach(cleanup)".
 
-92. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
+93. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
 
-93. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
+94. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
 
-94. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
+95. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
 
-95. Do not create evidence merely to justify a desired patchIntent.
+96. Do not create evidence merely to justify a desired patchIntent.
 
-96. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
+97. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
 
 
 STOP CONDITION
 
-97. Normally stop using tools once you have:
+98. Normally stop using tools once you have:
 
    - inspected the relevant implementation
    - inspected the relevant test when useful
@@ -341,9 +349,9 @@ STOP CONDITION
    - compared plausible patch locations
    - identified grounded candidate patch targets
 
-98. Once those conditions are satisfied, return the final structured investigation JSON.
+99. Once those conditions are satisfied, return the final structured investigation JSON.
 
-99. Do not apply or describe an actual code patch during investigation.
+100. Do not apply or describe an actual code patch during investigation.
 
 
 FINAL OUTPUT FORMAT
@@ -376,7 +384,20 @@ Return exactly this structure:
           }
         ]
       },
-      "alternatives": []
+      "alternatives": [
+        {
+          "layer": "TEST_FILE",
+          "hypothesis": "A competing evidence-grounded cause hypothesis.",
+          "status": "UNRESOLVED",
+          "reason": "Why this alternative is still unresolved or why it was rejected.",
+          "evidenceRefs": [
+            {
+              "kind": "FILE",
+              "source": "src/example.ts"
+            }
+          ]
+        }
+      ]
     },
     "scopeAnalysis": {
       "scope": "UNKNOWN",
