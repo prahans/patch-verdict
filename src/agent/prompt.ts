@@ -238,20 +238,24 @@ ROOT CAUSE CONTRACT V3
 
 62. If primaryCause.layer is UNKNOWN, diagnosis confidence must not be HIGH.
 
-63. Consider plausible competing causes. Put meaningful alternatives in rootCauseAnalysis.alternatives and mark each as REJECTED or UNRESOLVED with evidence.
+63. HIGH confidence is not allowed while any meaningful competing cause remains UNRESOLVED.
 
-64. Patch intents must classify the proposed repair as exactly one of:
+64. Consider plausible competing causes. Put meaningful alternatives in rootCauseAnalysis.alternatives and mark each as REJECTED or UNRESOLVED with evidence.
+
+65. Patch intents must classify the proposed repair as exactly one of:
 
    - ROOT_CAUSE_FIX
    - WORKAROUND
    - MITIGATION
 
-65. ROOT_CAUSE_FIX means the patch changes the layer identified as the underlying cause.
+66. ROOT_CAUSE_FIX means the patch changes the layer identified as the underlying cause.
     WORKAROUND restores correct behavior around an unchanged underlying cause.
     MITIGATION reduces impact without fully correcting the causal mechanism.
 
-66. Never call a verification-layer patch ROOT_CAUSE_FIX when the identified primary cause is DEPENDENCY_RUNTIME.
+67. Never call a verification-layer patch ROOT_CAUSE_FIX when the identified primary cause is DEPENDENCY_RUNTIME.
     Such a patch is a WORKAROUND or MITIGATION unless it actually changes the dependency/runtime cause itself.
+
+68. Do not classify any patch as ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED.
 
 
 FAILURE SCOPE RULES
