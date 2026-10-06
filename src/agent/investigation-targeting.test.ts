@@ -45,6 +45,25 @@ const diagnosis = {
     },
   ],
 
+  patchIntents: [
+    {
+      id: "intent-1",
+
+      path: "vitest.setup.ts",
+
+      objective:
+        "Ensure the shared test lifecycle cleans rendered DOM between tests.",
+
+      evidenceRefs: [
+        {
+          kind: "FILE" as const,
+
+          source: "vitest.setup.ts",
+        },
+      ],
+    },
+  ],
+
   confidence: "HIGH" as const,
 } satisfies InvestigationDiagnosis;
 
@@ -202,6 +221,25 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "The shared setup is already correct and should not be modified for this isolated lifecycle defect.",
+            },
+          ],
+
+          patchIntents: [
+            {
+              id: "intent-1",
+
+              path: "src/components/DarkMode.test.tsx",
+
+              objective:
+                "Add local teardown for this test-specific lifecycle.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
             },
           ],
 
