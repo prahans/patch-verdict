@@ -16,6 +16,8 @@ export function buildPatchAgentContext(
 
     rootCause: investigation.diagnosis.rootCause,
 
+    scopeAnalysis: investigation.diagnosis.scopeAnalysis,
+
     evidence: investigation.diagnosis.evidence,
 
     relevantFiles: investigation.diagnosis.relevantFiles,
