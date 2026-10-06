@@ -273,6 +273,13 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       );
     }
 
+    if (checks.patchMatchesAuthorization !== undefined) {
+      parsedChecks.patchMatchesAuthorization = boolean(
+        checks.patchMatchesAuthorization,
+        "proof.json checks.patchMatchesAuthorization",
+      );
+    }
+
     if (Object.keys(parsedChecks).length > 0) {
       metadata.checks = parsedChecks;
     }
