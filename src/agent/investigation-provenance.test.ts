@@ -295,6 +295,8 @@ describe("assertInvestigationProvenance", () => {
           objective:
             "Add the local teardown behavior required by this fixture.",
 
+          repairKind: "WORKAROUND",
+
           evidenceRefs: [
             {
               kind: "FILE" as const,
