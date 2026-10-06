@@ -46,6 +46,17 @@ export type ReconnaissanceContext = {
   readFailures: string[];
 };
 
+export type ReconnaissanceSummary = {
+  inventoryCount: number;
+  inventoryDepth: number;
+  failingPaths: string[];
+  runnerConfigs: string[];
+  testSetups: string[];
+  packageSummary?: ReconnaissancePackageSummary;
+  preInspectedFiles: string[];
+  readFailures: string[];
+};
+
 type ReconnaissanceRepositoryAccess = {
   listFiles: () => Promise<string[]>;
   readFile: (repositoryRelativePath: string) => Promise<string>;
@@ -343,7 +354,7 @@ export function reconnaissanceForModel(
 
 export function reconnaissanceSummary(
   context: ReconnaissanceContext,
-) {
+): ReconnaissanceSummary {
   return {
     inventoryCount: context.inventory.length,
     inventoryDepth: context.inventoryDepth,
