@@ -251,6 +251,10 @@ describe("classifyVerificationPath", () => {
     expect(classifyVerificationPath("vitest.setup.ts")).toBe(
       "TEST_INFRASTRUCTURE",
     );
+
+    expect(classifyVerificationPath("vite.config.ts")).toBe(
+      "TEST_INFRASTRUCTURE",
+    );
   });
 
   it("classifies normal source files", () => {
