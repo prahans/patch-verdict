@@ -12,6 +12,27 @@ describe("parseInvestigationModelOutput", () => {
           rootCause:
             "Rendered DOM survives between tests because shared cleanup is not configured.",
 
+          rootCauseAnalysis: {
+            failureMechanism:
+              "Rendered DOM survives between tests because the shared lifecycle does not clean it.",
+
+            primaryCause: {
+              layer: "TEST_INFRASTRUCTURE",
+
+              hypothesis:
+                "The shared test setup does not register the cleanup lifecycle required by the affected tests.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
+            },
+
+            alternatives: [],
+          },
+
           scopeAnalysis: {
             scope: "SHARED",
             reason:
@@ -91,6 +112,7 @@ describe("parseInvestigationModelOutput", () => {
               id: "intent-1",
               path: "vitest.setup.ts",
               objective: "Ensure rendered DOM is cleaned between tests.",
+              repairKind: "ROOT_CAUSE_FIX",
               evidenceRefs: [
                 {
                   kind: "FILE",
@@ -149,6 +171,20 @@ describe("parseInvestigationModelOutput", () => {
   "report": "Root cause identified.",
   "diagnosis": {
     "rootCause": "Incorrect state transition.",
+    "rootCauseAnalysis": {
+      "failureMechanism": "The state transition writes an incorrect value.",
+      "primaryCause": {
+        "layer": "APPLICATION_CODE",
+        "hypothesis": "The application state transition implementation writes the wrong value.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/state.ts"
+          }
+        ]
+      },
+      "alternatives": []
+    },
     "scopeAnalysis": {
       "scope": "LOCAL",
       "reason": "The incorrect transition is contained in the inspected state implementation.",
@@ -190,6 +226,7 @@ describe("parseInvestigationModelOutput", () => {
         "id": "intent-1",
         "path": "src/state.ts",
         "objective": "Correct the incorrect state transition.",
+        "repairKind": "ROOT_CAUSE_FIX",
         "evidenceRefs": [
           {
             "kind": "FILE",
@@ -245,6 +282,27 @@ describe("parseInvestigationModelOutput", () => {
           diagnosis: {
             rootCause: "Example root cause.",
 
+            rootCauseAnalysis: {
+              failureMechanism:
+                "The example fixture exhibits a failure mechanism used for schema validation.",
+
+              primaryCause: {
+                layer: "UNKNOWN",
+
+                hypothesis:
+                  "The fixture intentionally leaves the underlying cause unresolved.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+
+              alternatives: [],
+            },
+
             scopeAnalysis: {
               scope: "UNKNOWN",
 
@@ -298,6 +356,7 @@ describe("parseInvestigationModelOutput", () => {
                 path: "src/example.ts",
                 objective:
                   "Keep the remaining fixture structurally valid while testing absolute target rejection.",
+                repairKind: "MITIGATION",
                 evidenceRefs: [
                   {
                     kind: "FILE",
@@ -322,6 +381,27 @@ describe("parseInvestigationModelOutput", () => {
 
           diagnosis: {
             rootCause: "Example root cause.",
+
+            rootCauseAnalysis: {
+              failureMechanism:
+                "The example fixture exhibits a failure mechanism used for schema validation.",
+
+              primaryCause: {
+                layer: "UNKNOWN",
+
+                hypothesis:
+                  "The fixture intentionally leaves the underlying cause unresolved.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+
+              alternatives: [],
+            },
 
             scopeAnalysis: {
               scope: "UNKNOWN",
@@ -376,6 +456,7 @@ describe("parseInvestigationModelOutput", () => {
                 path: "src/example.ts",
                 objective:
                   "Keep the remaining fixture structurally valid while testing path traversal rejection.",
+                repairKind: "MITIGATION",
                 evidenceRefs: [
                   {
                     kind: "FILE",
@@ -400,6 +481,27 @@ describe("parseInvestigationModelOutput", () => {
 
           diagnosis: {
             rootCause: "Something is wrong.",
+
+            rootCauseAnalysis: {
+              failureMechanism:
+                "The fixture intentionally lacks evidence required to explain the failure mechanism.",
+
+              primaryCause: {
+                layer: "UNKNOWN",
+
+                hypothesis:
+                  "The underlying cause is intentionally unresolved because evidence is missing.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "src/example.ts",
+                  },
+                ],
+              },
+
+              alternatives: [],
+            },
 
             scopeAnalysis: {
               scope: "UNKNOWN",
@@ -448,6 +550,7 @@ describe("parseInvestigationModelOutput", () => {
                 path: "src/example.ts",
                 objective:
                   "Keep the remaining fixture structurally valid while testing the missing-evidence rule.",
+                repairKind: "MITIGATION",
                 evidenceRefs: [
                   {
                     kind: "FILE",
