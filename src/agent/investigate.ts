@@ -609,6 +609,33 @@ Do not invent paths, evidence, or unrelated patch objectives.
       toolCallCache.set(toolKey, result);
 
       if (result.ok) {
+        if (
+          toolName === "list_files" &&
+          "data" in result &&
+          typeof result.data === "object" &&
+          result.data !== null &&
+          "files" in result.data &&
+          Array.isArray(result.data.files)
+        ) {
+          for (const file of result.data.files) {
+            if (typeof file === "string" && file.trim()) {
+              discoveredFiles.add(
+                file.replace(/\\/g, "/").replace(/^\.\//, "").trim(),
+              );
+            }
+          }
+
+          if (
+            typeof input === "object" &&
+            input !== null &&
+            "depth" in input &&
+            typeof input.depth === "number" &&
+            Number.isInteger(input.depth)
+          ) {
+            discoveredDepth = Math.max(discoveredDepth, input.depth);
+          }
+        }
+
         if (toolName === "read_file") {
           const filePath = getInputString(input, "path");
 
