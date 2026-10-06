@@ -263,6 +263,7 @@ describe("parseInvestigationModelOutput", () => {
         id: "intent-1",
         path: "src/state.ts",
         objective: "Correct the incorrect state transition.",
+        repairKind: "ROOT_CAUSE_FIX",
         evidenceRefs: [
           {
             kind: "FILE",
