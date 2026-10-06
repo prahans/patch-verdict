@@ -7,6 +7,18 @@ import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 const diagnosis = {
   rootCause: "Shared test cleanup is missing.",
 
+  scopeAnalysis: {
+    scope: "SHARED",
+    reason:
+      "The missing cleanup behavior belongs to shared test lifecycle infrastructure.",
+    evidenceRefs: [
+      {
+        kind: "FILE",
+        source: "vitest.setup.ts",
+      },
+    ],
+  },
+
   evidence: [
     {
       kind: "FILE" as const,
@@ -269,6 +281,21 @@ describe("assertPatchTargetAnalysis", () => {
       assertPatchTargetAnalysis(
         {
           rootCause: "The defect is isolated to this test's custom lifecycle.",
+
+          scopeAnalysis: {
+            scope: "LOCAL",
+
+            reason:
+              "The evidence in this fixture says the custom lifecycle defect belongs only to the direct test.",
+
+            evidenceRefs: [
+              {
+                kind: "FILE",
+
+                source: "src/components/DarkMode.test.tsx",
+              },
+            ],
+          },
 
           evidence: [
             {
