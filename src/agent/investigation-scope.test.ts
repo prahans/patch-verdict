@@ -89,7 +89,9 @@ const diagnosis = {
 
 describe("assertFailureScopeAnalysis", () => {
   it("accepts a grounded shared failure scope", () => {
-    expect(() => assertFailureScopeAnalysis(diagnosis)).not.toThrow();
+    expect(() => assertFailureScopeAnalysis(diagnosis, {
+        inspectedFiles: ["vitest.setup.ts", "src/components/DarkMode.test.tsx"],
+      })).not.toThrow();
   });
 
   it("rejects scope evidence that does not exist", () => {
@@ -105,6 +107,8 @@ describe("assertFailureScopeAnalysis", () => {
             },
           ],
         },
+      }, {
+        inspectedFiles: ["vitest.setup.ts", "src/components/DarkMode.test.tsx"],
       }),
     ).toThrow(/does not exist in diagnosis\.evidence/i);
   });
@@ -122,6 +126,8 @@ describe("assertFailureScopeAnalysis", () => {
             },
           ],
         },
+      }, {
+        inspectedFiles: ["vitest.setup.ts", "src/components/DarkMode.test.tsx"],
       }),
     ).toThrow(/at least one FILE evidence/i);
   });
@@ -142,6 +148,8 @@ describe("assertFailureScopeAnalysis", () => {
           ],
         },
         confidence: "HIGH",
+      }, {
+        inspectedFiles: ["vitest.setup.ts", "src/components/DarkMode.test.tsx"],
       }),
     ).toThrow(/UNKNOWN cannot be paired with HIGH/i);
   });
@@ -159,7 +167,106 @@ describe("assertFailureScopeAnalysis", () => {
             },
           ],
         },
+      }, {
+        inspectedFiles: ["vitest.setup.ts", "src/components/DarkMode.test.tsx"],
       }),
     ).toThrow(/not linked to any evidence used by the SHARED failure-scope/i);
   });
+  it("rejects SHARED scope without TEST evidence", () => {
+    expect(() =>
+      assertFailureScopeAnalysis(
+        {
+          ...diagnosis,
+          scopeAnalysis: {
+            scope: "SHARED",
+            reason:
+              "The shared setup is a candidate, but this fixture intentionally omits execution evidence.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "vitest.setup.ts",
+              },
+            ],
+          },
+        },
+        {
+          inspectedFiles: ["vitest.setup.ts"],
+        },
+      ),
+    ).toThrow(/SHARED must reference TEST evidence/i);
+  });
+
+  it("rejects LOCAL scope that ignores inspected test infrastructure", () => {
+    expect(() =>
+      assertFailureScopeAnalysis(
+        {
+          ...diagnosis,
+          scopeAnalysis: {
+            scope: "LOCAL",
+            reason:
+              "The direct test appears local, but this fixture intentionally omits inspected shared infrastructure.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "src/components/DarkMode.test.tsx",
+              },
+              {
+                kind: "TEST",
+                source: "npm test",
+              },
+            ],
+          },
+          recommendedPatchTargets: ["src/components/DarkMode.test.tsx"],
+          patchTargetAnalysis: [
+            {
+              path: "src/components/DarkMode.test.tsx",
+              decision: "RECOMMEND",
+              reason:
+                "The fixture intentionally recommends the direct test for local-scope validation.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+                {
+                  kind: "TEST",
+                  source: "npm test",
+                },
+              ],
+            },
+            {
+              path: "vitest.setup.ts",
+              decision: "REJECT",
+              reason:
+                "The shared setup is intentionally rejected for this validation fixture.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
+            },
+          ],
+          patchIntents: [
+            {
+              id: "intent-1",
+              path: "src/components/DarkMode.test.tsx",
+              objective: "Ensure DOM is cleaned between direct test cases.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
+            },
+          ],
+          confidence: "MEDIUM",
+        },
+        {
+          inspectedFiles: ["src/components/DarkMode.test.tsx", "vitest.setup.ts"],
+        },
+      ),
+    ).toThrow(/LOCAL was selected after test infrastructure was inspected/i);
+  });
+
 });
