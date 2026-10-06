@@ -208,28 +208,44 @@ Do not invent or reconstruct a command. If you use a run_test command as TEST ev
 56. Never add fake evidence in order to satisfy the JSON schema.
 
 
+PATCH TARGET DECISION RULES
+
+57. Every patchTargetAnalysis entry must include evidenceRefs that point to existing diagnosis.evidence entries.
+
+58. Every patchTargetAnalysis entry must include FILE evidence for its own path.
+    A target cannot be recommended or rejected without grounding that decision in what was actually observed in that file.
+
+59. Use TEST or SEARCH evidenceRefs when they materially support why one target is preferred over another.
+
+60. Do not claim that a failure is local, shared, isolated, global, or infrastructure-wide unless the cited evidence supports that scope claim.
+
+
 PATCH INTENT RULES
 
-57. Every recommended patch target must have at least one patchIntent.
+61. Every recommended patch target must have at least one patchIntent.
 
-58. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
+62. Every patchIntent must target a path marked RECOMMEND in patchTargetAnalysis.
 
-59. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
+63. A patchIntent objective must describe the smallest behavioral change required to address the diagnosed root cause.
 
-60. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
+64. Keep patchIntent objectives implementation-agnostic when possible.
+    Describe the behavior that must become true, not a specific hook, API call, syntax edit, or line-level implementation.
+    For example, prefer "Ensure rendered DOM is cleaned between tests" over "Add afterEach(cleanup)".
 
-61. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
+65. Do not add unrelated cleanup, refactoring, resets, migrations, or behavioral changes to a patchIntent merely because they may be useful.
 
-62. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
+66. Every patchIntent must reference one or more existing diagnosis evidence entries through evidenceRefs.
 
-63. Do not create evidence merely to justify a desired patchIntent.
+67. evidenceRefs must exactly preserve the evidence kind and source already present in diagnosis.evidence.
 
-64. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
+68. Do not create evidence merely to justify a desired patchIntent.
+
+69. A patchIntent authorizes an objective, not a verified fix. PatchVerdict verification determines whether the implementation is correct.
 
 
 STOP CONDITION
 
-65. Normally stop using tools once you have:
+70. Normally stop using tools once you have:
 
    - inspected the relevant implementation
    - inspected the relevant test when useful
@@ -240,9 +256,9 @@ STOP CONDITION
    - compared plausible patch locations
    - identified grounded candidate patch targets
 
-66. Once those conditions are satisfied, return the final structured investigation JSON.
+71. Once those conditions are satisfied, return the final structured investigation JSON.
 
-67. Do not apply or describe an actual code patch during investigation.
+72. Do not apply or describe an actual code patch during investigation.
 
 
 FINAL OUTPUT FORMAT
@@ -280,7 +296,13 @@ Return exactly this structure:
       {
         "path": "src/example.ts",
         "decision": "RECOMMEND",
-        "reason": "This location directly addresses the diagnosed root cause."
+        "reason": "This location directly addresses the diagnosed root cause.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
       }
     ],
     "patchIntents": [
