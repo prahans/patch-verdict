@@ -245,6 +245,27 @@ describe("assertInvestigationProvenance", () => {
     const missingFileEvidenceDiagnosis = {
       rootCause: "Shared cleanup is missing.",
 
+      rootCauseAnalysis: {
+        failureMechanism:
+          "Rendered DOM remains mounted because this fixture lacks local teardown.",
+
+        primaryCause: {
+          layer: "TEST_FILE" as const,
+
+          hypothesis:
+            "The direct test fixture owns the local teardown behavior under validation.",
+
+          evidenceRefs: [
+            {
+              kind: "FILE" as const,
+              source: "src/components/DarkMode.test.tsx",
+            },
+          ],
+        },
+
+        alternatives: [],
+      },
+
       scopeAnalysis: {
         scope: "LOCAL" as const,
         reason:
