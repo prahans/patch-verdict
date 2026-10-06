@@ -56,6 +56,17 @@ export function assertPatchIntentContract(
       );
     }
 
+    if (
+      intent.repairKind === "ROOT_CAUSE_FIX" &&
+      diagnosis.rootCauseAnalysis.alternatives.some(
+        (alternative) => alternative.status === "UNRESOLVED",
+      )
+    ) {
+      errors.push(
+        `Patch intent "${intent.id}" cannot be ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED.`,
+      );
+    }
+
     try {
       assertRepairKindCompatibleWithCause({
         repairKind: intent.repairKind,
