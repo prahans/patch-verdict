@@ -39,6 +39,16 @@ const evidenceRefSchema = z
   })
   .strict();
 
+const failureScopeAnalysisSchema = z
+  .object({
+    scope: z.enum(["LOCAL", "SHARED", "UNKNOWN"]),
+
+    reason: z.string().trim().min(10).max(2000),
+
+    evidenceRefs: z.array(evidenceRefSchema).min(1).max(10),
+  })
+  .strict();
+
 const patchTargetAnalysisEntrySchema = z
   .object({
     path: repositoryPathSchema,
@@ -74,6 +84,8 @@ const patchIntentSchema = z
 export const investigationDiagnosisSchema = z
   .object({
     rootCause: z.string().trim().min(1).max(4000),
+
+    scopeAnalysis: failureScopeAnalysisSchema,
 
     evidence: z.array(investigationEvidenceSchema).min(1).max(20),
 
