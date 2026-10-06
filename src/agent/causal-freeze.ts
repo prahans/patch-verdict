@@ -38,6 +38,14 @@ export const causalFreezeSchema = z
 export type CausalFreeze = z.infer<typeof causalFreezeSchema>;
 export type CausalEvidenceRef = z.infer<typeof causalEvidenceRefSchema>;
 
+export type FrozenCausalFreeze = CausalFreeze & {
+  status: "FROZEN";
+  selectedHypothesisId: string;
+  causeLayer: NonNullable<CausalFreeze["causeLayer"]>;
+  causalClaim: string;
+  confidence: NonNullable<CausalFreeze["confidence"]>;
+};
+
 export type CausalFreezeGroundingContext = {
   // The original, already grounded pre-experiment board; never rewritten here.
   board: HypothesisBoard;
@@ -248,5 +256,19 @@ export function assertCausalFreezeGrounding(
       "Causal Freeze v4 is not grounded.",
       ...errors.map((error) => `- ${error}`),
     ].join("\n"));
+  }
+}
+
+/** Explicit gate: grounding a deferred decision must never authorize planning. */
+export function assertCausalFreezeReadyForPlanning(
+  freeze: CausalFreeze,
+  context: CausalFreezeGroundingContext,
+): asserts freeze is FrozenCausalFreeze {
+  assertCausalFreezeGrounding(freeze, context);
+
+  if (freeze.status !== "FROZEN") {
+    throw new Error(
+      `Repair planning is blocked: Causal Freeze needs more evidence. ${freeze.unresolvedQuestions.join(" ")}`,
+    );
   }
 }
