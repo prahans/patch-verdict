@@ -153,6 +153,34 @@ describe("Root Cause Contract v3", () => {
     ).toThrow(/duplicates the primary cause/i);
   });
 
+  it("rejects HIGH confidence while a competing cause remains unresolved", () => {
+    expect(() =>
+      assertRootCauseAnalysisGrounding(
+        {
+          ...analysis,
+          alternatives: [
+            {
+              layer: "CONFIGURATION",
+              hypothesis:
+                "A repository configuration option may be responsible for the missing cleanup lifecycle.",
+              status: "UNRESOLVED",
+              reason:
+                "The current evidence has not distinguished this configuration hypothesis from the primary runtime hypothesis.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vite.config.ts",
+                },
+              ],
+            },
+          ],
+        },
+        evidence,
+        "HIGH",
+      ),
+    ).toThrow(/competing cause remains UNRESOLVED/i);
+  });
+
   it("does not allow ROOT_CAUSE_FIX when the cause is unknown", () => {
     expect(() =>
       assertRepairKindCompatibleWithCause({
