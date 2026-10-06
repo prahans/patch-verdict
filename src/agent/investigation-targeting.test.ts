@@ -379,6 +379,8 @@ describe("assertPatchTargetAnalysis", () => {
               objective:
                 "Add local teardown for this test-specific lifecycle.",
 
+              repairKind: "WORKAROUND",
+
               evidenceRefs: [
                 {
                   kind: "FILE",
