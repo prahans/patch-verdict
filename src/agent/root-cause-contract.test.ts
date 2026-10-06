@@ -105,7 +105,7 @@ describe("Root Cause Contract v3", () => {
         evidence,
         "MEDIUM",
       ),
-    ).toThrow(/must cite TEST evidence/i);
+    ).toThrow(/must cite TEST or EXPERIMENT evidence/i);
   });
 
   it("rejects HIGH confidence when the cause layer is UNKNOWN", () => {
@@ -179,7 +179,7 @@ describe("Root Cause Contract v3", () => {
         evidence,
         "MEDIUM",
       ),
-    ).toThrow(/Alternative DEPENDENCY_RUNTIME cause.*must cite TEST evidence/i);
+    ).toThrow(/Alternative DEPENDENCY_RUNTIME cause.*must cite TEST or EXPERIMENT evidence/i);
   });
 
   it("rejects HIGH confidence while a competing cause remains unresolved", () => {
