@@ -51,6 +51,20 @@ describe("parseInvestigationModelOutput", () => {
             },
           ],
 
+          patchIntents: [
+            {
+              id: "intent-1",
+              path: "vitest.setup.ts",
+              objective: "Ensure rendered DOM is cleaned between tests.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
+            },
+          ],
+
           confidence: "HIGH",
         },
       }),
@@ -108,6 +122,19 @@ describe("parseInvestigationModelOutput", () => {
         "reason": "This file contains the incorrect state transition and directly addresses the diagnosed root cause."
       }
     ],
+    "patchIntents": [
+      {
+        "id": "intent-1",
+        "path": "src/state.ts",
+        "objective": "Correct the incorrect state transition.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/state.ts"
+          }
+        ]
+      }
+    ],
     "confidence": "HIGH"
   }
 }
@@ -122,6 +149,20 @@ describe("parseInvestigationModelOutput", () => {
         decision: "RECOMMEND",
         reason:
           "This file contains the incorrect state transition and directly addresses the diagnosed root cause.",
+      },
+    ]);
+
+    expect(result.diagnosis.patchIntents).toEqual([
+      {
+        id: "intent-1",
+        path: "src/state.ts",
+        objective: "Correct the incorrect state transition.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "src/state.ts",
+          },
+        ],
       },
     ]);
   });
