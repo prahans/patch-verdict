@@ -124,6 +124,7 @@ describe("assertPatchIntentContract", () => {
             id: "intent-1",
             path: "src/example.ts",
             objective: "Change unrelated application behavior.",
+            repairKind: "MITIGATION",
             evidenceRefs: [
               {
                 kind: "TEST",
