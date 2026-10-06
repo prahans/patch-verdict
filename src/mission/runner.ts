@@ -161,6 +161,8 @@ export async function runMission(
 
       reconnaissance: reconnaissanceSummary(reconnaissance),
 
+      hypothesisBoard: investigation.hypothesisBoard,
+
       diagnosis: investigation.diagnosis,
     };
 
