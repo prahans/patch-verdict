@@ -6,6 +6,18 @@ import { assertInvestigationProvenance } from "./investigation-provenance.js";
 const diagnosis = {
   rootCause: "Shared cleanup is missing.",
 
+  scopeAnalysis: {
+    scope: "SHARED",
+    reason:
+      "The missing cleanup behavior belongs to shared test lifecycle infrastructure.",
+    evidenceRefs: [
+      {
+        kind: "FILE",
+        source: "vitest.setup.ts",
+      },
+    ],
+  },
+
   evidence: [
     {
       kind: "FILE",
@@ -214,6 +226,18 @@ describe("assertInvestigationProvenance", () => {
   it("rejects relevant files without FILE evidence", () => {
     const missingFileEvidenceDiagnosis = {
       rootCause: "Shared cleanup is missing.",
+
+      scopeAnalysis: {
+        scope: "LOCAL",
+        reason:
+          "This fixture treats the lifecycle defect as local to the direct test for provenance validation.",
+        evidenceRefs: [
+          {
+            kind: "FILE" as const,
+            source: "src/components/DarkMode.test.tsx",
+          },
+        ],
+      },
 
       evidence: [
         {
