@@ -76,6 +76,79 @@ export const investigationToolDefinitions = [
     },
   },
 
+
+  {
+    type: "function" as const,
+
+    function: {
+      name: "run_counterfactual",
+
+      description:
+        "Run one reversible causal experiment against the trusted reproduction command. PatchVerdict temporarily changes exactly one allowlisted runner-config or shared test-setup text fragment, runs the trusted reproduction command, restores the original file exactly, and returns experiment evidence. Use this only to distinguish competing hypotheses, never as a candidate patch.",
+
+      parameters: {
+        type: "object",
+
+        properties: {
+          experimentId: {
+            type: "string",
+            pattern: "^EXP-[1-9]\\d*$",
+            description: "Unique experiment id, for example EXP-1.",
+          },
+
+          hypothesisIds: {
+            type: "array",
+            minItems: 2,
+            maxItems: 5,
+            items: {
+              type: "string",
+              pattern: "^H[1-5]$",
+            },
+            description:
+              "Two or more hypothesis ids from the initial Hypothesis Board that this experiment is intended to distinguish.",
+          },
+
+          question: {
+            type: "string",
+            minLength: 10,
+            description:
+              "The causal discrimination question this temporary intervention is intended to answer.",
+          },
+
+          path: {
+            type: "string",
+            description:
+              "Repository-relative runner-config or shared test-setup path from deterministic reconnaissance.",
+          },
+
+          find: {
+            type: "string",
+            minLength: 1,
+            description:
+              "Exact text fragment expected to occur exactly once in the allowlisted file.",
+          },
+
+          replace: {
+            type: "string",
+            description:
+              "Temporary replacement text. The original file is restored automatically after the trusted reproduction command.",
+          },
+        },
+
+        required: [
+          "experimentId",
+          "hypothesisIds",
+          "question",
+          "path",
+          "find",
+          "replace",
+        ],
+
+        additionalProperties: false,
+      },
+    },
+  },
+
   {
     type: "function" as const,
 
