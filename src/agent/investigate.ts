@@ -207,8 +207,10 @@ Root-cause rules:
 - every rootCauseAnalysis evidenceRefs entry must exactly match diagnosis.evidence
 - DEPENDENCY_RUNTIME must cite TEST evidence
 - UNKNOWN primary cause cannot use HIGH confidence
+- HIGH confidence is not allowed while any competing cause remains UNRESOLVED
 - consider plausible alternatives and mark them REJECTED or UNRESOLVED rather than silently collapsing competing explanations
 - do not label a workaround or mitigation as ROOT_CAUSE_FIX
+- no patch intent may be ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED
 
 Failure-scope rules:
 
@@ -759,6 +761,7 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 - UNKNOWN scope cannot use HIGH confidence
 - if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
 - rootCauseAnalysis must separate failure mechanism from underlying cause
+- unresolved competing causes must prevent HIGH confidence and ROOT_CAUSE_FIX classification
 - every rootCauseAnalysis evidenceRef must already exist in diagnosis.evidence
 - every RECOMMEND target must have a grounded patchIntent with an explicit repairKind
 - do not invent new evidence, files, tests, commands, or patch objectives
