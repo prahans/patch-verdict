@@ -87,6 +87,38 @@ describe("Root Cause Contract v3", () => {
     ).toThrow(/does not exist in investigation evidence/i);
   });
 
+
+  it("accepts counterfactual EXPERIMENT evidence as runtime evidence", () => {
+    expect(() =>
+      assertRootCauseAnalysisGrounding(
+        {
+          ...analysis,
+          primaryCause: {
+            ...analysis.primaryCause,
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "vite.config.ts",
+              },
+              {
+                kind: "EXPERIMENT",
+                source: "EXP-1",
+              },
+            ],
+          },
+        },
+        [
+          ...evidence,
+          {
+            kind: "EXPERIMENT",
+            source: "EXP-1",
+          },
+        ],
+        "HIGH",
+      ),
+    ).not.toThrow();
+  });
+
   it("requires runtime evidence for a DEPENDENCY_RUNTIME cause", () => {
     expect(() =>
       assertRootCauseAnalysisGrounding(
