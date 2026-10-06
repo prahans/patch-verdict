@@ -35,6 +35,12 @@ export function buildPatchAgentContext(
       }),
     ),
 
+    patchIntents: investigation.diagnosis.patchIntents.map((intent) => ({
+      ...intent,
+
+      verificationRole: classifyVerificationPath(intent.path),
+    })),
+
     confidence: investigation.diagnosis.confidence,
   };
 }
