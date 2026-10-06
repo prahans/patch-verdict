@@ -28,7 +28,7 @@ const repositoryPathSchema = z
 
 const investigationEvidenceSchema = z
   .object({
-    kind: z.enum(["FILE", "TEST", "SEARCH"]),
+    kind: z.enum(["FILE", "TEST", "SEARCH", "EXPERIMENT"]),
 
     source: z.string().trim().min(1).max(500),
 
@@ -38,7 +38,7 @@ const investigationEvidenceSchema = z
 
 const evidenceRefSchema = z
   .object({
-    kind: z.enum(["FILE", "TEST", "SEARCH"]),
+    kind: z.enum(["FILE", "TEST", "SEARCH", "EXPERIMENT"]),
 
     source: z.string().trim().min(1).max(500),
   })
