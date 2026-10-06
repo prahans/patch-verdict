@@ -84,7 +84,7 @@ export const investigationToolDefinitions = [
       name: "run_counterfactual",
 
       description:
-        "Run one reversible causal experiment against the trusted reproduction command. PatchVerdict temporarily changes exactly one allowlisted runner-config or shared test-setup text fragment, runs the trusted reproduction command, restores the original file exactly, and returns experiment evidence. Use this only to distinguish competing hypotheses, never as a candidate patch.",
+        "Run one reversible causal experiment against the trusted reproduction command. PatchVerdict temporarily changes exactly one allowlisted runner-config or shared test-setup text fragment, runs the trusted reproduction command, restores the original file exactly, and returns experiment evidence with a deterministic intervention role. Use this only to distinguish competing hypotheses, never as a candidate patch. A shared test-setup control suppressing the failure does not by itself prove root-cause ownership.",
 
       parameters: {
         type: "object",
