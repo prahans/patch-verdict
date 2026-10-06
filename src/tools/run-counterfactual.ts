@@ -45,6 +45,10 @@ export type CounterfactualOutcome =
   | "FAILURE_PERSISTS"
   | "INCONCLUSIVE";
 
+export type CounterfactualInterventionRole =
+  | "RUNNER_CONFIGURATION"
+  | "TEST_SETUP_CONTROL";
+
 export type CounterfactualExperimentEvidence = {
   experimentId: string;
   evidenceSource: string;
@@ -53,6 +57,7 @@ export type CounterfactualExperimentEvidence = {
 
   intervention: {
     path: string;
+    role: CounterfactualInterventionRole;
     find: string;
     replace: string;
   };
@@ -78,7 +83,8 @@ type CounterfactualContext = {
   trustedCommand: string;
   baselineExitCode: number;
   requiredOutput: readonly string[];
-  allowedPaths: readonly string[];
+  runnerConfigPaths: readonly string[];
+  testSetupPaths: readonly string[];
 };
 
 function normalizePath(value: string) {
@@ -155,11 +161,21 @@ export async function runCounterfactualWithAccess(input: {
 
   const normalizedPath = assertSafeRelativePath(parsed.path);
 
-  const allowedPaths = new Set(
-    input.context.allowedPaths.map(normalizePath),
+  const runnerConfigPaths = new Set(
+    input.context.runnerConfigPaths.map(normalizePath),
   );
 
-  if (!allowedPaths.has(normalizedPath)) {
+  const testSetupPaths = new Set(
+    input.context.testSetupPaths.map(normalizePath),
+  );
+
+  let interventionRole: CounterfactualInterventionRole;
+
+  if (runnerConfigPaths.has(normalizedPath)) {
+    interventionRole = "RUNNER_CONFIGURATION";
+  } else if (testSetupPaths.has(normalizedPath)) {
+    interventionRole = "TEST_SETUP_CONTROL";
+  } else {
     throw new Error(
       [
         `Counterfactual experiment path "${parsed.path}" is not allowlisted.`,
@@ -268,6 +284,7 @@ export async function runCounterfactualWithAccess(input: {
 
     intervention: {
       path: normalizedPath,
+      role: interventionRole,
       find: parsed.find,
       replace: parsed.replace,
     },
