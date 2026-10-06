@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  repairKindSchema,
+  rootCauseAnalysisSchema,
+} from "./root-cause-contract.js";
+
 const repositoryPathSchema = z
   .string()
   .trim()
@@ -77,6 +82,8 @@ const patchIntentSchema = z
 
     objective: z.string().trim().min(10).max(2000),
 
+    repairKind: repairKindSchema,
+
     evidenceRefs: z.array(patchIntentEvidenceRefSchema).min(1).max(10),
   })
   .strict();
@@ -84,6 +91,8 @@ const patchIntentSchema = z
 export const investigationDiagnosisSchema = z
   .object({
     rootCause: z.string().trim().min(1).max(4000),
+
+    rootCauseAnalysis: rootCauseAnalysisSchema,
 
     scopeAnalysis: failureScopeAnalysisSchema,
 
