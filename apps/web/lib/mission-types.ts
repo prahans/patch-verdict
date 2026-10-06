@@ -39,7 +39,7 @@ export type MissionResult = {
       objective: string;
       repairKind?: "ROOT_CAUSE_FIX" | "WORKAROUND" | "MITIGATION";
       evidenceRefs: Array<{
-        kind: "FILE" | "TEST" | "SEARCH";
+        kind: "FILE" | "TEST" | "SEARCH" | "EXPERIMENT";
         source: string;
       }>;
     };
