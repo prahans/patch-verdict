@@ -14,7 +14,10 @@ import {
 } from "./patch-context.js";
 
 import { messageContentToText } from "./message-content.js";
-import { authorizePatchToolInput } from "./patch-authorization.js";
+import {
+  authorizePatchToolInput,
+  type PatchAuthorizationEvidence,
+} from "./patch-authorization.js";
 
 const MAX_PATCH_ITERATIONS = 4;
 const PATCH_ALLOWED_TOOLS = new Set<string>([
@@ -53,6 +56,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
   ];
 
   let patchApplied = false;
+  let authorizationEvidence: PatchAuthorizationEvidence | undefined;
 
   for (let iteration = 1; iteration <= MAX_PATCH_ITERATIONS; iteration++) {
     console.log("");
@@ -85,6 +89,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
       return {
         completed: true,
         patchApplied,
+        authorization: authorizationEvidence,
         report: messageContentToText(message.content),
       };
     }
@@ -153,6 +158,12 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
           continue;
         }
 
+        authorizationEvidence = authorization.authorization;
+
+        console.log(
+          `  intent: ${authorization.authorization.intentId} -> ${authorization.authorization.authorizedPath}`,
+        );
+
         executionInput = authorization.input;
       }
 
@@ -202,6 +213,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
       return {
         completed: true,
         patchApplied: true,
+        authorization: authorizationEvidence,
         report: "Candidate patch applied.",
       };
     }
@@ -210,6 +222,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
   return {
     completed: false,
     patchApplied,
+    authorization: authorizationEvidence,
     report: "Patch iteration budget exhausted.",
   };
 }
