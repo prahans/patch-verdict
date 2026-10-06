@@ -1,3 +1,5 @@
+import type { ChatMessages } from "@openrouter/sdk/models";
+
 import { openRouter, AGENT_MODEL } from "../ai/openrouter.js";
 
 import { messageContentToText } from "./message-content.js";
@@ -68,7 +70,7 @@ export async function createInitialHypothesisBoard(input: {
   baseline: InvestigationBaselineContext;
   reconnaissance: ReconnaissanceContext;
 }): Promise<HypothesisBoard> {
-  const messages = [
+  const messages: ChatMessages[] = [
     {
       role: "system" as const,
       content: HYPOTHESIS_BOARD_SYSTEM_PROMPT,
