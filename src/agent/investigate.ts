@@ -417,6 +417,8 @@ Important:
 - Use run_test only when a more targeted execution would materially help distinguish competing root-cause hypotheses.
 - Use run_counterfactual when changing one allowlisted runner-config or shared test-setup variable can distinguish two or more hypotheses. PatchVerdict will run only the trusted reproduction command and restore the file exactly.
 - A counterfactual intervention is experiment evidence, never a candidate patch.
+- A TEST_SETUP_CONTROL that removes the failure proves that the control can suppress the symptom; it does not by itself prove that test setup owns the underlying cause.
+- Prefer RUNNER_CONFIGURATION experiments when they directly manipulate a hypothesized upstream execution variable.
 - Focus your tool budget on distinguishing causes, not rebuilding deterministic repository context.
 - Treat the Hypothesis Board as the causal starting state. Gather evidence that supports, contradicts, or distinguishes those hypotheses.
 - Do not collapse directly from "this file can be edited" to "this file owns the cause."
@@ -879,10 +881,8 @@ Do not invent paths, evidence, or unrelated patch objectives.
               trustedCommand: baseline.command,
               baselineExitCode: baseline.exitCode,
               requiredOutput: baseline.requiredOutput,
-              allowedPaths: [
-                ...reconnaissance.runnerConfigs,
-                ...reconnaissance.testSetups,
-              ],
+              runnerConfigPaths: reconnaissance.runnerConfigs,
+              testSetupPaths: reconnaissance.testSetups,
             },
           );
 
