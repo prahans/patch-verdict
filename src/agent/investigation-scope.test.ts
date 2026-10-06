@@ -266,7 +266,7 @@ describe("assertFailureScopeAnalysis", () => {
           inspectedFiles: ["src/components/DarkMode.test.tsx", "vitest.setup.ts"],
         },
       ),
-    ).toThrow(/LOCAL was selected after test infrastructure was inspected/i);
+    ).toThrow(/Missing scope evidence for: vitest\.setup\.ts/i);
   });
 
   it("rejects LOCAL scope that ignores inspected test support", () => {
@@ -326,7 +326,7 @@ describe("assertFailureScopeAnalysis", () => {
           ],
         },
       ),
-    ).toThrow(/TEST_INFRASTRUCTURE or TEST_SUPPORT/i);
+    ).toThrow(/Missing scope evidence for: src\/utils\/test-utils\.tsx/i);
   });
 
 });
