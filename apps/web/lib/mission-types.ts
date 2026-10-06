@@ -51,6 +51,7 @@ export type MissionResult = {
     reproductionPassesAfterPatch?: boolean;
     fullSuitePassesAfterPatch?: boolean;
     verificationIntegrityPreserved?: boolean;
+    patchMatchesAuthorization?: boolean;
   };
   reproduction?: ReproductionClassification;
   verificationIntegrity?: VerificationIntegrity;
