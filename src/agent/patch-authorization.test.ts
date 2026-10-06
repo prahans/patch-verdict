@@ -31,7 +31,17 @@ describe("authorizePatchToolInput", () => {
       ),
     ).toEqual({
       ok: true,
-      intentId: "intent-1",
+      authorization: {
+        intentId: "intent-1",
+        authorizedPath: "vitest.setup.ts",
+        objective: "Ensure rendered DOM is cleaned between tests.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "vitest.setup.ts",
+          },
+        ],
+      },
       input: {
         path: "vitest.setup.ts",
         content: "export {};",
@@ -101,7 +111,17 @@ describe("authorizePatchToolInput", () => {
       ),
     ).toEqual({
       ok: true,
-      intentId: "intent-1",
+      authorization: {
+        intentId: "intent-1",
+        authorizedPath: "vitest.setup.ts",
+        objective: "Ensure rendered DOM is cleaned between tests.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "vitest.setup.ts",
+          },
+        ],
+      },
       input: {
         path: "vitest.setup.ts",
         content: "export {};",
