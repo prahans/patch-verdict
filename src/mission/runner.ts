@@ -15,6 +15,10 @@ import { classifyReproduction } from "../verification/reproduction.js";
 import { analyzeVerificationIntegrity } from "../verification/integrity.js";
 import { createInvestigationBaselineContext } from "../agent/investigation-context.js";
 import { assertPatchAuthorizationMatchesChangedFiles } from "../agent/patch-authorization.js";
+import {
+  createDeterministicReconnaissance,
+  reconnaissanceSummary,
+} from "../agent/reconnaissance.js";
 
 import type {
   MissionEvent,
@@ -103,7 +107,7 @@ export async function runMission(
     // INVESTIGATION
     // -------------------------
 
-    record("INVESTIGATING", "AI investigation started");
+    record("INVESTIGATING", "Deterministic reconnaissance started");
 
     const requiredOutput =
       input.verificationPlan.reproduction.expectation.requiredOutput;
@@ -124,10 +128,24 @@ export async function runMission(
         : {}),
     });
 
+    const reconnaissance = await createDeterministicReconnaissance(
+      sandbox,
+      input.projectRoot,
+      investigationBaseline,
+    );
+
+    record(
+      "INVESTIGATING",
+      `Deterministic reconnaissance completed: ${reconnaissance.preInspectedFiles.length} pre-inspected file(s), ${reconnaissance.inventory.length} discovered file(s)`,
+    );
+
+    record("INVESTIGATING", "AI investigation started");
+
     const investigation = await investigateIssue(
       sandbox,
       input.issue,
       investigationBaseline,
+      reconnaissance,
     );
 
     if (!investigation.completed) {
@@ -140,6 +158,8 @@ export async function runMission(
       report: investigationReport,
 
       iterations: investigation.iterations,
+
+      reconnaissance: reconnaissanceSummary(reconnaissance),
 
       diagnosis: investigation.diagnosis,
     };
