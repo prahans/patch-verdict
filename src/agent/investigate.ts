@@ -35,7 +35,10 @@ import {
   type ReconnaissanceContext,
 } from "./reconnaissance.js";
 import { createInitialHypothesisBoard } from "./create-hypothesis-board.js";
-import { runCounterfactualExperiment } from "../tools/run-counterfactual.js";
+import {
+  runCounterfactualExperiment,
+  type CounterfactualExperimentEvidence,
+} from "../tools/run-counterfactual.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -462,6 +465,8 @@ Important:
 
   const executedExperiments = new Set<string>();
 
+  const counterfactualEvidence: CounterfactualExperimentEvidence[] = [];
+
   const discoveredFiles = new Set<string>(
     reconnaissance.inventory,
   );
@@ -608,6 +613,7 @@ Do not invent paths, evidence, or unrelated patch objectives.
         completed: true,
         iterations: iteration,
         hypothesisBoard,
+        experiments: counterfactualEvidence,
         report: structured.report,
         diagnosis: structured.diagnosis,
       };
@@ -1189,6 +1195,8 @@ Return only corrected structured JSON.
     iterations: completedIterations,
 
     hypothesisBoard,
+
+    experiments: counterfactualEvidence,
 
     report: structured.report,
 
