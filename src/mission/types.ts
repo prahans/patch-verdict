@@ -5,6 +5,7 @@ import type { InvestigationDiagnosis } from "../agent/investigation-contract.js"
 import type { PatchAuthorizationEvidence } from "../agent/patch-authorization.js";
 import type { ReconnaissanceSummary } from "../agent/reconnaissance.js";
 import type { HypothesisBoard } from "../agent/hypothesis-board.js";
+import type { CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 
 export type MissionState =
   | "PREPARING"
@@ -57,6 +58,8 @@ export type MissionResult = {
     reconnaissance?: ReconnaissanceSummary;
 
     hypothesisBoard?: HypothesisBoard;
+
+    experiments?: CounterfactualExperimentEvidence[];
 
     diagnosis: InvestigationDiagnosis;
   };
