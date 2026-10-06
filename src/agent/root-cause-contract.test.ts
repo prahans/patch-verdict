@@ -153,6 +153,35 @@ describe("Root Cause Contract v3", () => {
     ).toThrow(/duplicates the primary cause/i);
   });
 
+
+  it("requires runtime evidence for DEPENDENCY_RUNTIME alternatives", () => {
+    expect(() =>
+      assertRootCauseAnalysisGrounding(
+        {
+          ...analysis,
+          alternatives: [
+            {
+              layer: "DEPENDENCY_RUNTIME",
+              hypothesis:
+                "A competing runtime caching behavior may own the cleanup failure.",
+              status: "UNRESOLVED",
+              reason:
+                "This fixture intentionally omits runtime TEST evidence.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vite.config.ts",
+                },
+              ],
+            },
+          ],
+        },
+        evidence,
+        "MEDIUM",
+      ),
+    ).toThrow(/Alternative DEPENDENCY_RUNTIME cause.*must cite TEST evidence/i);
+  });
+
   it("rejects HIGH confidence while a competing cause remains unresolved", () => {
     expect(() =>
       assertRootCauseAnalysisGrounding(
