@@ -124,6 +124,8 @@ export async function writeProofBundle({
       ? {
           applied: result.patch.applied,
 
+          authorization: result.patch.authorization ?? null,
+
           baseCommit: result.patch.baseCommit,
 
           changedFiles: result.patch.changedFiles,
