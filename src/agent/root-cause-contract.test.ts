@@ -173,6 +173,26 @@ describe("Root Cause Contract v3", () => {
     ).toThrow(/WORKAROUND or MITIGATION/i);
   });
 
+  it("rejects a root-cause fix whose target role does not own the identified cause", () => {
+    expect(() =>
+      assertRepairKindCompatibleWithCause({
+        repairKind: "ROOT_CAUSE_FIX",
+        causeLayer: "TEST_INFRASTRUCTURE",
+        targetRole: "TEST_FILE",
+      }),
+    ).toThrow(/expected target role TEST_INFRASTRUCTURE/i);
+  });
+
+  it("allows a root-cause fix when the target role owns the identified cause", () => {
+    expect(() =>
+      assertRepairKindCompatibleWithCause({
+        repairKind: "ROOT_CAUSE_FIX",
+        causeLayer: "TEST_SUPPORT",
+        targetRole: "TEST_SUPPORT",
+      }),
+    ).not.toThrow();
+  });
+
   it("allows a WORKAROUND against test infrastructure for a dependency-runtime cause", () => {
     expect(() =>
       assertRepairKindCompatibleWithCause({
