@@ -34,6 +34,7 @@ import {
   reconnaissanceForModel,
   type ReconnaissanceContext,
 } from "./reconnaissance.js";
+import { createInitialHypothesisBoard } from "./create-hypothesis-board.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -350,6 +351,26 @@ export async function investigateIssue(
   baseline: InvestigationBaselineContext,
   reconnaissance: ReconnaissanceContext,
 ) {
+  console.log("");
+  console.log("HYPOTHESIS BOARD");
+  console.log("Generating initial causal hypotheses before patch planning...");
+
+  const hypothesisBoard = await createInitialHypothesisBoard({
+    issue,
+    baseline,
+    reconnaissance,
+  });
+
+  for (const hypothesis of hypothesisBoard.hypotheses) {
+    console.log(
+      `  ${hypothesis.id} [${hypothesis.layer}] ${hypothesis.hypothesis}`,
+    );
+  }
+
+  console.log(
+    `  Next discrimination goal: ${hypothesisBoard.discriminationGoal.question}`,
+  );
+
   const messages: ChatMessages[] = [
     {
       role: "system",
@@ -373,6 +394,10 @@ Deterministic reconnaissance already completed before this reasoning phase:
 
 ${JSON.stringify(reconnaissanceForModel(reconnaissance), null, 2)}
 
+Initial target-free Hypothesis Board:
+
+${JSON.stringify(hypothesisBoard, null, 2)}
+
 Important:
 
 - The baseline reproduction above is trusted PatchVerdict evidence.
@@ -383,6 +408,9 @@ Important:
 - You do not need to rerun the same failure merely to prove it exists.
 - Use run_test only when a more targeted execution would materially help distinguish competing root-cause hypotheses.
 - Focus your tool budget on distinguishing causes, not rebuilding deterministic repository context.
+- Treat the Hypothesis Board as the causal starting state. Gather evidence that supports, contradicts, or distinguishes those hypotheses.
+- Do not collapse directly from "this file can be edited" to "this file owns the cause."
+- Patch targeting belongs after causal reasoning; the initial Hypothesis Board intentionally contains no patch target.
 `.trim(),
     },
   ];
@@ -567,6 +595,7 @@ Do not invent paths, evidence, or unrelated patch objectives.
       return {
         completed: true,
         iterations: iteration,
+        hypothesisBoard,
         report: structured.report,
         diagnosis: structured.diagnosis,
       };
@@ -1063,6 +1092,8 @@ Return only corrected structured JSON.
     completed: true,
 
     iterations: completedIterations,
+
+    hypothesisBoard,
 
     report: structured.report,
 
