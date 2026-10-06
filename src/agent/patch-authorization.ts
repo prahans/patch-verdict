@@ -1,0 +1,84 @@
+import { z } from "zod";
+
+import type { InvestigationDiagnosis } from "./investigation-contract.js";
+
+const patchRequestSchema = z
+  .object({
+    intentId: z.string().trim().min(1).max(100),
+
+    path: z.string().trim().min(1).max(500),
+
+    content: z.string().min(1).max(50_000),
+  })
+  .strict();
+
+type AuthorizedPatchInput = {
+  path: string;
+  content: string;
+};
+
+type PatchAuthorizationResult =
+  | {
+      ok: true;
+      intentId: string;
+      input: AuthorizedPatchInput;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+function normalizePath(value: string) {
+  return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
+}
+
+export function authorizePatchToolInput(
+  input: unknown,
+  patchIntents: InvestigationDiagnosis["patchIntents"],
+): PatchAuthorizationResult {
+  const parsed = patchRequestSchema.safeParse(input);
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error:
+        "apply_patch requires a valid intentId, repository-relative path, and replacement content.",
+    };
+  }
+
+  const matchingIntents = patchIntents.filter(
+    (intent) => intent.id === parsed.data.intentId,
+  );
+
+  if (matchingIntents.length === 0) {
+    return {
+      ok: false,
+      error: `Patch intent "${parsed.data.intentId}" is not authorized by the validated investigation.`,
+    };
+  }
+
+  if (matchingIntents.length > 1) {
+    return {
+      ok: false,
+      error: `Patch intent "${parsed.data.intentId}" is ambiguous because the validated investigation contains duplicate intent ids.`,
+    };
+  }
+
+  const intent = matchingIntents[0]!;
+
+  if (normalizePath(parsed.data.path) !== normalizePath(intent.path)) {
+    return {
+      ok: false,
+      error: `Patch intent "${intent.id}" authorizes only "${intent.path}", not "${parsed.data.path}".`,
+    };
+  }
+
+  return {
+    ok: true,
+    intentId: intent.id,
+    input: {
+      path: intent.path,
+      content: parsed.data.content,
+    },
+  };
+}
