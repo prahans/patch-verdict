@@ -315,6 +315,8 @@ export async function runMission(
 
       verificationIntegrityStatus:
         verificationIntegrityResult?.status ?? "COMPROMISED",
+
+      repairKind: patch.authorization.repairKind,
     });
 
     record("COMPLETED", `Mission completed with verdict ${verdict.status}`);

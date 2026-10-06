@@ -73,6 +73,8 @@ Rules:
 20. The apply_patch path must exactly match the path authorized by that intent.
 
 21. Treat patchIntents as the allowed behavioral objectives for patching.
+    Each intent also includes repairKind: ROOT_CAUSE_FIX, WORKAROUND, or MITIGATION.
+    Preserve that classification; do not imply a workaround changes the underlying cause.
     Do not introduce unrelated resets, refactors, cleanup, migrations,
     or behavior changes that are not required by an authorized intent.
 
@@ -96,6 +98,12 @@ between plausible patch locations.
 
 29. If repository evidence observed during patching clearly contradicts the
 investigation rationale, do not fabricate certainty.
+
+30. rootCauseAnalysis distinguishes the failure mechanism from the underlying cause.
+    Use it to avoid turning a symptom-level workaround into an unrelated architectural rewrite.
+
+31. If the authorized intent is WORKAROUND or MITIGATION, implement only that bounded repair.
+    Do not expand it into an unapproved attempt to change the identified root-cause layer.
 
 
 

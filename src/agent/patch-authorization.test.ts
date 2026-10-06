@@ -12,6 +12,7 @@ const patchIntents = [
     id: "intent-1",
     path: "vitest.setup.ts",
     objective: "Ensure rendered DOM is cleaned between tests.",
+    repairKind: "WORKAROUND",
     evidenceRefs: [
       {
         kind: "FILE",
@@ -38,6 +39,7 @@ describe("authorizePatchToolInput", () => {
         intentId: "intent-1",
         authorizedPath: "vitest.setup.ts",
         objective: "Ensure rendered DOM is cleaned between tests.",
+        repairKind: "WORKAROUND",
         evidenceRefs: [
           {
             kind: "FILE",
@@ -118,6 +120,7 @@ describe("authorizePatchToolInput", () => {
         intentId: "intent-1",
         authorizedPath: "vitest.setup.ts",
         objective: "Ensure rendered DOM is cleaned between tests.",
+        repairKind: "WORKAROUND",
         evidenceRefs: [
           {
             kind: "FILE",
@@ -156,6 +159,7 @@ describe("assertPatchAuthorizationMatchesChangedFiles", () => {
     intentId: "intent-1",
     authorizedPath: "vitest.setup.ts",
     objective: "Ensure rendered DOM is cleaned between tests.",
+    repairKind: "WORKAROUND" as const,
     evidenceRefs: [
       {
         kind: "FILE" as const,

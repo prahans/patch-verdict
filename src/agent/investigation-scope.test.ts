@@ -7,6 +7,23 @@ import { assertFailureScopeAnalysis } from "./investigation-scope.js";
 const diagnosis = {
   rootCause: "Rendered DOM persists because shared cleanup is not configured.",
 
+  rootCauseAnalysis: {
+    failureMechanism:
+      "Rendered DOM remains mounted because the shared test lifecycle does not clean it between tests.",
+    primaryCause: {
+      layer: "TEST_INFRASTRUCTURE",
+      hypothesis:
+        "The shared test lifecycle infrastructure does not register the cleanup behavior required by the affected tests.",
+      evidenceRefs: [
+        {
+          kind: "FILE",
+          source: "vitest.setup.ts",
+        },
+      ],
+    },
+    alternatives: [],
+  },
+
   scopeAnalysis: {
     scope: "SHARED",
     reason:
@@ -75,6 +92,7 @@ const diagnosis = {
       id: "intent-1",
       path: "vitest.setup.ts",
       objective: "Ensure rendered DOM is cleaned between tests.",
+      repairKind: "ROOT_CAUSE_FIX",
       evidenceRefs: [
         {
           kind: "FILE",
@@ -252,6 +270,7 @@ describe("assertFailureScopeAnalysis", () => {
               id: "intent-1",
               path: "src/components/DarkMode.test.tsx",
               objective: "Ensure DOM is cleaned between direct test cases.",
+              repairKind: "WORKAROUND",
               evidenceRefs: [
                 {
                   kind: "FILE",
@@ -309,6 +328,7 @@ describe("assertFailureScopeAnalysis", () => {
               id: "intent-1",
               path: "src/components/DarkMode.test.tsx",
               objective: "Ensure DOM is cleaned between direct test cases.",
+              repairKind: "WORKAROUND",
               evidenceRefs: [
                 {
                   kind: "FILE",

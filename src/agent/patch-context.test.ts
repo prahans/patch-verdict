@@ -10,6 +10,28 @@ describe("buildPatchAgentContext", () => {
       diagnosis: {
         rootCause: "DOM cleanup is not registered globally.",
 
+        rootCauseAnalysis: {
+          failureMechanism:
+            "Rendered DOM remains mounted because cleanup is absent from the shared test lifecycle.",
+
+          primaryCause: {
+            layer: "TEST_INFRASTRUCTURE",
+
+            hypothesis:
+              "The shared test lifecycle infrastructure does not register cleanup.",
+
+            evidenceRefs: [
+              {
+                kind: "FILE",
+
+                source: "vitest.setup.ts",
+              },
+            ],
+          },
+
+          alternatives: [],
+        },
+
         scopeAnalysis: {
           scope: "SHARED",
 
@@ -72,6 +94,8 @@ describe("buildPatchAgentContext", () => {
             objective:
               "Ensure shared cleanup runs between affected test cases.",
 
+            repairKind: "ROOT_CAUSE_FIX",
+
             evidenceRefs: [
               {
                 kind: "FILE",
@@ -85,6 +109,10 @@ describe("buildPatchAgentContext", () => {
         confidence: "HIGH",
       },
     });
+
+    expect(result.rootCauseAnalysis.primaryCause.layer).toBe(
+      "TEST_INFRASTRUCTURE",
+    );
 
     expect(result.scopeAnalysis).toEqual({
       scope: "SHARED",
@@ -126,6 +154,8 @@ describe("buildPatchAgentContext", () => {
 
         objective:
           "Ensure shared cleanup runs between affected test cases.",
+
+        repairKind: "ROOT_CAUSE_FIX",
 
         evidenceRefs: [
           {

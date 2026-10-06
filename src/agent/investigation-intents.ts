@@ -1,5 +1,8 @@
 import type { InvestigationDiagnosis } from "./investigation-contract.js";
 
+import { classifyVerificationPath } from "../verification/integrity.js";
+import { assertRepairKindCompatibleWithCause } from "./root-cause-contract.js";
+
 function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
@@ -50,6 +53,31 @@ export function assertPatchIntentContract(
     if (!recommendedAnalysisPaths.has(path)) {
       errors.push(
         `Patch intent "${intent.id}" targets "${intent.path}", which is not marked RECOMMEND in patchTargetAnalysis.`,
+      );
+    }
+
+    if (
+      intent.repairKind === "ROOT_CAUSE_FIX" &&
+      diagnosis.rootCauseAnalysis.alternatives.some(
+        (alternative) => alternative.status === "UNRESOLVED",
+      )
+    ) {
+      errors.push(
+        `Patch intent "${intent.id}" cannot be ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED.`,
+      );
+    }
+
+    try {
+      assertRepairKindCompatibleWithCause({
+        repairKind: intent.repairKind,
+        causeLayer: diagnosis.rootCauseAnalysis.primaryCause.layer,
+        targetRole: classifyVerificationPath(intent.path),
+      });
+    } catch (error) {
+      errors.push(
+        error instanceof Error
+          ? `Patch intent "${intent.id}" has incompatible repair classification: ${error.message}`
+          : `Patch intent "${intent.id}" has an incompatible repair classification.`,
       );
     }
 

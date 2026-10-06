@@ -7,7 +7,10 @@ import { executeTool, type ToolName } from "../tools/index.js";
 
 import { investigationToolDefinitions } from "./tool-definitions.js";
 
-import { INVESTIGATION_SYSTEM_PROMPT } from "./prompt.js";
+import {
+  INVESTIGATION_OUTPUT_JSON_SCHEMA,
+  INVESTIGATION_SYSTEM_PROMPT,
+} from "./prompt.js";
 
 import {
   parseInvestigationModelOutput,
@@ -21,6 +24,12 @@ import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 import { assertPatchIntentContract } from "./investigation-intents.js";
 import { assertFailureScopeAnalysis } from "./investigation-scope.js";
 import { validateDiscoveredReadPath } from "./investigation-paths.js";
+import { assertRootCauseAnalysisGrounding } from "./root-cause-contract.js";
+import {
+  assertCausalContextCoverage,
+  findUninspectedCausalContext,
+} from "./investigation-causal-context.js";
+import { assertNoSemanticDriftDuringContractRepair } from "./investigation-repair-guard.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -48,6 +57,7 @@ function assertFinalInvestigationContracts(
     executedTestCommands: readonly string[];
     searchQueries: readonly string[];
     trustedTestCommands: readonly string[];
+    discoveredFiles: readonly string[];
   },
 ) {
   assertInvestigationProvenance(structured.diagnosis, {
@@ -56,6 +66,17 @@ function assertFinalInvestigationContracts(
     executedTestCommands: context.executedTestCommands,
     searchQueries: context.searchQueries,
     trustedTestCommands: context.trustedTestCommands,
+  });
+
+  assertRootCauseAnalysisGrounding(
+    structured.diagnosis.rootCauseAnalysis,
+    structured.diagnosis.evidence,
+    structured.diagnosis.confidence,
+  );
+
+  assertCausalContextCoverage(structured.diagnosis, {
+    discoveredFiles: context.discoveredFiles,
+    inspectedFiles: context.inspectedFiles,
   });
 
   assertFailureScopeAnalysis(structured.diagnosis, {
@@ -107,6 +128,33 @@ Use exactly this shape:
   "report": "Human-readable investigation summary.",
   "diagnosis": {
     "rootCause": "Evidence-supported root cause hypothesis.",
+    "rootCauseAnalysis": {
+      "failureMechanism": "Observable mechanism that produces the failure.",
+      "primaryCause": {
+        "layer": "UNKNOWN",
+        "hypothesis": "The most likely underlying cause supported by current evidence.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
+      },
+      "alternatives": [
+        {
+          "layer": "TEST_FILE",
+          "hypothesis": "A competing evidence-grounded cause hypothesis.",
+          "status": "UNRESOLVED",
+          "reason": "Why this alternative remains unresolved or why it was rejected.",
+          "evidenceRefs": [
+            {
+              "kind": "FILE",
+              "source": "src/example.ts"
+            }
+          ]
+        }
+      ]
+    },
     "scopeAnalysis": {
       "scope": "UNKNOWN",
       "reason": "Evidence-supported explanation of whether the failure is local, shared, or still uncertain.",
@@ -148,6 +196,7 @@ Use exactly this shape:
         "id": "intent-1",
         "path": "src/example.ts",
         "objective": "Correct the behavior identified by the investigation.",
+        "repairKind": "MITIGATION",
         "evidenceRefs": [
           {
             "kind": "FILE",
@@ -171,6 +220,26 @@ LOCAL, SHARED, UNKNOWN
 
 Allowed patch-target decisions:
 RECOMMEND, REJECT
+
+Allowed cause layers:
+APPLICATION_CODE, CONFIGURATION, DEPENDENCY_RUNTIME, TEST_INFRASTRUCTURE, TEST_SUPPORT, TEST_FILE, UNKNOWN
+
+Allowed repair kinds:
+ROOT_CAUSE_FIX, WORKAROUND, MITIGATION
+
+Root-cause rules:
+
+- rootCauseAnalysis.failureMechanism describes how the failure occurs, not merely where it appears
+- primaryCause.layer must identify the layer that owns the underlying cause, or UNKNOWN when evidence is insufficient
+- every rootCauseAnalysis evidenceRefs entry must exactly match diagnosis.evidence
+- DEPENDENCY_RUNTIME must cite TEST evidence
+- UNKNOWN primary cause cannot use HIGH confidence
+- HIGH confidence is not allowed while any competing cause remains UNRESOLVED
+- consider plausible alternatives and mark them REJECTED or UNRESOLVED rather than silently collapsing competing explanations
+- every alternatives entry must include exactly layer, hypothesis, status, reason, and evidenceRefs
+- if no grounded alternative exists, use alternatives: [] rather than a partial alternative object
+- do not label a workaround or mitigation as ROOT_CAUSE_FIX
+- no patch intent may be ROOT_CAUSE_FIX while a competing cause remains UNRESOLVED
 
 Failure-scope rules:
 
@@ -199,13 +268,27 @@ Patch-intent rules:
 - every patch intent path must be marked RECOMMEND in patchTargetAnalysis
 - every evidenceRefs entry must exactly match evidence already present in diagnosis.evidence
 - patch intent objectives should describe required behavior, not exact implementation syntax or API calls
+- every patch intent must include repairKind: ROOT_CAUSE_FIX, WORKAROUND, or MITIGATION
+- repairKind must be compatible with rootCauseAnalysis.primaryCause.layer and the target's verification role
 - do not introduce a repair objective that is unrelated to the diagnosed root cause
 
 Do not use Markdown fences.
 Do not call tools.
 Do not include additional fields.
+
+Authoritative JSON Schema generated from PatchVerdict's runtime contract:
+
+${INVESTIGATION_OUTPUT_JSON_SCHEMA}
 `.trim(),
     });
+
+    console.log(
+      [
+        "⊘ STRUCTURED INVESTIGATION JSON REJECTED — requesting one no-tool schema repair",
+        "",
+        reason,
+      ].join("\n"),
+    );
 
     const repairResponse = await openRouter.chat.send({
       chatRequest: {
@@ -234,11 +317,26 @@ Do not include additional fields.
     const repairedText = messageContentToText(repairMessage.content);
 
     /*
-     * No second repair attempt.
-     * If this fails, the investigation fails
+     * No second schema-repair attempt.
+     * If this fails, the investigation fails closed
      * rather than silently accepting malformed data.
      */
-    return parseInvestigationModelOutput(repairedText);
+    try {
+      return parseInvestigationModelOutput(repairedText);
+    } catch (repairError) {
+      const repairReason =
+        repairError instanceof Error
+          ? repairError.message
+          : "Unknown structured-output repair error";
+
+      throw new Error(
+        [
+          "Investigation structured-output repair failed after one no-tool attempt.",
+          `Initial validation: ${reason}`,
+          `Repair validation: ${repairReason}`,
+        ].join("\n"),
+      );
+    }
   }
 }
 
@@ -293,6 +391,8 @@ Important:
   const discoveredFiles = new Set<string>();
 
   let discoveredDepth = 0;
+
+  let causalContextHintSent = false;
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     completedIterations = iteration;
@@ -366,6 +466,7 @@ Use list_files or search_code when necessary, then read_file the files that supp
           executedTestCommands: [...executedTestCommands],
           searchQueries: [...searchQueries],
           trustedTestCommands: [baseline.command],
+          discoveredFiles: [...discoveredFiles],
         });
       } catch (error) {
         const reason =
@@ -413,6 +514,10 @@ Use tools to inspect any missing files or revise the diagnosis so that:
 - every recommended patch target has at least one patchIntents entry
 - every patch intent targets a RECOMMEND path
 - every patch intent evidenceRefs entry exactly matches existing diagnosis evidence
+- rootCauseAnalysis is grounded in existing diagnosis evidence
+- HIGH-confidence or ROOT_CAUSE_FIX claims about TEST_INFRASTRUCTURE, CONFIGURATION, or DEPENDENCY_RUNTIME must inspect and account for discovered package/test-runner context
+- absence of a compensating hook in a patch target is not, by itself, proof that the target owns the underlying cause
+- every patch intent repairKind is compatible with the identified primary cause
 
 Do not invent paths, evidence, or unrelated patch objectives.
 `.trim(),
@@ -428,6 +533,8 @@ Do not invent paths, evidence, or unrelated patch objectives.
         diagnosis: structured.diagnosis,
       };
     }
+
+    let shouldSendCausalContextHint = false;
 
     for (const toolCall of toolCalls) {
       const toolName = toolCall.function.name as ToolName;
@@ -454,6 +561,12 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
         console.log(`↻ ${toolName} DUPLICATE — using cached result`);
 
+        const uninspectedCausalContext =
+          findUninspectedCausalContext(
+            [...discoveredFiles],
+            [...inspectedFiles],
+          );
+
         messages.push({
           role: "tool",
 
@@ -467,6 +580,13 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
               message:
                 "This identical tool call was already executed. Use the existing evidence and do not repeat this call.",
+
+              ...(uninspectedCausalContext.length > 0 && {
+                uninspectedCausalContext,
+
+                guidance:
+                  "Before making a HIGH-confidence or ROOT_CAUSE_FIX claim about test infrastructure, configuration, or dependency/runtime behavior, inspect the discovered package/test-runner context listed here if it can distinguish competing causes.",
+              }),
             },
           }),
         });
@@ -638,6 +758,18 @@ Do not invent paths, evidence, or unrelated patch objectives.
           ) {
             discoveredDepth = Math.max(discoveredDepth, input.depth);
           }
+
+          if (!causalContextHintSent) {
+            const uninspectedCausalContext =
+              findUninspectedCausalContext(
+                [...discoveredFiles],
+                [...inspectedFiles],
+              );
+
+            if (uninspectedCausalContext.length > 0) {
+              shouldSendCausalContextHint = true;
+            }
+          }
         }
 
         if (toolName === "read_file") {
@@ -689,6 +821,29 @@ Do not invent paths, evidence, or unrelated patch objectives.
         content: JSON.stringify(result),
       });
     }
+    if (shouldSendCausalContextHint && !causalContextHintSent) {
+      const uninspectedCausalContext =
+        findUninspectedCausalContext(
+          [...discoveredFiles],
+          [...inspectedFiles],
+        );
+
+      if (uninspectedCausalContext.length > 0) {
+        messages.push({
+          role: "user",
+          content: [
+            "Repository discovery found environment files that may distinguish test infrastructure, configuration, and dependency/runtime causes:",
+            ...uninspectedCausalContext.map((path) => `- ${path}`),
+            "",
+            "If your causal hypothesis involves those layers, prioritize inspecting this context before spending more calls on repeated implementation/test reads.",
+            "A repair location is not proof that the same file owns the underlying cause.",
+          ].join("\n"),
+        });
+
+        causalContextHintSent = true;
+      }
+    }
+
     if (forceFinalReport) {
       break;
     }
@@ -716,7 +871,15 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 - runtime/baseline scope claims must cite the matching TEST evidenceRef
 - UNKNOWN scope cannot use HIGH confidence
 - if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
-- every RECOMMEND target must have a grounded patchIntent
+- rootCauseAnalysis must separate failure mechanism from underlying cause
+- do not infer the cause layer from the easiest patch location
+- when discovered package/test-runner context could distinguish TEST_INFRASTRUCTURE, CONFIGURATION, and DEPENDENCY_RUNTIME, inspect and account for it before HIGH confidence or ROOT_CAUSE_FIX
+- if that context was not inspected, prefer uncertainty plus WORKAROUND/MITIGATION over fabricated causal certainty
+- unresolved competing causes must prevent HIGH confidence and ROOT_CAUSE_FIX classification
+- every alternative cause entry must include layer, hypothesis, status, reason, and evidenceRefs
+- use alternatives: [] instead of a partial alternative object
+- every rootCauseAnalysis evidenceRef must already exist in diagnosis.evidence
+- every RECOMMEND target must have a grounded patchIntent with an explicit repairKind
 - do not invent new evidence, files, tests, commands, or patch objectives
 
 Return only the final structured JSON.
@@ -754,6 +917,7 @@ Return only the final structured JSON.
     executedTestCommands: [...executedTestCommands],
     searchQueries: [...searchQueries],
     trustedTestCommands: [baseline.command],
+    discoveredFiles: [...discoveredFiles],
   };
 
   try {
@@ -789,7 +953,15 @@ Important:
 - do not add files that were not successfully inspected
 - if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
 - every patchTargetAnalysis entry must cite existing evidence and include FILE evidence for its own path
+- rootCauseAnalysis must remain grounded in diagnosis.evidence
+- do not use unobserved external-library/API behavior as if it were repository evidence
+- if package/test-runner context was discovered but not inspected, do not preserve a HIGH-confidence or ROOT_CAUSE_FIX claim about test infrastructure/configuration/runtime
+- every alternative cause must include layer, hypothesis, status, reason, and evidenceRefs
+- never keep a partial alternative object; use alternatives: [] if no grounded alternative exists
+- do not change the primary cause layer/hypothesis, alternatives, scope, evidence ledger, targets, patch intent path/objective/repairKind, or confidence during this no-tool repair
+- only repair evidenceRefs or explanatory reason/report text using evidence already collected
 - every recommended target must have a matching grounded patchIntent
+- every patchIntent must keep an evidence-grounded repairKind
 - every patchIntent evidenceRefs entry must exactly match diagnosis.evidence
 
 Return only corrected structured JSON.
@@ -820,10 +992,17 @@ Return only corrected structured JSON.
 
     messages.push(repairMessage);
 
-    structured = await parseFinalInvestigation(
+    const repairedStructured = await parseFinalInvestigation(
       messages,
       repairMessage.content,
     );
+
+    assertNoSemanticDriftDuringContractRepair(
+      structured.diagnosis,
+      repairedStructured.diagnosis,
+    );
+
+    structured = repairedStructured;
 
     /*
      * Exactly one semantic contract-repair attempt.
