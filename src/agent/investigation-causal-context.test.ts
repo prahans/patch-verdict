@@ -164,7 +164,7 @@ describe("causal environment context", () => {
           ],
         },
       ),
-    ).toThrow(/must cite TEST evidence/i);
+    ).toThrow(/must cite TEST or EXPERIMENT evidence/i);
   });
 
   it("rejects high-confidence test-infrastructure cause without environment inspection", () => {
