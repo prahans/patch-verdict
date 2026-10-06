@@ -186,4 +186,72 @@ describe("assertPatchIntentContract", () => {
       }),
     ).toThrow(/not marked RECOMMEND/i);
   });
+  it("rejects ROOT_CAUSE_FIX when a dependency-runtime cause is patched through test infrastructure", () => {
+    expect(() =>
+      assertPatchIntentContract({
+        ...diagnosis,
+        rootCauseAnalysis: {
+          failureMechanism:
+            "Automatic cleanup is not active for later suites, so rendered DOM persists.",
+          primaryCause: {
+            layer: "DEPENDENCY_RUNTIME",
+            hypothesis:
+              "Runtime module caching prevents the automatic cleanup hook from remaining active for later suites.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "vitest.setup.ts",
+              },
+              {
+                kind: "TEST",
+                source: "npm test",
+              },
+            ],
+          },
+          alternatives: [],
+        },
+        patchIntents: [
+          {
+            ...diagnosis.patchIntents[0]!,
+            repairKind: "ROOT_CAUSE_FIX",
+          },
+        ],
+      }),
+    ).toThrow(/incompatible repair classification/i);
+  });
+
+  it("allows WORKAROUND when test infrastructure compensates for a dependency-runtime cause", () => {
+    expect(() =>
+      assertPatchIntentContract({
+        ...diagnosis,
+        rootCauseAnalysis: {
+          failureMechanism:
+            "Automatic cleanup is not active for later suites, so rendered DOM persists.",
+          primaryCause: {
+            layer: "DEPENDENCY_RUNTIME",
+            hypothesis:
+              "Runtime module caching prevents the automatic cleanup hook from remaining active for later suites.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "vitest.setup.ts",
+              },
+              {
+                kind: "TEST",
+                source: "npm test",
+              },
+            ],
+          },
+          alternatives: [],
+        },
+        patchIntents: [
+          {
+            ...diagnosis.patchIntents[0]!,
+            repairKind: "WORKAROUND",
+          },
+        ],
+      }),
+    ).not.toThrow();
+  });
+
 });
