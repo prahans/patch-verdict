@@ -118,7 +118,13 @@ Use exactly this shape:
       {
         "path": "src/example.ts",
         "decision": "RECOMMEND",
-        "reason": "This location directly addresses the diagnosed root cause."
+        "reason": "This location directly addresses the diagnosed root cause.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/example.ts"
+          }
+        ]
       }
     ],
     "patchIntents": [
@@ -147,12 +153,20 @@ LOW, MEDIUM, HIGH
 Allowed patch-target decisions:
 RECOMMEND, REJECT
 
+Patch-target decision rules:
+
+- every patchTargetAnalysis entry must include evidenceRefs
+- every patchTargetAnalysis evidenceRefs entry must exactly match diagnosis.evidence
+- every patchTargetAnalysis entry must include FILE evidence for its own path
+- do not claim LOCAL/SHARED/isolated/global scope unless the cited evidence supports that claim
+
 Patch-intent rules:
 
 - intent ids must use intent-1, intent-2, and so on
 - every patch intent path must be a recommendedPatchTargets path
 - every patch intent path must be marked RECOMMEND in patchTargetAnalysis
 - every evidenceRefs entry must exactly match evidence already present in diagnosis.evidence
+- patch intent objectives should describe required behavior, not exact implementation syntax or API calls
 - do not introduce a repair objective that is unrelated to the diagnosed root cause
 
 Do not use Markdown fences.
@@ -356,6 +370,8 @@ Use tools to inspect any missing files or revise the diagnosis so that:
   - the exact command returned by a successful run_test call
   - the authoritative baseline command supplied by PatchVerdict
 - SEARCH evidence refers to a search query actually executed during this investigation
+- every patchTargetAnalysis entry cites existing diagnosis evidence
+- every patchTargetAnalysis entry includes FILE evidence for its own path
 - every recommended patch target has at least one patchIntents entry
 - every patch intent targets a RECOMMEND path
 - every patch intent evidenceRefs entry exactly matches existing diagnosis evidence
@@ -665,6 +681,7 @@ Important:
 - do not invent evidence or claim new observations
 - do not add files that were not successfully inspected
 - if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
+- every patchTargetAnalysis entry must cite existing evidence and include FILE evidence for its own path
 - every recommended target must have a matching grounded patchIntent
 - every patchIntent evidenceRefs entry must exactly match diagnosis.evidence
 
