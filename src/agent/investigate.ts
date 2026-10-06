@@ -412,6 +412,8 @@ Important:
 - Do not call list_files merely to rediscover the inventory already supplied. Use it only when you need deeper repository discovery.
 - You do not need to rerun the same failure merely to prove it exists.
 - Use run_test only when a more targeted execution would materially help distinguish competing root-cause hypotheses.
+- Use run_counterfactual when changing one allowlisted runner-config or shared test-setup variable can distinguish two or more hypotheses. PatchVerdict will run only the trusted reproduction command and restore the file exactly.
+- A counterfactual intervention is experiment evidence, never a candidate patch.
 - Focus your tool budget on distinguishing causes, not rebuilding deterministic repository context.
 - Treat the Hypothesis Board as the causal starting state. Gather evidence that supports, contradicts, or distinguishes those hypotheses.
 - Do not collapse directly from "this file can be edited" to "this file owns the cause."
@@ -445,6 +447,7 @@ Important:
 
   let duplicateCalls = 0;
   let testCalls = 0;
+  let counterfactualCalls = 0;
   let forceFinalReport = false;
   let completedIterations = 0;
   const inspectedFiles = new Set<string>(
@@ -456,6 +459,8 @@ Important:
   const executedTestCommands = new Set<string>();
 
   const searchQueries = new Set<string>();
+
+  const executedExperiments = new Set<string>();
 
   const discoveredFiles = new Set<string>(
     reconnaissance.inventory,
@@ -538,6 +543,7 @@ Use list_files or search_code when necessary, then read_file the files that supp
           searchQueries: [...searchQueries],
           trustedTestCommands: [baseline.command],
           discoveredFiles: [...discoveredFiles],
+          executedExperiments: [...executedExperiments],
         });
       } catch (error) {
         const reason =
@@ -1000,6 +1006,7 @@ Return only the final structured JSON.
     searchQueries: [...searchQueries],
     trustedTestCommands: [baseline.command],
     discoveredFiles: [...discoveredFiles],
+    executedExperiments: [...executedExperiments],
   };
 
   try {
