@@ -29,6 +29,7 @@ import {
   assertCausalContextCoverage,
   findUninspectedCausalContext,
 } from "./investigation-causal-context.js";
+import { assertNoSemanticDriftDuringContractRepair } from "./investigation-repair-guard.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -957,6 +958,8 @@ Important:
 - if package/test-runner context was discovered but not inspected, do not preserve a HIGH-confidence or ROOT_CAUSE_FIX claim about test infrastructure/configuration/runtime
 - every alternative cause must include layer, hypothesis, status, reason, and evidenceRefs
 - never keep a partial alternative object; use alternatives: [] if no grounded alternative exists
+- do not change the primary cause layer/hypothesis, alternatives, scope, evidence ledger, targets, patch intent path/objective/repairKind, or confidence during this no-tool repair
+- only repair evidenceRefs or explanatory reason/report text using evidence already collected
 - every recommended target must have a matching grounded patchIntent
 - every patchIntent must keep an evidence-grounded repairKind
 - every patchIntent evidenceRefs entry must exactly match diagnosis.evidence
@@ -989,10 +992,17 @@ Return only corrected structured JSON.
 
     messages.push(repairMessage);
 
-    structured = await parseFinalInvestigation(
+    const repairedStructured = await parseFinalInvestigation(
       messages,
       repairMessage.content,
     );
+
+    assertNoSemanticDriftDuringContractRepair(
+      structured.diagnosis,
+      repairedStructured.diagnosis,
+    );
+
+    structured = repairedStructured;
 
     /*
      * Exactly one semantic contract-repair attempt.
