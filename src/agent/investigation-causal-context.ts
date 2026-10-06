@@ -16,9 +16,19 @@ function isRunnerConfig(path: string) {
   );
 }
 
+function isTestSetup(path: string) {
+  const normalized = normalizePath(path);
+
+  return (
+    /(^|\/)(?:vitest|jest)\.setup\.[^/]+$/i.test(normalized) ||
+    /(^|\/)setupTests\.[^/]+$/i.test(normalized)
+  );
+}
+
 export type CausalContextCandidates = {
   packageManifests: string[];
   runnerConfigs: string[];
+  testSetups: string[];
 };
 
 export function findCausalContextCandidates(
@@ -29,6 +39,7 @@ export function findCausalContextCandidates(
   return {
     packageManifests: normalized.filter(isPackageManifest),
     runnerConfigs: normalized.filter(isRunnerConfig),
+    testSetups: normalized.filter(isTestSetup),
   };
 }
 
@@ -40,9 +51,11 @@ export function findUninspectedCausalContext(
 
   const inspected = new Set(inspectedFiles.map(normalizePath));
 
-  return [...candidates.packageManifests, ...candidates.runnerConfigs].filter(
-    (path) => !inspected.has(path),
-  );
+  return [
+    ...candidates.packageManifests,
+    ...candidates.runnerConfigs,
+    ...candidates.testSetups,
+  ].filter((path) => !inspected.has(path));
 }
 
 export function assertCausalContextCoverage(
@@ -138,9 +151,108 @@ export function assertCausalContextCoverage(
     addRefs(alternative.evidenceRefs);
   }
 
+  const representedCauseLayers = new Set([
+    diagnosis.rootCauseAnalysis.primaryCause.layer,
+    ...diagnosis.rootCauseAnalysis.alternatives.map(
+      (alternative) => alternative.layer,
+    ),
+  ]);
+
+  const requiredCompetingLayers: Array<{
+    layer: "CONFIGURATION" | "DEPENDENCY_RUNTIME" | "TEST_INFRASTRUCTURE";
+    candidates: string[];
+  }> = [
+    {
+      layer: "CONFIGURATION",
+      candidates: candidates.runnerConfigs,
+    },
+    {
+      layer: "DEPENDENCY_RUNTIME",
+      candidates: candidates.packageManifests,
+    },
+    {
+      layer: "TEST_INFRASTRUCTURE",
+      candidates: candidates.testSetups,
+    },
+  ];
+
+  for (const requirement of requiredCompetingLayers) {
+    const hasInspectedCandidate = requirement.candidates.some((path) =>
+      inspected.has(path),
+    );
+
+    if (
+      hasInspectedCandidate &&
+      !representedCauseLayers.has(requirement.layer)
+    ) {
+      throw new Error(
+        [
+          "Root-cause analysis did not compare a discovered competing cause layer.",
+          `A strong ${causeLayer} causal claim must account for ${requirement.layer} because relevant repository context was discovered and inspected: ${requirement.candidates.join(", ")}.`,
+          "Represent that layer as the primary cause or as a REJECTED/UNRESOLVED alternative with evidence.",
+        ].join("\n"),
+      );
+    }
+  }
+
+  const layerEvidenceRefs = new Map<
+    string,
+    Set<string>
+  >();
+
+  const registerLayerRefs = (
+    layer: string,
+    refs: readonly {
+      kind: "FILE" | "TEST" | "SEARCH";
+      source: string;
+    }[],
+  ) => {
+    const existing = layerEvidenceRefs.get(layer) ?? new Set<string>();
+
+    for (const ref of refs) {
+      if (ref.kind === "FILE") {
+        existing.add(normalizePath(ref.source));
+      }
+    }
+
+    layerEvidenceRefs.set(layer, existing);
+  };
+
+  registerLayerRefs(
+    diagnosis.rootCauseAnalysis.primaryCause.layer,
+    diagnosis.rootCauseAnalysis.primaryCause.evidenceRefs,
+  );
+
+  for (const alternative of diagnosis.rootCauseAnalysis.alternatives) {
+    registerLayerRefs(alternative.layer, alternative.evidenceRefs);
+  }
+
+  for (const requirement of requiredCompetingLayers) {
+    const inspectedCandidates = requirement.candidates.filter((path) =>
+      inspected.has(path),
+    );
+
+    if (inspectedCandidates.length === 0) {
+      continue;
+    }
+
+    const refsForLayer =
+      layerEvidenceRefs.get(requirement.layer) ?? new Set<string>();
+
+    if (!inspectedCandidates.some((path) => refsForLayer.has(path))) {
+      throw new Error(
+        [
+          `Cause layer ${requirement.layer} is represented without evidence from its discovered repository context.`,
+          `Expected one of: ${inspectedCandidates.join(", ")}.`,
+        ].join("\n"),
+      );
+    }
+  }
+
   const inspectedEnvironmentFiles = [
     ...candidates.packageManifests,
     ...candidates.runnerConfigs,
+    ...candidates.testSetups,
   ].filter((path) => inspected.has(path));
 
   const ignoredEnvironmentFiles = inspectedEnvironmentFiles.filter(
