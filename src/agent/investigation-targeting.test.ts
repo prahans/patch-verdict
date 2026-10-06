@@ -301,6 +301,48 @@ describe("assertPatchTargetAnalysis", () => {
         {
           rootCause: "The defect is isolated to this test's custom lifecycle.",
 
+          rootCauseAnalysis: {
+            failureMechanism:
+              "The direct test fixture leaves lifecycle state behind between its own cases.",
+
+            primaryCause: {
+              layer: "TEST_FILE",
+
+              hypothesis:
+                "The direct test owns a custom lifecycle that requires local teardown.",
+
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
+            },
+
+            alternatives: [
+              {
+                layer: "TEST_INFRASTRUCTURE",
+
+                hypothesis:
+                  "The shared setup may own the missing lifecycle behavior.",
+
+                status: "REJECTED",
+
+                reason:
+                  "The fixture explicitly observes that shared setup is already configured correctly.",
+
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+
+                    source: "vitest.setup.ts",
+                  },
+                ],
+              },
+            ],
+          },
+
           scopeAnalysis: {
             scope: "LOCAL",
 
