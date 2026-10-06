@@ -573,4 +573,230 @@ describe("parseInvestigationModelOutput", () => {
       /invalid JSON/i,
     );
   });
+  it("parses a complete alternative cause entry", () => {
+    const result = parseInvestigationModelOutput(
+      JSON.stringify({
+        report: "A competing cause remains unresolved.",
+
+        diagnosis: {
+          rootCause: "The observed failure has more than one plausible cause.",
+
+          rootCauseAnalysis: {
+            failureMechanism:
+              "Rendered DOM remains mounted between affected tests.",
+
+            primaryCause: {
+              layer: "TEST_INFRASTRUCTURE",
+              hypothesis:
+                "The shared test setup does not register the required cleanup lifecycle.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
+            },
+
+            alternatives: [
+              {
+                layer: "DEPENDENCY_RUNTIME",
+                hypothesis:
+                  "Runtime module caching may prevent automatic cleanup hooks from remaining active.",
+                status: "UNRESOLVED",
+                reason:
+                  "The available repository evidence does not yet distinguish runtime hook caching from missing shared setup.",
+                evidenceRefs: [
+                  {
+                    kind: "TEST",
+                    source: "npm test",
+                  },
+                ],
+              },
+            ],
+          },
+
+          scopeAnalysis: {
+            scope: "SHARED",
+            reason:
+              "The failure mechanism affects shared test lifecycle behavior.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "vitest.setup.ts",
+              },
+              {
+                kind: "TEST",
+                source: "npm test",
+              },
+            ],
+          },
+
+          evidence: [
+            {
+              kind: "FILE",
+              source: "vitest.setup.ts",
+              observation: "The setup file does not register cleanup.",
+            },
+            {
+              kind: "TEST",
+              source: "npm test",
+              observation: "The baseline shows rendered DOM accumulating.",
+            },
+          ],
+
+          relevantFiles: ["vitest.setup.ts"],
+
+          recommendedPatchTargets: ["vitest.setup.ts"],
+
+          patchTargetAnalysis: [
+            {
+              path: "vitest.setup.ts",
+              decision: "RECOMMEND",
+              reason:
+                "The setup file is a bounded place to restore shared cleanup behavior.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
+            },
+          ],
+
+          patchIntents: [
+            {
+              id: "intent-1",
+              path: "vitest.setup.ts",
+              objective: "Restore cleanup behavior between affected tests.",
+              repairKind: "WORKAROUND",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
+            },
+          ],
+
+          confidence: "MEDIUM",
+        },
+      }),
+    );
+
+    expect(result.diagnosis.rootCauseAnalysis.alternatives[0]?.reason).toContain(
+      "does not yet distinguish",
+    );
+  });
+
+  it("rejects an alternative cause that omits reason", () => {
+    expect(() =>
+      parseInvestigationModelOutput(
+        JSON.stringify({
+          report: "Invalid alternative cause.",
+
+          diagnosis: {
+            rootCause: "A competing cause was returned incompletely.",
+
+            rootCauseAnalysis: {
+              failureMechanism:
+                "Rendered DOM remains mounted between affected tests.",
+
+              primaryCause: {
+                layer: "TEST_INFRASTRUCTURE",
+                hypothesis:
+                  "The shared setup does not register the required cleanup lifecycle.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "vitest.setup.ts",
+                  },
+                ],
+              },
+
+              alternatives: [
+                {
+                  layer: "DEPENDENCY_RUNTIME",
+                  hypothesis:
+                    "Runtime hook registration may be affected by module caching.",
+                  status: "UNRESOLVED",
+                  evidenceRefs: [
+                    {
+                      kind: "TEST",
+                      source: "npm test",
+                    },
+                  ],
+                },
+              ],
+            },
+
+            scopeAnalysis: {
+              scope: "SHARED",
+              reason:
+                "The failure mechanism affects shared test lifecycle behavior.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+                {
+                  kind: "TEST",
+                  source: "npm test",
+                },
+              ],
+            },
+
+            evidence: [
+              {
+                kind: "FILE",
+                source: "vitest.setup.ts",
+                observation: "The setup file does not register cleanup.",
+              },
+              {
+                kind: "TEST",
+                source: "npm test",
+                observation: "The baseline shows rendered DOM accumulating.",
+              },
+            ],
+
+            relevantFiles: ["vitest.setup.ts"],
+
+            recommendedPatchTargets: ["vitest.setup.ts"],
+
+            patchTargetAnalysis: [
+              {
+                path: "vitest.setup.ts",
+                decision: "RECOMMEND",
+                reason:
+                  "The setup file is a bounded place to restore shared cleanup behavior.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "vitest.setup.ts",
+                  },
+                ],
+              },
+            ],
+
+            patchIntents: [
+              {
+                id: "intent-1",
+                path: "vitest.setup.ts",
+                objective: "Restore cleanup behavior between affected tests.",
+                repairKind: "WORKAROUND",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "vitest.setup.ts",
+                  },
+                ],
+              },
+            ],
+
+            confidence: "MEDIUM",
+          },
+        }),
+      ),
+    ).toThrow(/alternatives\[0\]\.reason/i);
+  });
+
 });
