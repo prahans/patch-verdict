@@ -372,3 +372,57 @@ it("accepts TEST evidence from trusted baseline execution", () => {
     ),
   ).not.toThrow();
 });
+
+
+it("accepts EXPERIMENT evidence only when that counterfactual actually executed", () => {
+  const experimentDiagnosis = {
+    ...diagnosis,
+
+    evidence: [
+      ...diagnosis.evidence,
+
+      {
+        kind: "EXPERIMENT" as const,
+        source: "EXP-1",
+        observation:
+          "Changing the allowlisted causal variable removed the reproduced failure.",
+      },
+    ],
+  };
+
+  expect(() =>
+    assertInvestigationProvenance(experimentDiagnosis, {
+      inspectedFiles: ["vitest.setup.ts"],
+      executedTests: [],
+      searchQueries: [],
+      executedExperiments: ["EXP-1"],
+    }),
+  ).not.toThrow();
+});
+
+it("rejects EXPERIMENT evidence that was never executed", () => {
+  const experimentDiagnosis = {
+    ...diagnosis,
+
+    evidence: [
+      ...diagnosis.evidence,
+
+      {
+        kind: "EXPERIMENT" as const,
+        source: "EXP-404",
+        observation:
+          "This experiment was invented and never executed.",
+      },
+    ],
+  };
+
+  expect(() =>
+    assertInvestigationProvenance(experimentDiagnosis, {
+      inspectedFiles: ["vitest.setup.ts"],
+      executedTests: [],
+      searchQueries: [],
+      executedExperiments: [],
+    }),
+  ).toThrow(/EXPERIMENT evidence source "EXP-404" was not executed/i);
+});
+
