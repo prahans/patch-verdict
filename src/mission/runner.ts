@@ -146,6 +146,7 @@ export async function runMission(
       input.issue,
       investigationBaseline,
       reconnaissance,
+      input.projectRoot,
     );
 
     if (!investigation.completed) {
