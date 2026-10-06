@@ -269,4 +269,64 @@ describe("assertFailureScopeAnalysis", () => {
     ).toThrow(/LOCAL was selected after test infrastructure was inspected/i);
   });
 
+  it("rejects LOCAL scope that ignores inspected test support", () => {
+    expect(() =>
+      assertFailureScopeAnalysis(
+        {
+          ...diagnosis,
+          scopeAnalysis: {
+            scope: "LOCAL",
+            reason:
+              "The direct test appears local, but this fixture intentionally ignores shared test support.",
+            evidenceRefs: [
+              {
+                kind: "FILE",
+                source: "src/components/DarkMode.test.tsx",
+              },
+              {
+                kind: "TEST",
+                source: "npm test",
+              },
+            ],
+          },
+          recommendedPatchTargets: ["src/components/DarkMode.test.tsx"],
+          patchTargetAnalysis: [
+            {
+              path: "src/components/DarkMode.test.tsx",
+              decision: "RECOMMEND",
+              reason:
+                "The fixture intentionally recommends the direct test.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
+            },
+          ],
+          patchIntents: [
+            {
+              id: "intent-1",
+              path: "src/components/DarkMode.test.tsx",
+              objective: "Ensure DOM is cleaned between direct test cases.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
+            },
+          ],
+          confidence: "MEDIUM",
+        },
+        {
+          inspectedFiles: [
+            "src/components/DarkMode.test.tsx",
+            "src/utils/test-utils.tsx",
+          ],
+        },
+      ),
+    ).toThrow(/TEST_INFRASTRUCTURE or TEST_SUPPORT/i);
+  });
+
 });
