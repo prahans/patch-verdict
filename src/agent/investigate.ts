@@ -970,6 +970,19 @@ Do not invent paths, evidence, or unrelated patch objectives.
         testCalls++;
       }
 
+      if (
+        toolName === "run_counterfactual" &&
+        result.ok &&
+        "data" in result &&
+        typeof result.data === "object" &&
+        result.data !== null &&
+        "experimentId" in result.data &&
+        typeof result.data.experimentId === "string"
+      ) {
+        counterfactualCalls++;
+        executedExperiments.add(result.data.experimentId);
+      }
+
       messages.push({
         role: "tool",
 
