@@ -145,18 +145,56 @@ describe("causal environment context", () => {
 
   it("accepts strong causal classification when discovered environment context was inspected and used", () => {
     expect(() =>
-      assertCausalContextCoverage(diagnosis, {
-        discoveredFiles,
-        inspectedFiles: [
-          "vitest.setup.ts",
-          "vite.config.ts",
-          "package.json",
-        ],
-      }),
+      assertCausalContextCoverage(
+        {
+          ...diagnosis,
+          rootCauseAnalysis: {
+            ...diagnosis.rootCauseAnalysis,
+            alternatives: [
+              {
+                layer: "CONFIGURATION",
+                hypothesis:
+                  "The test runner configuration may be responsible for the lifecycle behavior.",
+                status: "REJECTED",
+                reason:
+                  "The inspected configuration does not establish a configuration-owned defect in this fixture.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "vite.config.ts",
+                  },
+                ],
+              },
+              {
+                layer: "DEPENDENCY_RUNTIME",
+                hypothesis:
+                  "The installed test/runtime dependency behavior may own the missing lifecycle hook.",
+                status: "REJECTED",
+                reason:
+                  "The fixture intentionally treats the inspected dependency context as ruled out.",
+                evidenceRefs: [
+                  {
+                    kind: "FILE",
+                    source: "package.json",
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        {
+          discoveredFiles,
+          inspectedFiles: [
+            "vitest.setup.ts",
+            "vite.config.ts",
+            "package.json",
+          ],
+        },
+      ),
     ).not.toThrow();
   });
 
-  it("rejects inspected environment context that causal reasoning silently ignores", () => {
+  it("rejects strong causal reasoning that ignores discovered competing environment layers", () => {
     expect(() =>
       assertCausalContextCoverage(
         {
@@ -183,7 +221,7 @@ describe("causal environment context", () => {
           ],
         },
       ),
-    ).toThrow(/did not account for it/i);
+    ).toThrow(/did not compare a discovered competing cause layer/i);
   });
 
   it("allows a medium-confidence workaround without forcing uninspected environment context", () => {
