@@ -17,10 +17,17 @@ type AuthorizedPatchInput = {
   content: string;
 };
 
+export type PatchAuthorizationEvidence = {
+  intentId: string;
+  authorizedPath: string;
+  objective: string;
+  evidenceRefs: InvestigationDiagnosis["patchIntents"][number]["evidenceRefs"];
+};
+
 type PatchAuthorizationResult =
   | {
       ok: true;
-      intentId: string;
+      authorization: PatchAuthorizationEvidence;
       input: AuthorizedPatchInput;
     }
   | {
@@ -75,7 +82,12 @@ export function authorizePatchToolInput(
 
   return {
     ok: true,
-    intentId: intent.id,
+    authorization: {
+      intentId: intent.id,
+      authorizedPath: intent.path,
+      objective: intent.objective,
+      evidenceRefs: intent.evidenceRefs,
+    },
     input: {
       path: intent.path,
       content: parsed.data.content,
