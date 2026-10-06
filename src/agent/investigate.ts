@@ -38,6 +38,31 @@ function getInputString(input: unknown, key: string) {
   return typeof value === "string" ? value.trim() : undefined;
 }
 
+function assertFinalInvestigationContracts(
+  structured: InvestigationModelOutput,
+  context: {
+    inspectedFiles: readonly string[];
+    executedTests: readonly string[];
+    executedTestCommands: readonly string[];
+    searchQueries: readonly string[];
+    trustedTestCommands: readonly string[];
+  },
+) {
+  assertInvestigationProvenance(structured.diagnosis, {
+    inspectedFiles: context.inspectedFiles,
+    executedTests: context.executedTests,
+    executedTestCommands: context.executedTestCommands,
+    searchQueries: context.searchQueries,
+    trustedTestCommands: context.trustedTestCommands,
+  });
+
+  assertPatchTargetAnalysis(structured.diagnosis, {
+    inspectedFiles: context.inspectedFiles,
+  });
+
+  assertPatchIntentContract(structured.diagnosis);
+}
+
 async function parseFinalInvestigation(
   messages: ChatMessages[],
   content: unknown,
@@ -285,20 +310,13 @@ Use list_files or search_code when necessary, then read_file the files that supp
       );
 
       try {
-        assertInvestigationProvenance(structured.diagnosis, {
+        assertFinalInvestigationContracts(structured, {
           inspectedFiles: [...inspectedFiles],
-
           executedTests: [...executedTests],
-
           executedTestCommands: [...executedTestCommands],
-
           searchQueries: [...searchQueries],
           trustedTestCommands: [baseline.command],
         });
-        assertPatchTargetAnalysis(structured.diagnosis, {
-          inspectedFiles: [...inspectedFiles],
-        });
-        assertPatchIntentContract(structured.diagnosis);
       } catch (error) {
         const reason =
           error instanceof Error
@@ -566,8 +584,20 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
   messages.push({
     role: "user",
-    content:
-      "The investigation tool budget is exhausted. You may not call any more tools. Based only on the evidence already collected, provide your final investigation report now.",
+    content: `
+The investigation tool budget is exhausted. You may not call any more tools.
+
+Based only on the evidence already collected, provide your final investigation report now.
+
+Before returning the JSON, re-check all PatchVerdict contracts:
+
+- every relevant file and recommended target must be grounded in observed evidence
+- if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
+- every RECOMMEND target must have a grounded patchIntent
+- do not invent new evidence, files, tests, commands, or patch objectives
+
+Return only the final structured JSON.
+`.trim(),
   });
 
   const finalResponse = await openRouter.chat.send({
@@ -590,25 +620,93 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
   messages.push(finalMessage);
 
-  const structured = await parseFinalInvestigation(
+  let structured = await parseFinalInvestigation(
     messages,
     finalMessage.content,
   );
 
-  assertInvestigationProvenance(structured.diagnosis, {
+  const finalizationContext = {
     inspectedFiles: [...inspectedFiles],
-
     executedTests: [...executedTests],
-
     executedTestCommands: [...executedTestCommands],
-
     searchQueries: [...searchQueries],
     trustedTestCommands: [baseline.command],
-  });
-  assertPatchTargetAnalysis(structured.diagnosis, {
-    inspectedFiles: [...inspectedFiles],
-  });
-  assertPatchIntentContract(structured.diagnosis);
+  };
+
+  try {
+    assertFinalInvestigationContracts(structured, finalizationContext);
+  } catch (error) {
+    const reason =
+      error instanceof Error
+        ? error.message
+        : "Unknown final investigation validation error";
+
+    console.log(
+      [
+        "⊘ FINAL REPORT REJECTED AFTER BUDGET — requesting one no-tool contract repair",
+        "",
+        reason,
+      ].join("\n"),
+    );
+
+    messages.push({
+      role: "user",
+      content: `
+PatchVerdict rejected your final structured diagnosis.
+
+Validation error:
+
+${reason}
+
+You may not call tools. Revise the JSON only from evidence already collected.
+
+Important:
+
+- do not invent evidence or claim new observations
+- do not add files that were not successfully inspected
+- if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
+- every recommended target must have a matching grounded patchIntent
+- every patchIntent evidenceRefs entry must exactly match diagnosis.evidence
+
+Return only corrected structured JSON.
+`.trim(),
+    });
+
+    const repairResponse = await openRouter.chat.send({
+      chatRequest: {
+        model: AGENT_MODEL,
+        messages,
+        stream: false,
+      },
+    });
+
+    if (!("choices" in repairResponse)) {
+      throw new Error(
+        "Expected a non-streaming final investigation contract repair response",
+      );
+    }
+
+    const repairMessage = repairResponse.choices[0]?.message;
+
+    if (!repairMessage) {
+      throw new Error(
+        "Model returned no final investigation contract repair response",
+      );
+    }
+
+    messages.push(repairMessage);
+
+    structured = await parseFinalInvestigation(
+      messages,
+      repairMessage.content,
+    );
+
+    /*
+     * Exactly one semantic contract-repair attempt.
+     * If this still fails, the mission fails closed.
+     */
+    assertFinalInvestigationContracts(structured, finalizationContext);
+  }
 
   return {
     completed: true,
