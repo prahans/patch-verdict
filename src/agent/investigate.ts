@@ -7,7 +7,10 @@ import { executeTool, type ToolName } from "../tools/index.js";
 
 import { investigationToolDefinitions } from "./tool-definitions.js";
 
-import { INVESTIGATION_SYSTEM_PROMPT } from "./prompt.js";
+import {
+  INVESTIGATION_OUTPUT_JSON_SCHEMA,
+  INVESTIGATION_SYSTEM_PROMPT,
+} from "./prompt.js";
 
 import {
   parseInvestigationModelOutput,
@@ -261,6 +264,10 @@ Patch-intent rules:
 Do not use Markdown fences.
 Do not call tools.
 Do not include additional fields.
+
+Authoritative JSON Schema generated from PatchVerdict's runtime contract:
+
+${INVESTIGATION_OUTPUT_JSON_SCHEMA}
 `.trim(),
     });
 
