@@ -315,7 +315,7 @@ export async function runCounterfactualExperiment(
       assertRepositoryClean: async (phase) => {
         const result = await runSandboxCommand(
           sandbox,
-          "git diff --no-ext-diff --quiet -- .",
+          "git diff --no-ext-diff --quiet -- . && git diff --cached --no-ext-diff --quiet -- .",
           context.projectRoot,
         );
 
