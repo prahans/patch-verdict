@@ -20,6 +20,7 @@ import type { InvestigationBaselineContext } from "./investigation-context.js";
 import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 import { assertPatchIntentContract } from "./investigation-intents.js";
 import { assertFailureScopeAnalysis } from "./investigation-scope.js";
+import { validateDiscoveredReadPath } from "./investigation-paths.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -284,6 +285,10 @@ Important:
   const executedTestCommands = new Set<string>();
 
   const searchQueries = new Set<string>();
+
+  const discoveredFiles = new Set<string>();
+
+  let discoveredDepth = 0;
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     completedIterations = iteration;
