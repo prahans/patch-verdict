@@ -6,6 +6,8 @@ export type InvestigationProvenance = {
   executedTestCommands?: readonly string[];
   searchQueries: readonly string[];
 
+  executedExperiments?: readonly string[];
+
   trustedTestCommands?: readonly string[];
 };
 
@@ -32,6 +34,10 @@ export function assertInvestigationProvenance(
 
   const searchQueries = new Set(
     provenance.searchQueries.map((value) => value.trim()),
+  );
+
+  const executedExperiments = new Set(
+    (provenance.executedExperiments ?? []).map((value) => value.trim()),
   );
 
   const relevantFiles = new Set(diagnosis.relevantFiles.map(normalizePath));
@@ -107,6 +113,15 @@ export function assertInvestigationProvenance(
     ) {
       errors.push(
         `SEARCH evidence source "${evidence.source}" was not executed.`,
+      );
+    }
+
+    if (
+      evidence.kind === "EXPERIMENT" &&
+      !executedExperiments.has(evidence.source.trim())
+    ) {
+      errors.push(
+        `EXPERIMENT evidence source "${evidence.source}" was not executed.`,
       );
     }
   }
