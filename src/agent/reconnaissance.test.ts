@@ -150,4 +150,34 @@ describe("deterministic reconnaissance", () => {
     expect(modelContext.inventoryPreview).toHaveLength(250);
     expect(modelContext.inventoryTruncated).toBe(true);
   });
+  it("summarizes package metadata before model-context truncation", async () => {
+    const largePackage = JSON.stringify({
+      name: "large-fixture",
+      scripts: {
+        test: "vitest run",
+      },
+      devDependencies: {
+        vitest: "1.2.3",
+      },
+      padding: "x".repeat(13_000),
+    });
+
+    const context = await buildReconnaissanceContext({
+      baseline,
+      access: {
+        listFiles: async () => ["package.json"],
+        readFile: async () => largePackage,
+      },
+    });
+
+    expect(context.packageSummary).toEqual({
+      name: "large-fixture",
+      testScript: "vitest run",
+      testFramework: "vitest",
+      testFrameworkVersion: "1.2.3",
+    });
+
+    expect(context.files[0]?.truncated).toBe(true);
+  });
+
 });
