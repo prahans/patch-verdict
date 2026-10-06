@@ -21,6 +21,13 @@ describe("parseInvestigationModelOutput", () => {
             },
 
             {
+              kind: "FILE",
+              source: "src/components/DarkMode.test.tsx",
+              observation:
+                "The failing test renders DOM and exposes the accumulated-state symptom.",
+            },
+
+            {
               kind: "TEST",
               source: "DarkMode",
               observation:
@@ -41,6 +48,12 @@ describe("parseInvestigationModelOutput", () => {
               decision: "RECOMMEND",
               reason:
                 "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "vitest.setup.ts",
+                },
+              ],
             },
 
             {
@@ -48,6 +61,12 @@ describe("parseInvestigationModelOutput", () => {
               decision: "REJECT",
               reason:
                 "Changing only the failing test would address the local symptom instead of the shared test lifecycle.",
+              evidenceRefs: [
+                {
+                  kind: "FILE",
+                  source: "src/components/DarkMode.test.tsx",
+                },
+              ],
             },
           ],
 
@@ -82,6 +101,12 @@ describe("parseInvestigationModelOutput", () => {
         decision: "RECOMMEND",
         reason:
           "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "vitest.setup.ts",
+          },
+        ],
       },
 
       {
@@ -89,6 +114,12 @@ describe("parseInvestigationModelOutput", () => {
         decision: "REJECT",
         reason:
           "Changing only the failing test would address the local symptom instead of the shared test lifecycle.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "src/components/DarkMode.test.tsx",
+          },
+        ],
       },
     ]);
 
@@ -119,7 +150,13 @@ describe("parseInvestigationModelOutput", () => {
       {
         "path": "src/state.ts",
         "decision": "RECOMMEND",
-        "reason": "This file contains the incorrect state transition and directly addresses the diagnosed root cause."
+        "reason": "This file contains the incorrect state transition and directly addresses the diagnosed root cause.",
+        "evidenceRefs": [
+          {
+            "kind": "FILE",
+            "source": "src/state.ts"
+          }
+        ]
       }
     ],
     "patchIntents": [
@@ -149,6 +186,12 @@ describe("parseInvestigationModelOutput", () => {
         decision: "RECOMMEND",
         reason:
           "This file contains the incorrect state transition and directly addresses the diagnosed root cause.",
+        evidenceRefs: [
+          {
+            kind: "FILE",
+            source: "src/state.ts",
+          },
+        ],
       },
     ]);
 
