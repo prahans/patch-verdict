@@ -36,4 +36,8 @@ describe("INVESTIGATION_OUTPUT_JSON_SCHEMA", () => {
       ]),
     );
   });
+  it("exposes EXPERIMENT as an investigation evidence kind", () => {
+    expect(INVESTIGATION_OUTPUT_JSON_SCHEMA).toContain('"EXPERIMENT"');
+  });
+
 });
