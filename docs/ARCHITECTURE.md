@@ -44,11 +44,11 @@ Status for the continuation based on v4 commit `df5a332`:
 | M1: Reconnaissance | Implemented |
 | M2: Hypothesis Board | Implemented |
 | M3: Counterfactual Experiment Tool | Implemented, including intervention-role semantics |
-| M4: Causal Freeze | Standalone schema, grounding validator, and tests in this change; runtime integration still pending |
+| M4: Causal Freeze | Schema, grounding validator, no-tool finalizer, explicit planning gate, and tests implemented; runtime integration still pending |
 | M5: Repair Planner | Pending |
 
 The current `investigate.ts` still produces the older combined diagnosis and
-repair fields. Adding the standalone M4 module does not yet enforce causal
+repair fields. The standalone M4 modules do not yet enforce causal
 freeze in the live mission flow. The next integration must separate causal
 assessment from repair planning and prevent `NEEDS_MORE_EVIDENCE` from reaching
 the planner.
@@ -73,3 +73,29 @@ or test must still substantiate the causal claim during reasoning/review; its
 presence alone cannot establish causal ownership. Outcomes do not automatically
 map to support or rejection because different hypotheses predict different
 outcomes.
+
+## No-tool causal finalization
+
+`createCausalFreeze()` consumes the initial board, trusted baseline, successfully
+read file contents, recorded test-tool results, and restored experiment records.
+It snapshots those records before requesting a decision. The same snapshot
+supplies the model context and the grounding allowlist; model output cannot add
+trusted evidence, and later mutation of caller records cannot expand it.
+
+No tools or repair-planning schema are exposed. Unexpected tool calls are rejected.
+A valid `NEEDS_MORE_EVIDENCE` decision returns immediately. A malformed or
+ungrounded response gets at most one no-tool contract repair. If the initial
+decision parsed, the repair may change citations and explanatory reasons, but
+must preserve selection, claim, layer, confidence, assessment ids/statuses, and
+unresolved questions. Transport/protocol failures do not trigger evidence repair.
+
+`assertCausalFreezeReadyForPlanning()` first revalidates grounding and then blocks
+any non-FROZEN decision. It is separate from `assertCausalFreezeGrounding()` because
+a grounded deferred decision is a legitimate result, not permission to plan.
+
+Next integration must replace both existing investigator finalization paths
+(normal completion and exhausted tool budget) with causal-only output. Only
+after the explicit gate may a separate repair phase run. Preserve a deferred
+decision and its evidence in the mission proof; do not silently discard it or
+run patching after it. The no-tool finalizer and gate are not wired into those
+paths yet. The real benchmark remains deferred.

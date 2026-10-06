@@ -4,6 +4,7 @@ import type { CounterfactualExperimentEvidence } from "../tools/run-counterfactu
 import type { HypothesisBoard } from "./hypothesis-board.js";
 import {
   assertCausalFreezeGrounding,
+  assertCausalFreezeReadyForPlanning,
   causalFreezeSchema,
   parseCausalFreeze,
   type CausalFreeze,
@@ -106,6 +107,24 @@ function needsMoreEvidence(freeze: CausalFreeze): CausalFreeze {
 }
 
 describe("Causal Freeze v4", () => {
+  it("opens the explicit planning gate only for a grounded frozen decision", () => {
+    const { freeze, context } = createCase();
+    expect(() => assertCausalFreezeReadyForPlanning(freeze, context)).not.toThrow();
+  });
+
+  it("blocks planning for a valid NEEDS_MORE_EVIDENCE decision", () => {
+    const { freeze, context } = createCase();
+    const deferred = needsMoreEvidence(freeze);
+    expect(() => assertCausalFreezeGrounding(deferred, context)).not.toThrow();
+    expect(() => assertCausalFreezeReadyForPlanning(deferred, context)).toThrow(/Repair planning is blocked/);
+  });
+
+  it("revalidates evidence instead of trusting a FROZEN status at the planning gate", () => {
+    const { freeze, context } = createCase();
+    context.experiments = [];
+    expect(() => assertCausalFreezeReadyForPlanning(freeze, context)).toThrow(/was not executed/);
+  });
+
   it("accepts a grounded freeze without modifying the initial board or evidence", () => {
     const { freeze, context } = createCase();
     const before = structuredClone({ freeze, context });
