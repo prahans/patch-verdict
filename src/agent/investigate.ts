@@ -35,10 +35,12 @@ import {
   type ReconnaissanceContext,
 } from "./reconnaissance.js";
 import { createInitialHypothesisBoard } from "./create-hypothesis-board.js";
+import { runCounterfactualExperiment } from "../tools/run-counterfactual.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
 const MAX_TEST_CALLS = 2;
+const MAX_COUNTERFACTUAL_EXPERIMENTS = 2;
 
 function createToolCallKey(toolName: string, input: unknown) {
   return `${toolName}:${JSON.stringify(input)}`;
@@ -63,6 +65,7 @@ function assertFinalInvestigationContracts(
     searchQueries: readonly string[];
     trustedTestCommands: readonly string[];
     discoveredFiles: readonly string[];
+    executedExperiments: readonly string[];
   },
 ) {
   assertInvestigationProvenance(structured.diagnosis, {
@@ -71,6 +74,7 @@ function assertFinalInvestigationContracts(
     executedTestCommands: context.executedTestCommands,
     searchQueries: context.searchQueries,
     trustedTestCommands: context.trustedTestCommands,
+    executedExperiments: context.executedExperiments,
   });
 
   assertRootCauseAnalysisGrounding(
@@ -350,6 +354,7 @@ export async function investigateIssue(
   issue: string,
   baseline: InvestigationBaselineContext,
   reconnaissance: ReconnaissanceContext,
+  projectRoot: string,
 ) {
   console.log("");
   console.log("HYPOTHESIS BOARD");
