@@ -27,6 +27,20 @@ const diagnosis = {
     },
   ],
 
+  patchIntents: [
+    {
+      id: "intent-1",
+      path: "vitest.setup.ts",
+      objective: "Ensure rendered DOM is cleaned between tests.",
+      evidenceRefs: [
+        {
+          kind: "FILE",
+          source: "vitest.setup.ts",
+        },
+      ],
+    },
+  ],
+
   confidence: "HIGH",
 } satisfies InvestigationDiagnosis;
 
@@ -203,6 +217,25 @@ describe("assertInvestigationProvenance", () => {
 
           reason:
             "This test intentionally verifies that every relevant file requires FILE evidence.",
+        },
+      ],
+
+      patchIntents: [
+        {
+          id: "intent-1",
+
+          path: "src/components/DarkMode.test.tsx",
+
+          objective:
+            "Add the local teardown behavior required by this fixture.",
+
+          evidenceRefs: [
+            {
+              kind: "FILE" as const,
+
+              source: "src/components/DarkMode.test.tsx",
+            },
+          ],
         },
       ],
 
