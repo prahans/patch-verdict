@@ -228,7 +228,7 @@ describe("assertInvestigationProvenance", () => {
       rootCause: "Shared cleanup is missing.",
 
       scopeAnalysis: {
-        scope: "LOCAL",
+        scope: "LOCAL" as const,
         reason:
           "This fixture treats the lifecycle defect as local to the direct test for provenance validation.",
         evidenceRefs: [
