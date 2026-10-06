@@ -50,12 +50,13 @@ Rules:
 
     OTHER
     TEST_FILE
+    TEST_SUPPORT
     TEST_INFRASTRUCTURE
 
     This classification is provided by PatchVerdict, not by the investigation model.
 
-15. Prefer an OTHER target when it fixes the same root cause
-    without touching verification assets.
+15. Prefer an OTHER target only when it is genuine production/runtime code.
+    TEST_SUPPORT is verification-sensitive and must not be treated as ordinary production code.
 
 16. Do not avoid TEST_INFRASTRUCTURE when test infrastructure
     is genuinely the root cause merely to obtain a better verdict.
