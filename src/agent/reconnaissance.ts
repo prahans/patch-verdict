@@ -359,7 +359,9 @@ export function reconnaissanceSummary(
     failingPaths: context.failingPaths,
     runnerConfigs: context.runnerConfigs,
     testSetups: context.testSetups,
-    packageSummary: context.packageSummary,
+    ...(context.packageSummary && {
+      packageSummary: context.packageSummary,
+    }),
     preInspectedFiles: context.preInspectedFiles,
     readFailures: context.readFailures,
   };
