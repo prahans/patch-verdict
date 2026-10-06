@@ -4,6 +4,7 @@ import type { VerificationIntegrity } from "../verification/integrity.js";
 import type { InvestigationDiagnosis } from "../agent/investigation-contract.js";
 import type { PatchAuthorizationEvidence } from "../agent/patch-authorization.js";
 import type { ReconnaissanceSummary } from "../agent/reconnaissance.js";
+import type { HypothesisBoard } from "../agent/hypothesis-board.js";
 
 export type MissionState =
   | "PREPARING"
@@ -54,6 +55,8 @@ export type MissionResult = {
     iterations: number;
 
     reconnaissance?: ReconnaissanceSummary;
+
+    hypothesisBoard?: HypothesisBoard;
 
     diagnosis: InvestigationDiagnosis;
   };
