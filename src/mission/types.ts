@@ -36,6 +36,8 @@ export type MissionChecks = {
   fullSuitePassesAfterPatch?: boolean;
 
   verificationIntegrityPreserved?: boolean;
+
+  patchMatchesAuthorization?: boolean;
 };
 
 export type MissionResult = {
