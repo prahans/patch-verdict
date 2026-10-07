@@ -541,7 +541,7 @@ Important:
               ok: false,
 
               error:
-                "Investigation test budget exhausted. Use the evidence already collected and end causal evidence collection.",
+                "Investigation test execution budget exhausted. Do not call run_test again. You may still inspect repository evidence with read_file/search_code or end causal evidence collection.",
             }),
           });
 
@@ -549,11 +549,10 @@ Important:
             role: "user",
 
             content:
-              "You have enough execution evidence. Stop calling tools and end causal evidence collection now.",
+              "The run_test execution budget is exhausted. Do not call run_test again. Use remaining model turns only for non-executing evidence inspection (for example read_file/search_code) if it can distinguish the hypotheses, otherwise end causal evidence collection.",
           });
 
           stopReason = "TEST_EXECUTION_BUDGET";
-          forceCausalFinalization = true;
 
           continue;
         }

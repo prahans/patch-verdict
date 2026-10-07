@@ -74,17 +74,30 @@ describe("live causal investigation finalization", () => {
     expect(send).toHaveBeenCalledTimes(2);
   });
 
-  it("finalizes when the successful test-call budget is exhausted", async () => {
+  it("blocks more tests without ending the remaining investigation turns", async () => {
     const fixture = causalFixture();
+
     for (const testName of ["case one", "case two", "case three"]) {
       send.mockResolvedValueOnce(toolResponse("run_test", { testName }));
     }
-    executeTool.mockResolvedValue({ ok: true, data: {
-      command: "vitest -t case", exitCode: 1, stdout: "failure", stderr: "", durationMs: 1,
-    } });
+
+    executeTool.mockResolvedValue({
+      ok: true,
+      data: {
+        command: "vitest -t case",
+        exitCode: 1,
+        stdout: "failure",
+        stderr: "",
+        durationMs: 1,
+      },
+    });
+
+    send.mockResolvedValueOnce(modelResponse("done collecting"));
     send.mockResolvedValueOnce(modelResponse(fixture.freeze));
+
     const result = await run(fixture);
-    expect(result.iterations).toBe(3);
+
+    expect(result.iterations).toBe(4);
     expect(executeTool).toHaveBeenCalledTimes(2);
     expect(result.causalEvidence.tests).toHaveLength(2);
     expect(result.causalFreeze.status).toBe("FROZEN");

@@ -110,6 +110,149 @@ function evidenceKey(ref: { kind: string; source: string }) {
   return `${ref.kind}:${ref.source.trim()}`;
 }
 
+type ExperimentContradiction = {
+  source: string;
+  predictedOutcome: "FAILURE_REMOVED" | "FAILURE_PERSISTS";
+  actualOutcome: "FAILURE_REMOVED" | "FAILURE_PERSISTS";
+};
+
+function experimentContradictions(
+  context: CausalFreezeGroundingContext,
+  suppliedExperiments?: Map<string, CounterfactualExperimentEvidence>,
+) {
+  const boardIds = new Set(context.board.hypotheses.map((item) => item.id));
+  const experiments =
+    suppliedExperiments ??
+    new Map(
+      context.experiments
+        .filter((experiment) => {
+          const source = experiment.evidenceSource.trim();
+          return (
+            experiment.repositoryRestored === true &&
+            source === experiment.experimentId &&
+            /^EXP-[1-9]\d*$/.test(source) &&
+            experiment.hypothesisIds.length >= 2 &&
+            new Set(experiment.hypothesisIds).size ===
+              experiment.hypothesisIds.length &&
+            experiment.hypothesisIds.every((id) => boardIds.has(id))
+          );
+        })
+        .map((experiment) => [experiment.evidenceSource.trim(), experiment]),
+    );
+
+  const contradictions = new Map<string, ExperimentContradiction[]>();
+
+  for (const plan of context.experimentPlans ?? []) {
+    if (
+      plan.execution?.status !== "COMPLETED" ||
+      !plan.execution.evidenceSource ||
+      !plan.selectedCandidateId
+    ) {
+      continue;
+    }
+
+    const experiment = experiments.get(plan.execution.evidenceSource);
+    const selected = plan.rankings.find(
+      (ranking) => ranking.candidate.id === plan.selectedCandidateId,
+    )?.candidate;
+
+    if (
+      !experiment ||
+      !selected ||
+      experiment.outcome === "INCONCLUSIVE"
+    ) {
+      continue;
+    }
+
+    for (const prediction of selected.predictions) {
+      if (
+        prediction.expectedOutcome === "UNKNOWN" ||
+        !experiment.hypothesisIds.includes(prediction.hypothesisId)
+      ) {
+        continue;
+      }
+
+      if (prediction.expectedOutcome !== experiment.outcome) {
+        const items = contradictions.get(prediction.hypothesisId) ?? [];
+        items.push({
+          source: experiment.evidenceSource,
+          predictedOutcome: prediction.expectedOutcome,
+          actualOutcome: experiment.outcome,
+        });
+        contradictions.set(prediction.hypothesisId, items);
+      }
+    }
+  }
+
+  return contradictions;
+}
+
+/**
+ * Experiment outcomes are host evidence. When a completed restored experiment
+ * produces the opposite conclusive outcome from the selected plan prediction,
+ * weakening that hypothesis is deterministic bookkeeping rather than model
+ * reasoning. Apply it before validating or attempting citation-only repair.
+ */
+export function applyDeterministicExperimentContradictions(
+  freeze: CausalFreeze,
+  context: CausalFreezeGroundingContext,
+): CausalFreeze {
+  const normalized = causalFreezeSchema.parse(structuredClone(freeze));
+  const contradictions = experimentContradictions(context);
+
+  for (const assessment of normalized.hypothesisAssessments) {
+    const items = contradictions.get(assessment.hypothesisId);
+
+    if (!items?.length) {
+      continue;
+    }
+
+    assessment.status = "WEAKENED";
+    assessment.reason = items
+      .map(
+        (item) =>
+          `Restored experiment ${item.source} produced ${item.actualOutcome}, opposite the selected plan prediction ${item.predictedOutcome} for ${assessment.hypothesisId}.`,
+      )
+      .join(" ");
+
+    const existing = new Set(
+      assessment.evidenceRefs.map(
+        (ref) => `${ref.kind}:${ref.source}`,
+      ),
+    );
+
+    for (const item of items) {
+      const key = `EXPERIMENT:${item.source}`;
+
+      if (!existing.has(key)) {
+        assessment.evidenceRefs.push({
+          kind: "EXPERIMENT",
+          source: item.source,
+        });
+        existing.add(key);
+      }
+    }
+  }
+
+  if (
+    normalized.status === "FROZEN" &&
+    normalized.selectedHypothesisId !== null &&
+    contradictions.has(normalized.selectedHypothesisId)
+  ) {
+    const contradictedSelection = normalized.selectedHypothesisId;
+    normalized.status = "NEEDS_MORE_EVIDENCE";
+    normalized.selectedHypothesisId = null;
+    normalized.causeLayer = null;
+    normalized.causalClaim = null;
+    normalized.confidence = null;
+    normalized.unresolvedQuestions = [
+      `Restored experiment evidence contradicted selected hypothesis ${contradictedSelection}; reassess the remaining original hypotheses before repair planning.`,
+    ];
+  }
+
+  return normalized;
+}
+
 /**
  * Checks provenance and decision consistency, not the truth of free-text claims.
  * A valid NEEDS_MORE_EVIDENCE result is not permission to begin repair planning.
@@ -156,39 +299,10 @@ export function assertCausalFreezeGrounding(
     experiments.set(source, experiment);
   }
 
-  const contradictedHypotheses = new Map<string, string[]>();
-
-  for (const plan of context.experimentPlans ?? []) {
-    if (
-      plan.execution?.status !== "COMPLETED" ||
-      !plan.execution.evidenceSource ||
-      !plan.selectedCandidateId
-    ) {
-      continue;
-    }
-
-    const experiment = experiments.get(plan.execution.evidenceSource);
-    const selected = plan.rankings.find(
-      (ranking) => ranking.candidate.id === plan.selectedCandidateId,
-    )?.candidate;
-
-    if (!experiment || !selected || experiment.outcome === "INCONCLUSIVE") {
-      continue;
-    }
-
-    for (const prediction of selected.predictions) {
-      if (prediction.expectedOutcome === "UNKNOWN") {
-        continue;
-      }
-
-      if (prediction.expectedOutcome !== experiment.outcome) {
-        const sources =
-          contradictedHypotheses.get(prediction.hypothesisId) ?? [];
-        sources.push(experiment.evidenceSource);
-        contradictedHypotheses.set(prediction.hypothesisId, sources);
-      }
-    }
-  }
+  const contradictedHypotheses = experimentContradictions(
+    context,
+    experiments,
+  );
 
   const assessedIds = new Set<string>();
 
@@ -261,7 +375,7 @@ export function assertCausalFreezeGrounding(
 
     if (contradictions.length > 0 && assessment.status !== "WEAKENED") {
       errors.push(
-        `Hypothesis "${id}" must be WEAKENED because restored experiment(s) ${contradictions.join(", ")} produced the opposite conclusive outcome from the selected plan's prediction.`,
+        `Hypothesis "${id}" must be WEAKENED because restored experiment(s) ${contradictions.map((item) => item.source).join(", ")} produced the opposite conclusive outcome from the selected plan's prediction.`,
       );
     }
   }

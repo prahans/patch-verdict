@@ -11,6 +11,7 @@ import type { InvestigationBaselineContext } from "./investigation-context.js";
 import { messageContentToText } from "./message-content.js";
 import {
   CAUSAL_FREEZE_JSON_SCHEMA,
+  applyDeterministicExperimentContradictions,
   assertCausalFreezeGrounding,
   causalFreezeSchema,
   parseCausalFreeze,
@@ -291,7 +292,10 @@ export async function createCausalFreeze(input: CreateCausalFreezeInput): Promis
   let initial: CausalFreeze | undefined;
 
   try {
-    initial = parseCausalFreeze(text);
+    initial = applyDeterministicExperimentContradictions(
+      parseCausalFreeze(text),
+      context,
+    );
     assertCausalFreezeGrounding(initial, context);
     return initial;
   } catch (error) {
@@ -326,7 +330,12 @@ export async function createCausalFreeze(input: CreateCausalFreezeInput): Promis
 
     try {
       const repairedText = await requestDecision(repairMessages, repairAttempt);
-      const repaired = initial ? applyCitationRepair(initial, repairedText) : parseCausalFreeze(repairedText);
+      const repaired = initial
+        ? applyCitationRepair(initial, repairedText)
+        : applyDeterministicExperimentContradictions(
+            parseCausalFreeze(repairedText),
+            context,
+          );
 
       if (initial && JSON.stringify(semanticSnapshot(initial)) !== JSON.stringify(semanticSnapshot(repaired))) {
         throw new Error("No-tool causal-freeze repair attempted to change causal semantics.");

@@ -180,6 +180,107 @@ describe("createCausalFreeze", () => {
     expect(send.mock.calls[1]![0].chatRequest).not.toHaveProperty("tools");
   });
 
+  it("host-applies a conclusive experiment contradiction without spending the repair call", async () => {
+    const { input, freeze } = fixture();
+
+    input.experiments = [
+      {
+        experimentId: "EXP-1",
+        evidenceSource: "EXP-1",
+        hypothesisIds: ["H1", "H2"],
+        question: "Does changing the runner variable alter the trusted reproduction?",
+        intervention: {
+          path: "vite.config.ts",
+          role: "RUNNER_CONFIGURATION",
+          find: "threads: false",
+          replace: "threads: true",
+        },
+        command: {
+          command: "npm test",
+          exitCode: 1,
+          stdout: "expected function to throw",
+          stderr: "",
+          durationMs: 5,
+        },
+        outcome: "FAILURE_PERSISTS",
+        repositoryRestored: true,
+      },
+    ];
+
+    input.experimentPlanning = {
+      plans: [
+        {
+          round: 1,
+          status: "SELECTED",
+          reason: "Synthetic discriminating experiment.",
+          rankings: [
+            {
+              candidate: {
+                id: "candidate-1",
+                question: "Does changing threads alter the reproduction?",
+                causalVariable: "The runner threads setting.",
+                path: "vite.config.ts",
+                find: "threads: false",
+                replace: "threads: true",
+                predictions: [
+                  {
+                    hypothesisId: "H1",
+                    expectedOutcome: "FAILURE_REMOVED",
+                    reason: "Synthetic prediction for H1.",
+                    evidenceRefs: [{ kind: "TEST", source: "npm test" }],
+                  },
+                  {
+                    hypothesisId: "H2",
+                    expectedOutcome: "FAILURE_PERSISTS",
+                    reason: "Synthetic prediction for H2.",
+                    evidenceRefs: [{ kind: "TEST", source: "npm test" }],
+                  },
+                ],
+              },
+              informationGainBits: 1,
+              interventionRole: "RUNNER_CONFIGURATION",
+              priorityDirect: true,
+              rejectionReasons: [],
+            },
+          ],
+          selectedCandidateId: "candidate-1",
+          request: {
+            experimentId: "EXP-1",
+            hypothesisIds: ["H1", "H2"],
+            question: "Does changing threads alter the reproduction?",
+            path: "vite.config.ts",
+            find: "threads: false",
+            replace: "threads: true",
+          },
+          execution: {
+            status: "COMPLETED",
+            evidenceSource: "EXP-1",
+            error: null,
+          },
+        },
+      ],
+      stopReason: "HOST_EXPERIMENT_EXECUTED",
+      usage: {
+        modelTurns: 1,
+        toolCalls: 0,
+        testExecutions: 0,
+        experimentExecutions: 1,
+      },
+    };
+
+    send.mockResolvedValueOnce(completion(freeze));
+
+    const result = await createCausalFreeze(input);
+
+    expect(result.status).toBe("NEEDS_MORE_EVIDENCE");
+    expect(result.selectedHypothesisId).toBeNull();
+    expect(result.hypothesisAssessments[0]).toMatchObject({
+      hypothesisId: "H1",
+      status: "WEAKENED",
+    });
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
   it("repairs a citation using existing evidence without changing causal semantics", async () => {
     const { input, freeze } = fixture();
     send.mockResolvedValueOnce(completion(invalidCitation(freeze)));

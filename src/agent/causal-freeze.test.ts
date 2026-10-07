@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 import type { HypothesisBoard } from "./hypothesis-board.js";
 import {
+  applyDeterministicExperimentContradictions,
   assertCausalFreezeGrounding,
   assertCausalFreezeReadyForPlanning,
   causalFreezeSchema,
@@ -203,6 +204,63 @@ describe("Causal Freeze v4", () => {
       assessment.evidenceRefs = [...context.trustedEvidence];
     }
     expect(() => assertCausalFreezeGrounding(freeze, context)).not.toThrow();
+  });
+
+  it("host-normalizes a contradicted selected hypothesis into a deferred decision", () => {
+    const { freeze, context, experiment } = createCase();
+
+    context.experimentPlans = [
+      {
+        selectedCandidateId: "candidate-1",
+        rankings: [
+          {
+            candidate: {
+              id: "candidate-1",
+              predictions: [
+                {
+                  hypothesisId: "H1",
+                  expectedOutcome: "FAILURE_PERSISTS",
+                },
+                {
+                  hypothesisId: "H2",
+                  expectedOutcome: "FAILURE_REMOVED",
+                },
+              ],
+            },
+          },
+        ],
+        execution: {
+          status: "COMPLETED",
+          evidenceSource: experiment.evidenceSource,
+          error: null,
+        },
+      },
+    ];
+
+    const normalized = applyDeterministicExperimentContradictions(
+      freeze,
+      context,
+    );
+
+    expect(normalized).toMatchObject({
+      status: "NEEDS_MORE_EVIDENCE",
+      selectedHypothesisId: null,
+      causeLayer: null,
+      causalClaim: null,
+      confidence: null,
+    });
+    expect(normalized.hypothesisAssessments[0]).toMatchObject({
+      hypothesisId: "H1",
+      status: "WEAKENED",
+    });
+    expect(normalized.hypothesisAssessments[0]!.evidenceRefs).toContainEqual({
+      kind: "EXPERIMENT",
+      source: "EXP-1",
+    });
+    expect(normalized.unresolvedQuestions[0]).toContain("H1");
+    expect(() =>
+      assertCausalFreezeGrounding(normalized, context),
+    ).not.toThrow();
   });
 
   it("requires a hypothesis to be WEAKENED when a selected experiment contradicts its prediction", () => {
