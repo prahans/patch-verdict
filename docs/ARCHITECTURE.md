@@ -24,12 +24,15 @@ The intended order is:
 
 1. Deterministic reconnaissance supplies repository inventory and inspected files.
 2. An initial, target-free Hypothesis Board records competing explanations.
-3. Bounded counterfactual experiments temporarily change one text fragment in
+3. An experiment planner compares evidence-grounded outcome predictions and the
+   host selects an untried intervention with positive predicted information gain.
+4. Bounded counterfactual experiments temporarily change one text fragment in
    an allowlisted runner configuration or shared setup file, run the trusted
    reproduction, restore the original text, and verify tracked-tree cleanliness.
-4. Causal Freeze assesses every original hypothesis against observed evidence.
-5. Only a grounded `FROZEN` decision may enter Repair Planning.
-6. The planner proposes repair targets and intents; authorization, patching,
+5. Causal Freeze assesses every original hypothesis against observed evidence.
+   Only a grounded `FROZEN` decision may enter Repair Planning.
+6. The planner compares repair alternatives and returns `READY` or `BLOCKED`.
+   A ready plan selects one authorized target/intent; authorization, patching,
    actual-diff validation, reproduction, full-suite checks, and verdict follow.
 
 The pre-experiment board remains an immutable historical record. Assessments
@@ -38,21 +41,67 @@ candidate patches merely because they made a test pass.
 
 ## Milestone status
 
-Status for the continuation based on v4 commit `df5a332`:
+The user's six-milestone numbering is authoritative. Earlier notes incorrectly
+labeled Causal Freeze M4 and the planner M5. Implementation status:
 
 | Milestone | Status |
 | --- | --- |
 | M1: Reconnaissance | Implemented |
 | M2: Hypothesis Board | Implemented |
 | M3: Counterfactual Experiment Tool | Implemented, including intervention-role semantics |
-| M4: Causal Freeze | Integrated into normal completion and budget exhaustion; planning gate and proof preservation covered by mocked runtime tests |
-| M5: Repair Planner | Minimal separate planning bridge introduced for the existing patch pipeline; further planner development and real-run validation remain |
+| M4: Experiment Planner / information gain | Implemented: strict predictions, host ranking, duplicate prevention, attempt budgets, early stopping, and persisted planning/execution records |
+| M5: Causal Decision Gate | Implemented: separate finalization, immutable causal fields, FROZEN planning gate, and failed-decision proof preservation |
+| M6: Separate Repair Planner | Implemented: explicit repair alternatives, READY/BLOCKED decision, one selected target/intent, host verification commands, and proof records |
+
+All six are implemented for the current bounded, single-file repair executor.
+Model/sandbox boundaries are mocked in local runtime tests. Successful real
+benchmark validation is still pending; implementation completion does not claim
+that the live model identifies the correct cause or produces a successful repair.
 
 `investigate.ts` now collects causal evidence and returns a separate freeze.
 It no longer accepts a combined diagnosis and repair plan. `runMission()` stores
 the decision and evidence before invoking the explicit planning gate. A grounded
 `NEEDS_MORE_EVIDENCE` decision stops the mission before planning or patching and
 remains available in the failed mission's proof bundle.
+
+## Experiment planning and information gain
+
+The collector exposes `plan_experiments`, not direct `run_counterfactual` access.
+Each proposal contains up to three candidate interventions, a named causal
+variable, and one evidence-cited predicted outcome for every original hypothesis.
+Use `UNKNOWN` rather than inventing an outcome. The host checks hypothesis coverage,
+evidence availability and experiment scope, complete inspection of the intervention
+file, the reconnaissance allowlist, a unique exact-text match, and a real change.
+The host enforces one file/fragment; free-text descriptions do not prove that an
+intervention changes only one semantic causal variable.
+
+`predictedInformationGain()` is an explicit ranking heuristic. It assumes equal
+weights for the original hypotheses, deterministic predictions for
+`FAILURE_REMOVED` / `FAILURE_PERSISTS`, and a 50/50 prediction for `UNKNOWN`.
+For N predictions with r removal predictions and u unknown predictions, the score
+is `H2((r + u/2) / N) - u/N` bits, where H2 is binary entropy. Both opposing concrete
+outcomes are required; otherwise the score is zero. This makes a cleanup control
+predicted to suppress the symptom under every hypothesis uninformative. Predictions
+are model assumptions, not calibrated probabilities or observed causal facts.
+
+Valid candidates rank by decreasing score; ties prefer runner configuration,
+then smaller text interventions, then candidate id. The host assigns the experiment
+id and derives its addressed hypotheses from concrete predictions. UNKNOWN
+hypotheses do not silently gain access to that experiment's evidence later.
+Renaming a candidate or its question cannot repeat an already attempted path/find/
+replacement combination. The selected request alone reaches the reversible tool.
+
+Collection ceilings are 8 model turns, 24 total tool calls, 2 targeted test attempts,
+3 experiment-planning rounds, and 2 experiment attempts. Failed executions consume
+their attempt budget. These are ceilings, not quotas: an explicit stop, no new
+positive-gain candidate, repeated calls, or an exhausted budget can end collection
+earlier. A restoration failure aborts before causal finalization. The same finalizer
+handles normal completion and nonfatal budget/early-stop paths.
+
+`experimentPlanning` preserves proposals, rankings/rejection reasons, selected
+requests, execution status, stop reason, and budget usage. Only actual restored
+experiment records count as causal observations. A high score cannot establish
+causal support; an INCONCLUSIVE result does not resolve a prediction.
 
 ## Causal Freeze trust boundary
 
@@ -105,36 +154,55 @@ a grounded deferred decision is a legitimate result, not permission to plan.
 
 Both normal completion and exhausted tool budgets now use this finalizer. The
 collector's free-text final message is discarded; only host-recorded file contents,
-test results, and restored experiments enter causal assessment. Failed tool calls
+test results, and restored experiments count as observations in causal assessment.
+Planning predictions are supplied separately as historical assumptions. Failed tool calls
 do not add trusted evidence. The host rejects tools outside the investigation
 allowlist, and an experiment restoration failure aborts the investigation.
 Completed experiments print their actual outcome, intervention role, addressed
 hypotheses, command exit code, and restoration status in the terminal. Tool
 completion by itself does not indicate that a failure was removed.
 
-## Frozen-cause planning bridge
+## Separate repair planner
 
 `planRepair()` runs only after `assertCausalFreezeReadyForPlanning()` succeeds.
-Its response schema contains scope, evidence observations, relevant files,
-target comparisons, intents, and a report. It contains no root-cause or confidence
+Its response schema contains a READY/BLOCKED decision, compared repair alternatives,
+scope, evidence observations, relevant files, target comparisons, intents, and a
+report. It contains no root-cause or confidence
 fields. The host projects those fields from the accepted freeze into the existing
 diagnosis format used by authorization and patching.
+
+READY requires at least two distinct alternatives with objectives, tradeoffs,
+reasons, and host-available evidence. A no-change alternative is legitimate when
+another edit cannot be justified. Exactly one patch alternative is selected; its
+path, repair kind, and objective must match the sole recommended target and intent.
+All alternative paths must be completely inspected and cite their own file.
+The host records the original reproduction and full-suite commands; the planner
+cannot substitute verification commands. A repair requiring multiple files,
+uninspected content, or unavailable evidence can return BLOCKED with explicit
+blockers and no plan/selection. It stops without another model repair request.
 
 Competing assessment statuses are preserved: WEAKENED is not relabeled REJECTED.
 SUPPORTED and UNRESOLVED competitors block ROOT_CAUSE_FIX. HIGH confidence also
 cannot coexist with competing support. The legacy failureMechanism field currently
 reuses the frozen causalClaim; the planner cannot invent a new causal mechanism.
 
-The bridge retains provenance, causal-context, scope, target, repair-kind, and
+The planner retains provenance, causal-context, scope, target, repair-kind, and
 intent validators. No tools are available during planning. One no-tool repair
 may fix citations or explanations in a parsed plan, but may not change its target,
-scope, evidence observations, or repair objectives. A failed plan does not erase
+scope, evidence observations, repair objectives, selected alternative, tradeoffs,
+or blockers. A failed plan does not erase
 the already recorded causal decision.
 
 `proof.json` now records causalFreeze, the causalEvidence snapshot, and any mission
 error alongside the original board and experiments. Diagnosis is null when no
 repair plan was accepted. Existing web report rendering can display the textual
 causal report; dedicated causal proof UI is not part of this change.
+
+The bundle also records `experimentPlanning`, `repairPlan` (including a legitimate
+BLOCKED decision and host verification commands), and `repairPlanningFailure`
+(rejected response text and errors). Collection failures after board creation retain
+the observations and planning history gathered so far, including a failed restoration
+record. A failed restoration is never promoted to restored experiment evidence.
 
 When finalization fails, `CausalFreezeError` carries the same host snapshot used by
 the model and validator. The investigator and mission runner preserve it in the

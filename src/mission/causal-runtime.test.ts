@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Sandbox } from "e2b";
 import { runMission } from "./runner.js";
 import { writeProofBundle } from "../proof/bundle.js";
-import { causalFixture, deferredFreeze, modelResponse, toolResponse } from "../agent/test-fixtures/causal.js";
+import { causalFixture, deferredFreeze, modelResponse, toolResponse, experimentFixture, blockedRepairFixture } from "../agent/test-fixtures/causal.js";
 import type { CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 
 const { send, createBoard, recon, verify, patch, gitEvidence, counterfactual } = vi.hoisted(() => ({
@@ -93,6 +93,7 @@ describe("mission causal gate and proof preservation", () => {
     expect(result.status).toBe("FAILED");
     expect(result.investigation?.causalFreeze).toEqual(freeze);
     expect(result.error).toMatch(/Repair plan failed/);
+    expect(result.investigation?.repairPlanningFailure?.attempts).toHaveLength(2);
     expect(patch).not.toHaveBeenCalled();
   });
 
@@ -117,7 +118,9 @@ describe("mission causal gate and proof preservation", () => {
 
   it.each(["invalid repair", "initial request failure", "repair request failure"])(
     "preserves evidence and rejected attempts in proof.json after %s", async (failure) => {
-      const { freeze, causalEvidence } = causalFixture();
+      const { fixture, proposal } = experimentFixture();
+      const { freeze, causalEvidence } = fixture;
+      recon.mockResolvedValue(fixture.reconnaissance);
       const experiment: CounterfactualExperimentEvidence = {
         experimentId: "EXP-1", evidenceSource: "EXP-1", hypothesisIds: ["H1", "H2"],
         question: "Does the reproduced failure persist under another runner mode?",
@@ -126,7 +129,7 @@ describe("mission causal gate and proof preservation", () => {
         outcome: "FAILURE_PERSISTS", repositoryRestored: true,
       };
       counterfactual.mockResolvedValueOnce(experiment);
-      send.mockResolvedValueOnce(toolResponse("run_counterfactual", { experimentId: "EXP-1", hypothesisIds: ["H1", "H2"] }));
+      send.mockResolvedValueOnce(toolResponse("plan_experiments", proposal));
       send.mockResolvedValueOnce(modelResponse("done collecting"));
       freeze.hypothesisAssessments[0]!.evidenceRefs = [{ kind: "FILE", source: "unseen.ts" }];
       if (failure !== "initial request failure") send.mockResolvedValueOnce(modelResponse(freeze));
@@ -194,10 +197,108 @@ describe("mission causal gate and proof preservation", () => {
       expect(proof.investigation.hypothesisBoard).toEqual(causalFixture().causalEvidence.board);
       expect(proof.investigation.causalEvidence.files).toEqual(causalFixture().causalEvidence.files);
       expect(proof.investigation.causalEvidence.baseline.outputExcerpt).toBe("expected to throw");
+      expect(proof.investigation.experimentPlanning.stopReason).toBe("COLLECTOR_FINISHED");
+      if (status === "FROZEN") {
+        expect(proof.investigation.repairPlan.decision).toEqual(planOutput);
+        expect(proof.investigation.repairPlan.verification).toEqual({ reproductionCommand: "npm test", fullSuiteCommand: "npm test" });
+      }
       if (status === "NEEDS_MORE_EVIDENCE") {
         expect(proof.investigation.diagnosis).toBeNull();
         expect(proof.patch).toBeNull();
         expect(proof.error).toMatch(/planning is blocked/);
+      }
+    } finally {
+      cwd.mockRestore();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("records experiment selection through frozen causality, repair selection, and verification", async () => {
+    const { fixture, proposal } = experimentFixture();
+    recon.mockResolvedValue(fixture.reconnaissance);
+    counterfactual.mockResolvedValueOnce({
+      experimentId: "EXP-1", evidenceSource: "EXP-1", hypothesisIds: ["H1", "H2"],
+      question: proposal.candidates[0]!.question,
+      intervention: { path: "vite.config.ts", role: "RUNNER_CONFIGURATION", find: "threads: false", replace: "threads: true" },
+      command: { command: "npm test", exitCode: 1, stdout: "expected to throw", stderr: "", durationMs: 1 },
+      outcome: "FAILURE_PERSISTS", repositoryRestored: true,
+    });
+    send.mockResolvedValueOnce(toolResponse("plan_experiments", proposal));
+    send.mockResolvedValueOnce(modelResponse("no further useful evidence"));
+    send.mockResolvedValueOnce(modelResponse(fixture.freeze));
+    send.mockResolvedValueOnce(modelResponse(fixture.planOutput));
+    const result = await runMission({} as Sandbox, input);
+    expect(result.error).toBeUndefined();
+    expect(result.verdict).toBe("VERIFIED");
+    expect(result.investigation?.causalFreeze).toEqual(fixture.freeze);
+    expect(result.investigation?.repairPlan?.decision.selectedAlternativeId).toBe("option-1");
+    expect(counterfactual.mock.invocationCallOrder[0]!).toBeLessThan(send.mock.invocationCallOrder[2]!);
+    expect(send.mock.invocationCallOrder[3]!).toBeLessThan(patch.mock.invocationCallOrder[0]!);
+    expect(verify).toHaveBeenCalledTimes(3);
+
+    const directory = await mkdtemp(path.join(tmpdir(), "patchverdict-six-milestones-"));
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(directory);
+    try {
+      const bundle = await writeProofBundle({ missionId: "all-milestones", input, result });
+      const proof = JSON.parse(await readFile(path.join(bundle.outputDirectory, "proof.json"), "utf8"));
+      const experiment = proof.investigation.experimentPlanning.plans[0];
+      expect(experiment.selectedCandidateId).toBe("candidate-1");
+      expect(experiment.rankings[0].informationGainBits).toBe(1);
+      expect(experiment.execution.evidenceSource).toBe(proof.investigation.experiments[0].evidenceSource);
+      expect(proof.investigation.repairPlan.decision.alternatives).toEqual(fixture.planOutput.alternatives);
+      expect(proof.investigation.diagnosis.rootCause).toBe(fixture.freeze.causalClaim);
+      expect(proof.verdict).toBe("VERIFIED");
+    } finally {
+      cwd.mockRestore();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each(["blocked repair", "invalid repair", "restoration failure"])("preserves %s without granting patch access", async (failure) => {
+    const { fixture, proposal } = experimentFixture();
+    const blocked = blockedRepairFixture();
+    recon.mockResolvedValue(fixture.reconnaissance);
+    if (failure === "restoration failure") {
+      send.mockResolvedValueOnce(toolResponse("plan_experiments", proposal));
+      counterfactual.mockRejectedValueOnce(new Error("Counterfactual experiment restoration failed closed: dirty after"));
+    } else {
+      send.mockResolvedValueOnce(modelResponse("done collecting"));
+      send.mockResolvedValueOnce(modelResponse(fixture.freeze));
+      if (failure === "blocked repair") send.mockResolvedValueOnce(modelResponse(blocked));
+      else {
+        fixture.planOutput.plan.patchIntents[0]!.evidenceRefs = [{ kind: "FILE", source: "unseen.ts" }];
+        send.mockResolvedValue(modelResponse(fixture.planOutput));
+      }
+    }
+    const result = await runMission({} as Sandbox, input);
+    expect(result.status).toBe("FAILED");
+    expect(result.investigation?.diagnosis).toBeUndefined();
+    expect(patch).not.toHaveBeenCalled();
+    expect(gitEvidence).not.toHaveBeenCalled();
+    expect(verify).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(failure === "restoration failure" ? 1 : failure === "blocked repair" ? 3 : 4);
+
+    const directory = await mkdtemp(path.join(tmpdir(), "patchverdict-blocked-proof-"));
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(directory);
+    try {
+      const bundle = await writeProofBundle({ missionId: "blocked-milestone", input, result });
+      const proof = JSON.parse(await readFile(path.join(bundle.outputDirectory, "proof.json"), "utf8"));
+      expect(proof.patch).toBeNull();
+      expect(proof.investigation.diagnosis).toBeNull();
+      expect(proof.investigation.causalEvidence.files).toEqual(fixture.causalEvidence.files);
+      if (failure === "restoration failure") {
+        expect(proof.investigation.causalFreeze).toBeNull();
+        expect(proof.investigation.experiments).toEqual([]);
+        expect(proof.investigation.experimentPlanning.stopReason).toBe("COLLECTION_FAILED");
+        expect(proof.investigation.experimentPlanning.plans[0].execution).toMatchObject({ status: "FAILED", evidenceSource: null });
+      } else {
+        expect(proof.investigation.causalFreeze).toEqual(fixture.freeze);
+        if (failure === "blocked repair") expect(proof.investigation.repairPlan.decision).toEqual(blocked);
+        else {
+          expect(proof.investigation.repairPlan).toBeNull();
+          expect(proof.investigation.repairPlanningFailure.attempts).toHaveLength(2);
+          expect(proof.investigation.repairPlanningFailure.attempts[0].responseText).toBe(JSON.stringify(fixture.planOutput));
+        }
       }
     } finally {
       cwd.mockRestore();

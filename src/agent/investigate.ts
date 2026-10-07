@@ -12,17 +12,26 @@ import { findUninspectedCausalContext } from "./investigation-causal-context.js"
 import { reconnaissanceForModel, type ReconnaissanceContext } from "./reconnaissance.js";
 import { createInitialHypothesisBoard } from "./create-hypothesis-board.js";
 import { CausalFreezeError, createCausalFreeze, type CreateCausalFreezeInput } from "./create-causal-freeze.js";
+import { planExperiments, type ExperimentPlan } from "./experiment-planner.js";
 import { runCounterfactualExperiment, type CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 
-const MAX_ITERATIONS = 8;
+const MAX_MODEL_TURNS = 8;
+const MAX_TOOL_CALLS = 24;
+const MAX_EXPERIMENT_PLANNING_ROUNDS = 3;
 const MAX_DUPLICATE_CALLS = 2;
 const MAX_TEST_CALLS = 2;
 const MAX_COUNTERFACTUAL_EXPERIMENTS = 2;
 const ALLOWED_TOOLS = new Set(investigationToolDefinitions.map((tool) => tool.function.name));
 
-export class CausalInvestigationError extends Error {
-  constructor(readonly freezeError: CausalFreezeError, readonly iterations: number) {
-    super(freezeError.message, { cause: freezeError });
+export class InvestigationEvidenceError extends Error {
+  constructor(readonly evidence: CreateCausalFreezeInput, readonly iterations: number, message: string) {
+    super(message);
+    this.name = "InvestigationEvidenceError";
+  }
+}
+export class CausalInvestigationError extends InvestigationEvidenceError {
+  constructor(readonly freezeError: CausalFreezeError, iterations: number) {
+    super(freezeError.evidence, iterations, freezeError.message);
     this.name = "CausalInvestigationError";
   }
 }
@@ -100,7 +109,9 @@ Important:
 - Do not call list_files merely to rediscover the inventory already supplied. Use it only when you need deeper repository discovery.
 - You do not need to rerun the same failure merely to prove it exists.
 - Use run_test only when a more targeted execution would materially help distinguish competing root-cause hypotheses.
-- Use run_counterfactual when changing one allowlisted runner-config or shared test-setup variable can distinguish two or more hypotheses. PatchVerdict will run only the trusted reproduction command and restore the file exactly.
+- Use plan_experiments to compare up to three single-variable interventions. Predict the outcome for every original hypothesis, grounded in observed evidence; use UNKNOWN when uncertain. The host ranks information gain and executes only the selected experiment.
+- Propose distinct predictions, not several variations of the same symptom-suppression fix. Submit no candidates with a stopReason when no useful experiment remains.
+- Budgets are ceilings, not quotas: at most 8 model turns, 24 tool calls, 2 targeted test executions, 3 planning rounds, and 2 experiment attempts. Stop early when further evidence would not discriminate causes.
 - A counterfactual intervention is experiment evidence, never a candidate patch.
 - A TEST_SETUP_CONTROL that removes the failure proves that the control can suppress the symptom; it does not by itself prove that test setup owns the underlying cause.
 - Prefer RUNNER_CONFIGURATION experiments when they directly manipulate a hypothesized upstream execution variable.
@@ -138,6 +149,9 @@ Important:
   let duplicateCalls = 0;
   let testCalls = 0;
   let counterfactualCalls = 0;
+  let toolCallsUsed = 0;
+  let stopReason = "MODEL_TURN_BUDGET";
+  const experimentPlans: ExperimentPlan[] = [];
   let forceCausalFinalization = false;
   let completedIterations = 0;
   const inspectedFiles = new Set<string>(
@@ -153,8 +167,6 @@ Important:
   );
   const observedTests: CreateCausalFreezeInput["tests"][number][] = [];
 
-  const executedExperiments = new Set<string>();
-
   const counterfactualEvidence: CounterfactualExperimentEvidence[] = [];
 
   const discoveredFiles = new Set<string>(
@@ -165,460 +177,436 @@ Important:
 
   let causalContextHintSent = false;
 
-  for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
-    completedIterations = iteration;
-    console.log("");
-    console.log(`AGENT ITERATION ${iteration}`);
-
-    const response = await openRouter.chat.send({
-      chatRequest: {
-        model: AGENT_MODEL,
-        messages,
-        tools: investigationToolDefinitions,
-        stream: false,
-      },
-    });
-
-    if (!("choices" in response)) {
-      throw new Error("Expected a non-streaming chat completion");
-    }
-
-    const message = response.choices[0]?.message;
-
-    if (!message) {
-      throw new Error("Model returned no message");
-    }
-
-    messages.push(message);
-
-    const toolCalls = message.toolCalls;
-
-    // The model may end collection, but its free-text conclusion is never
-    // accepted as a diagnosis or passed to the causal assessor/planner.
-    if (!toolCalls || toolCalls.length === 0) {
-      break;
-    }
-
-    let shouldSendCausalContextHint = false;
-
-    for (const toolCall of toolCalls) {
-      const toolName = toolCall.function.name as
-        | ToolName
-        | "run_counterfactual";
-
-      let input: unknown;
-
-      try {
-        input = JSON.parse(toolCall.function.arguments);
-      } catch {
-        input = {};
-      }
-
-      // Tool availability is a host boundary, not merely a prompt promise.
-      if (!ALLOWED_TOOLS.has(toolName)) {
-        messages.push({
-          role: "tool",
-          toolCallId: toolCall.id,
-          content: JSON.stringify({ ok: false, error: "Tool is not allowed during causal investigation." }),
-        });
-        continue;
-      }
-
-      const toolKey = createToolCallKey(toolName, input);
-
-      const cachedResult = toolCallCache.get(toolKey);
-
-      /*
-       * Identical calls reuse previous evidence.
-       * Never execute the same command twice.
-       */
-
-      if (cachedResult !== undefined) {
-        const preloaded = preloadedToolCalls.has(toolKey);
-
-        if (!preloaded) {
-          duplicateCalls++;
-        }
-
-        console.log(
-          preloaded
-            ? `↻ ${toolName} PRELOADED — using deterministic reconnaissance`
-            : `↻ ${toolName} DUPLICATE — using cached result`,
-        );
-
-        const uninspectedCausalContext =
-          findUninspectedCausalContext(
-            [...discoveredFiles],
-            [...inspectedFiles],
-          );
-
-        messages.push({
-          role: "tool",
-
-          toolCallId: toolCall.id,
-
-          content: JSON.stringify({
-            result: cachedResult,
-
-            meta: {
-              cached: true,
-              preloadedByReconnaissance: preloaded,
-
-              message: preloaded
-                ? "PatchVerdict already read this file during deterministic reconnaissance. Use the supplied evidence without spending another repository read."
-                : "This identical tool call was already executed. Use the existing evidence and do not repeat this call.",
-
-              ...(uninspectedCausalContext.length > 0 && {
-                uninspectedCausalContext,
-
-                guidance:
-                  "Before making a HIGH-confidence causal claim about test infrastructure, configuration, or dependency/runtime behavior, inspect the discovered package/test-runner context listed here if it can distinguish competing causes.",
-              }),
-            },
-          }),
-        });
-
-        if (!preloaded && duplicateCalls >= MAX_DUPLICATE_CALLS) {
-          messages.push({
-            role: "user",
-
-            content:
-              "You are repeating tool calls without gathering new evidence. Stop using tools and provide your end causal evidence collection now.",
-          });
-
-          forceCausalFinalization = true;
-        }
-
-        continue;
-      }
-
-      if (toolName === "run_test") {
-        const testName =
-          typeof input === "object" &&
-          input !== null &&
-          "testName" in input &&
-          typeof input.testName === "string"
-            ? input.testName.trim()
-            : "";
-
-        if (!testName) {
-          const invalidResult = {
-            ok: false as const,
-
-            error: "run_test requires a non-empty testName.",
-          };
-
-          /*
-           * Cache the rejection too, so the same
-           * malformed request is not handled repeatedly.
-           */
-          toolCallCache.set(toolKey, invalidResult);
-
-          console.log("⊘ run_test REJECTED — testName must be non-empty");
-
-          messages.push({
-            role: "tool",
-
-            toolCallId: toolCall.id,
-
-            content: JSON.stringify(invalidResult),
-          });
-
-          continue;
-        }
-      }
-
-      if (toolName === "read_file") {
-        const requestedPath = getInputString(input, "path");
-
-        if (requestedPath) {
-          const validation = validateDiscoveredReadPath(
-            requestedPath,
-            [...discoveredFiles],
-            discoveredDepth,
-          );
-
-          if (!validation.ok) {
-            const rejectedResult = {
-              ok: false as const,
-              error: validation.error,
-              ...(validation.suggestions.length > 0 && {
-                suggestions: validation.suggestions,
-              }),
-            };
-
-            toolCallCache.set(toolKey, rejectedResult);
-
-            console.log(
-              "⊘ read_file REJECTED — path not present in discovered repository inventory",
-            );
-
-            messages.push({
-              role: "tool",
-              toolCallId: toolCall.id,
-              content: JSON.stringify(rejectedResult),
-            });
-
-            continue;
-          }
-        }
-      }
-
-      if (
-        toolName === "run_counterfactual" &&
-        counterfactualCalls >= MAX_COUNTERFACTUAL_EXPERIMENTS
-      ) {
-        console.log(
-          "⊘ run_counterfactual BLOCKED — causal experiment budget exhausted",
-        );
-
-        messages.push({
-          role: "tool",
-          toolCallId: toolCall.id,
-          content: JSON.stringify({
-            ok: false,
-            error:
-              "Counterfactual experiment budget exhausted. Use the causal evidence already collected.",
-          }),
-        });
-
-        continue;
-      }
-
-      /*
-       * Only NEW run_test executions count
-       * against the execution budget.
-       */
-      if (toolName === "run_test" && testCalls >= MAX_TEST_CALLS) {
-        console.log("⊘ run_test BLOCKED — investigation test budget exhausted");
-
-        messages.push({
-          role: "tool",
-
-          toolCallId: toolCall.id,
-
-          content: JSON.stringify({
-            ok: false,
-
-            error:
-              "Investigation test budget exhausted. Use the evidence already collected and end causal evidence collection.",
-          }),
-        });
-
-        messages.push({
-          role: "user",
-
-          content:
-            "You have enough execution evidence. Stop calling tools and end causal evidence collection now.",
-        });
-
-        forceCausalFinalization = true;
-
-        continue;
-      }
-
-      console.log(`→ ${toolName}`, input);
-
-      let result;
-      let experimentSummary: string | undefined;
-
-      try {
-        if (toolName === "run_counterfactual") {
-          const requestedExperimentId = getInputString(
-            input,
-            "experimentId",
-          );
-
-          if (
-            requestedExperimentId &&
-            executedExperiments.has(requestedExperimentId)
-          ) {
-            throw new Error(
-              `Counterfactual experiment id "${requestedExperimentId}" was already used. Experiment evidence ids must be unique.`,
-            );
-          }
-
-          const requestedHypothesisIds =
-            typeof input === "object" &&
-            input !== null &&
-            "hypothesisIds" in input &&
-            Array.isArray(input.hypothesisIds)
-              ? input.hypothesisIds.filter(
-                  (value): value is string => typeof value === "string",
-                )
-              : [];
-
-          const boardHypothesisIds = new Set<string>(
-            hypothesisBoard.hypotheses.map((hypothesis) => hypothesis.id),
-          );
-
-          const unknownHypothesisIds = requestedHypothesisIds.filter(
-            (id) => !boardHypothesisIds.has(id),
-          );
-
-          if (unknownHypothesisIds.length > 0) {
-            throw new Error(
-              `Counterfactual experiment references hypothesis ids not present in the initial board: ${unknownHypothesisIds.join(", ")}.`,
-            );
-          }
-
-          const evidence = await runCounterfactualExperiment(
-            sandbox,
-            input,
-            {
-              projectRoot,
-              trustedCommand: baseline.command,
-              baselineExitCode: baseline.exitCode,
-              requiredOutput: baseline.requiredOutput,
-              runnerConfigPaths: reconnaissance.runnerConfigs,
-              testSetupPaths: reconnaissance.testSetups,
-            },
-          );
-
-          counterfactualCalls++;
-          executedExperiments.add(evidence.experimentId);
-          counterfactualEvidence.push(evidence);
-          experimentSummary = `${evidence.experimentId}: ${evidence.outcome} | ${evidence.intervention.role} | hypotheses ${evidence.hypothesisIds.join(", ")} | exit ${evidence.command.exitCode} | repository restored: ${evidence.repositoryRestored}`;
-
-          result = {
-            ok: true as const,
-            data: evidence,
-          };
-        } else {
-          result = await executeTool(sandbox, toolName, input);
-        }
-      } catch (error) {
-        if (error instanceof Error && /restoration failed closed/i.test(error.message)) {
-          throw error;
-        }
-        result = {
-          ok: false as const,
-
-          error:
-            error instanceof Error ? error.message : "Tool execution failed",
-        };
-      }
-
-      console.log(`← ${toolName}`, result.ok ? experimentSummary ?? "OK" : "ERROR");
-
-      /*
-       * Cache the actual evidence so an
-       * identical call is never executed again.
-       */
-      toolCallCache.set(toolKey, result);
-
-      if (result.ok) {
-        if (
-          toolName === "list_files" &&
-          "data" in result &&
-          typeof result.data === "object" &&
-          result.data !== null &&
-          "files" in result.data &&
-          Array.isArray(result.data.files)
-        ) {
-          for (const file of result.data.files) {
-            if (typeof file === "string" && file.trim()) {
-              discoveredFiles.add(
-                file.replace(/\\/g, "/").replace(/^\.\//, "").trim(),
-              );
-            }
-          }
-
-          if (
-            typeof input === "object" &&
-            input !== null &&
-            "depth" in input &&
-            typeof input.depth === "number" &&
-            Number.isInteger(input.depth)
-          ) {
-            discoveredDepth = Math.max(discoveredDepth, input.depth);
-          }
-
-          if (!causalContextHintSent) {
-            const uninspectedCausalContext =
-              findUninspectedCausalContext(
-                [...discoveredFiles],
-                [...inspectedFiles],
-              );
-
-            if (uninspectedCausalContext.length > 0) {
-              shouldSendCausalContextHint = true;
-            }
-          }
-        }
-
-        if (toolName === "read_file" && "data" in result) {
-          const filePath = getInputString(input, "path");
-          const data = result.data;
-          if (filePath && typeof data === "object" && data !== null &&
-              "content" in data && typeof data.content === "string") {
-            const normalized = filePath.replace(/\\/g, "/").replace(/^\.\//, "");
-            inspectedFiles.add(normalized);
-            observedFiles.set(normalized, { path: normalized, content: data.content, truncated: false });
-          }
-        }
-
-        if (toolName === "run_test" && "data" in result) {
-          const selector = getInputString(input, "testName");
-          if (selector) {
-            observedTests.push({ selector, evidence: CommandEvidenceSchema.parse(result.data) });
-          }
-        }
-      }
-
-      if (toolName === "run_test" && result.ok) {
-        testCalls++;
-      }
-
-      messages.push({
-        role: "tool",
-
-        toolCallId: toolCall.id,
-
-        content: JSON.stringify(result),
-      });
-    }
-    if (shouldSendCausalContextHint && !causalContextHintSent) {
-      const uninspectedCausalContext =
-        findUninspectedCausalContext(
-          [...discoveredFiles],
-          [...inspectedFiles],
-        );
-
-      if (uninspectedCausalContext.length > 0) {
-        messages.push({
-          role: "user",
-          content: [
-            "Repository discovery found environment files that may distinguish test infrastructure, configuration, and dependency/runtime causes:",
-            ...uninspectedCausalContext.map((path) => `- ${path}`),
-            "",
-            "If your causal hypothesis involves those layers, prioritize inspecting this context before spending more calls on repeated implementation/test reads.",
-            "A repair location is not proof that the same file owns the underlying cause.",
-          ].join("\n"),
-        });
-
-        causalContextHintSent = true;
-      }
-    }
-
-    if (forceCausalFinalization) {
-      break;
-    }
-  }
-
-  if (observedFiles.size === 0) {
-    throw new Error("Causal investigation cannot finish without successfully inspected files.");
-  }
-
-  console.log("Causal evidence collection complete — assessing hypotheses without tools");
-  const causalEvidence: CreateCausalFreezeInput = {
+  const evidenceSnapshot = (): CreateCausalFreezeInput => ({
     issue,
     board: hypothesisBoard,
     baseline,
     files: [...observedFiles.values()],
     tests: observedTests,
     experiments: counterfactualEvidence,
-  };
+    experimentPlanning: {
+      plans: experimentPlans, stopReason,
+      usage: { modelTurns: completedIterations, toolCalls: toolCallsUsed, testExecutions: testCalls, experimentExecutions: counterfactualCalls },
+    },
+  });
+
+  try {
+    for (let iteration = 1; iteration <= MAX_MODEL_TURNS; iteration++) {
+      completedIterations = iteration;
+      console.log("");
+      console.log(`AGENT ITERATION ${iteration}`);
+
+      const response = await openRouter.chat.send({
+        chatRequest: {
+          model: AGENT_MODEL,
+          messages,
+          tools: investigationToolDefinitions,
+          stream: false,
+        },
+      });
+
+      if (!("choices" in response)) {
+        throw new Error("Expected a non-streaming chat completion");
+      }
+
+      const message = response.choices[0]?.message;
+
+      if (!message) {
+        throw new Error("Model returned no message");
+      }
+
+      messages.push(message);
+
+      const toolCalls = message.toolCalls;
+
+      // The model may end collection, but its free-text conclusion is never
+      // accepted as a diagnosis or passed to the causal assessor/planner.
+      if (!toolCalls || toolCalls.length === 0) {
+        stopReason = "COLLECTOR_FINISHED";
+        break;
+      }
+
+      let shouldSendCausalContextHint = false;
+
+      for (const toolCall of toolCalls) {
+        if (forceCausalFinalization) break;
+        if (toolCallsUsed >= MAX_TOOL_CALLS) {
+          stopReason = "TOOL_CALL_BUDGET";
+          forceCausalFinalization = true;
+          break;
+        }
+        toolCallsUsed++;
+        const toolName = toolCall.function.name as
+          | ToolName
+          | "plan_experiments";
+
+        let input: unknown;
+
+        try {
+          input = JSON.parse(toolCall.function.arguments);
+        } catch {
+          input = {};
+        }
+
+        // Tool availability is a host boundary, not merely a prompt promise.
+        if (!ALLOWED_TOOLS.has(toolName)) {
+          messages.push({
+            role: "tool",
+            toolCallId: toolCall.id,
+            content: JSON.stringify({ ok: false, error: "Tool is not allowed during causal investigation." }),
+          });
+          continue;
+        }
+
+        const toolKey = createToolCallKey(toolName, input);
+
+        const cachedResult = toolCallCache.get(toolKey);
+
+        /*
+         * Identical calls reuse previous evidence.
+         * Never execute the same command twice.
+         */
+
+        if (cachedResult !== undefined) {
+          const preloaded = preloadedToolCalls.has(toolKey);
+
+          if (!preloaded) {
+            duplicateCalls++;
+          }
+
+          console.log(
+            preloaded
+              ? `↻ ${toolName} PRELOADED — using deterministic reconnaissance`
+              : `↻ ${toolName} DUPLICATE — using cached result`,
+          );
+
+          const uninspectedCausalContext =
+            findUninspectedCausalContext(
+              [...discoveredFiles],
+              [...inspectedFiles],
+            );
+
+          messages.push({
+            role: "tool",
+
+            toolCallId: toolCall.id,
+
+            content: JSON.stringify({
+              result: cachedResult,
+
+              meta: {
+                cached: true,
+                preloadedByReconnaissance: preloaded,
+
+                message: preloaded
+                  ? "PatchVerdict already read this file during deterministic reconnaissance. Use the supplied evidence without spending another repository read."
+                  : "This identical tool call was already executed. Use the existing evidence and do not repeat this call.",
+
+                ...(uninspectedCausalContext.length > 0 && {
+                  uninspectedCausalContext,
+
+                  guidance:
+                    "Before making a HIGH-confidence causal claim about test infrastructure, configuration, or dependency/runtime behavior, inspect the discovered package/test-runner context listed here if it can distinguish competing causes.",
+                }),
+              },
+            }),
+          });
+
+          if (!preloaded && duplicateCalls >= MAX_DUPLICATE_CALLS) {
+            messages.push({
+              role: "user",
+
+              content:
+                "You are repeating tool calls without gathering new evidence. Stop using tools and provide your end causal evidence collection now.",
+            });
+
+            stopReason = "DUPLICATE_CALL_BUDGET";
+            forceCausalFinalization = true;
+          }
+
+          continue;
+        }
+
+        if (toolName === "run_test") {
+          const testName =
+            typeof input === "object" &&
+            input !== null &&
+            "testName" in input &&
+            typeof input.testName === "string"
+              ? input.testName.trim()
+              : "";
+
+          if (!testName) {
+            const invalidResult = {
+              ok: false as const,
+
+              error: "run_test requires a non-empty testName.",
+            };
+
+            /*
+             * Cache the rejection too, so the same
+             * malformed request is not handled repeatedly.
+             */
+            toolCallCache.set(toolKey, invalidResult);
+
+            console.log("⊘ run_test REJECTED — testName must be non-empty");
+
+            messages.push({
+              role: "tool",
+
+              toolCallId: toolCall.id,
+
+              content: JSON.stringify(invalidResult),
+            });
+
+            continue;
+          }
+        }
+
+        if (toolName === "read_file") {
+          const requestedPath = getInputString(input, "path");
+
+          if (requestedPath) {
+            const validation = validateDiscoveredReadPath(
+              requestedPath,
+              [...discoveredFiles],
+              discoveredDepth,
+            );
+
+            if (!validation.ok) {
+              const rejectedResult = {
+                ok: false as const,
+                error: validation.error,
+                ...(validation.suggestions.length > 0 && {
+                  suggestions: validation.suggestions,
+                }),
+              };
+
+              toolCallCache.set(toolKey, rejectedResult);
+
+              console.log(
+                "⊘ read_file REJECTED — path not present in discovered repository inventory",
+              );
+
+              messages.push({
+                role: "tool",
+                toolCallId: toolCall.id,
+                content: JSON.stringify(rejectedResult),
+              });
+
+              continue;
+            }
+          }
+        }
+
+        /*
+         * Only NEW run_test executions count
+         * against the execution budget.
+         */
+        if (toolName === "run_test" && testCalls >= MAX_TEST_CALLS) {
+          console.log("⊘ run_test BLOCKED — investigation test budget exhausted");
+
+          messages.push({
+            role: "tool",
+
+            toolCallId: toolCall.id,
+
+            content: JSON.stringify({
+              ok: false,
+
+              error:
+                "Investigation test budget exhausted. Use the evidence already collected and end causal evidence collection.",
+            }),
+          });
+
+          messages.push({
+            role: "user",
+
+            content:
+              "You have enough execution evidence. Stop calling tools and end causal evidence collection now.",
+          });
+
+          stopReason = "TEST_EXECUTION_BUDGET";
+          forceCausalFinalization = true;
+
+          continue;
+        }
+
+        console.log(`→ ${toolName}`, input);
+
+        let result;
+        let experimentSummary: string | undefined;
+
+        try {
+          if (toolName === "plan_experiments") {
+            const plan = planExperiments(input, {
+              evidence: {
+                issue, board: hypothesisBoard, baseline, files: [...observedFiles.values()],
+                tests: observedTests, experiments: counterfactualEvidence,
+              },
+              runnerConfigPaths: reconnaissance.runnerConfigs, testSetupPaths: reconnaissance.testSetups,
+              previousPlans: experimentPlans, remainingExecutions: MAX_COUNTERFACTUAL_EXPERIMENTS - counterfactualCalls,
+              maxPlanningRounds: MAX_EXPERIMENT_PLANNING_ROUNDS, nextExperimentId: `EXP-${counterfactualCalls + 1}`,
+            });
+            experimentPlans.push(plan);
+            if (!plan.request) {
+              result = { ok: plan.status === "STOPPED", data: plan };
+              experimentSummary = `${plan.status}: ${plan.reason}`;
+              if (plan.status === "STOPPED" || experimentPlans.length >= MAX_EXPERIMENT_PLANNING_ROUNDS) {
+                stopReason = "EXPERIMENT_PLANNER_STOP";
+                forceCausalFinalization = true;
+              }
+            } else {
+              counterfactualCalls++; // Attempts, including failed/inconclusive commands, consume budget.
+              try {
+                const evidence = await runCounterfactualExperiment(sandbox, plan.request, {
+                  projectRoot, trustedCommand: baseline.command, baselineExitCode: baseline.exitCode,
+                  requiredOutput: baseline.requiredOutput, runnerConfigPaths: reconnaissance.runnerConfigs,
+                  testSetupPaths: reconnaissance.testSetups,
+                });
+                counterfactualEvidence.push(evidence);
+                plan.execution = { status: "COMPLETED", evidenceSource: evidence.evidenceSource, error: null };
+                experimentSummary = `${evidence.experimentId}: ${evidence.outcome} | ${evidence.intervention.role} | hypotheses ${evidence.hypothesisIds.join(", ")} | exit ${evidence.command.exitCode} | repository restored: ${evidence.repositoryRestored}`;
+                result = { ok: true as const, data: { plan, evidence } };
+              } catch (error) {
+                plan.execution = { status: "FAILED", evidenceSource: null, error: error instanceof Error ? error.message : "Experiment failed" };
+                throw error;
+              }
+            }
+          } else {
+            result = await executeTool(sandbox, toolName, input);
+          }
+        } catch (error) {
+          if (error instanceof Error && /restoration failed closed/i.test(error.message)) {
+            throw error;
+          }
+          result = {
+            ok: false as const,
+
+            error:
+              error instanceof Error ? error.message : "Tool execution failed",
+          };
+        }
+
+        console.log(`← ${toolName}`, result.ok ? experimentSummary ?? "OK" : "ERROR");
+
+        /*
+         * Cache the actual evidence so an
+         * identical call is never executed again.
+         */
+        toolCallCache.set(toolKey, result);
+
+        if (result.ok) {
+          if (
+            toolName === "list_files" &&
+            "data" in result &&
+            typeof result.data === "object" &&
+            result.data !== null &&
+            "files" in result.data &&
+            Array.isArray(result.data.files)
+          ) {
+            for (const file of result.data.files) {
+              if (typeof file === "string" && file.trim()) {
+                discoveredFiles.add(
+                  file.replace(/\\/g, "/").replace(/^\.\//, "").trim(),
+                );
+              }
+            }
+
+            if (
+              typeof input === "object" &&
+              input !== null &&
+              "depth" in input &&
+              typeof input.depth === "number" &&
+              Number.isInteger(input.depth)
+            ) {
+              discoveredDepth = Math.max(discoveredDepth, input.depth);
+            }
+
+            if (!causalContextHintSent) {
+              const uninspectedCausalContext =
+                findUninspectedCausalContext(
+                  [...discoveredFiles],
+                  [...inspectedFiles],
+                );
+
+              if (uninspectedCausalContext.length > 0) {
+                shouldSendCausalContextHint = true;
+              }
+            }
+          }
+
+          if (toolName === "read_file" && "data" in result) {
+            const filePath = getInputString(input, "path");
+            const data = result.data;
+            if (filePath && typeof data === "object" && data !== null &&
+                "content" in data && typeof data.content === "string") {
+              const normalized = filePath.replace(/\\/g, "/").replace(/^\.\//, "");
+              inspectedFiles.add(normalized);
+              observedFiles.set(normalized, { path: normalized, content: data.content, truncated: false });
+            }
+          }
+
+          if (toolName === "run_test" && "data" in result) {
+            const selector = getInputString(input, "testName");
+            if (selector) {
+              observedTests.push({ selector, evidence: CommandEvidenceSchema.parse(result.data) });
+            }
+          }
+        }
+
+        if (toolName === "run_test") {
+          testCalls++;
+        }
+
+        messages.push({
+          role: "tool",
+
+          toolCallId: toolCall.id,
+
+          content: JSON.stringify(result),
+        });
+      }
+      if (shouldSendCausalContextHint && !causalContextHintSent) {
+        const uninspectedCausalContext =
+          findUninspectedCausalContext(
+            [...discoveredFiles],
+            [...inspectedFiles],
+          );
+
+        if (uninspectedCausalContext.length > 0) {
+          messages.push({
+            role: "user",
+            content: [
+              "Repository discovery found environment files that may distinguish test infrastructure, configuration, and dependency/runtime causes:",
+              ...uninspectedCausalContext.map((path) => `- ${path}`),
+              "",
+              "If your causal hypothesis involves those layers, prioritize inspecting this context before spending more calls on repeated implementation/test reads.",
+              "A repair location is not proof that the same file owns the underlying cause.",
+            ].join("\n"),
+          });
+
+          causalContextHintSent = true;
+        }
+      }
+
+      if (forceCausalFinalization) {
+        break;
+      }
+    }
+
+  } catch (error) {
+    stopReason = "COLLECTION_FAILED";
+    throw new InvestigationEvidenceError(evidenceSnapshot(), completedIterations,
+      error instanceof Error ? error.message : "Evidence collection failed");
+  }
+
+  if (observedFiles.size === 0) {
+    throw new InvestigationEvidenceError(evidenceSnapshot(), completedIterations, "Causal investigation cannot finish without successfully inspected files.");
+  }
+
+  console.log("Causal evidence collection complete — assessing hypotheses without tools");
+  const causalEvidence = evidenceSnapshot();
   const causalFreeze = await createCausalFreeze(causalEvidence).catch((error: unknown) => {
     if (error instanceof CausalFreezeError) {
       throw new CausalInvestigationError(error, completedIterations);

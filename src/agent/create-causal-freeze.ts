@@ -5,6 +5,7 @@ import { openRouter, AGENT_MODEL } from "../ai/openrouter.js";
 import type { CommandEvidence } from "../evidence/command-evidence.js";
 import type { CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 import type { HypothesisBoard } from "./hypothesis-board.js";
+import type { ExperimentPlanningSummary } from "./experiment-planner.js";
 import type { InvestigationBaselineContext } from "./investigation-context.js";
 import { messageContentToText } from "./message-content.js";
 import {
@@ -24,6 +25,7 @@ export type CreateCausalFreezeInput = {
   files: readonly { path: string; content: string; truncated: boolean }[];
   tests: readonly { selector: string; evidence: CommandEvidence }[];
   experiments: readonly CounterfactualExperimentEvidence[];
+  experimentPlanning?: ExperimentPlanningSummary;
 };
 
 export type CausalFreezeAttempt = {
@@ -108,6 +110,9 @@ Rules:
   that addressed the assessed hypothesis. No other evidence kinds are allowed.
 - Explain how each cited observation supports, weakens, or leaves a hypothesis unresolved.
   An available citation alone is not causal proof.
+- Experiment plans contain model predictions and host ranking scores, not observations.
+  Compare predictions with actual experiment records; never cite a plan as evidence or
+  infer causal support from a high information-gain score. INCONCLUSIVE preserves uncertainty.
 - INCONCLUSIVE experiments cannot alone support a hypothesis. A failure-removing
   TEST_SETUP_CONTROL cannot alone establish test-infrastructure causal ownership.
 - Neither FAILURE_REMOVED nor FAILURE_PERSISTS automatically proves or rejects a cause;

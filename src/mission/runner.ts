@@ -1,7 +1,7 @@
 import type { Sandbox } from "e2b";
 
-import { CausalInvestigationError, investigateIssue } from "../agent/investigate.js";
-import { planRepair } from "../agent/plan-repair.js";
+import { CausalInvestigationError, InvestigationEvidenceError, investigateIssue } from "../agent/investigate.js";
+import { planRepair, RepairPlanningBlockedError, RepairPlanningError } from "../agent/plan-repair.js";
 import { assertCausalFreezeReadyForPlanning } from "../agent/causal-freeze.js";
 import { causalFreezeGroundingContext } from "../agent/create-causal-freeze.js";
 
@@ -151,8 +151,8 @@ export async function runMission(
       reconnaissance,
       input.projectRoot,
     ).catch((error: unknown) => {
-      if (error instanceof CausalInvestigationError) {
-        const causalEvidence = error.freezeError.evidence;
+      if (error instanceof InvestigationEvidenceError) {
+        const causalEvidence = error.evidence;
         investigationResult = {
           report: error.message,
           iterations: error.iterations,
@@ -160,7 +160,7 @@ export async function runMission(
           hypothesisBoard: causalEvidence.board,
           experiments: [...causalEvidence.experiments],
           causalEvidence,
-          causalFreezeFailure: error.freezeError.failure,
+          ...(error instanceof CausalInvestigationError ? { causalFreezeFailure: error.freezeError.failure } : {}),
         };
       }
       throw error;
@@ -202,9 +202,19 @@ export async function runMission(
       causalFreeze: investigation.causalFreeze,
       causalEvidence: investigation.causalEvidence,
       discoveredFiles: investigation.discoveredFiles,
+      verificationPlan: input.verificationPlan,
+    }).catch((error: unknown) => {
+      if (error instanceof RepairPlanningBlockedError) {
+        investigationResult!.repairPlan = error.record;
+        investigationResult!.report += `\n\n${error.message}`;
+      } else if (error instanceof RepairPlanningError) {
+        investigationResult!.repairPlanningFailure = error.failure;
+      }
+      throw error;
     });
     investigationResult.report = `${investigationReport}\n\nRepair plan:\n${planned.report}`;
     investigationResult.diagnosis = planned.diagnosis;
+    investigationResult.repairPlan = planned.repairPlan;
     record("INVESTIGATING", "Grounded repair planning completed");
 
     // -------------------------

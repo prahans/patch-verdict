@@ -11,6 +11,9 @@
   Model-generated evidence references and patcher claims require validation.
 - Keep experiments bounded and reversible. Run only the trusted reproduction,
   restore the original file exactly, and fail closed on restoration failure.
+- Rank experiments by predicted discrimination among the original hypotheses.
+  Predictions and information-gain scores are assumptions, not causal evidence.
+  Use attempt budgets and early stopping; do not spend a fixed number of rounds.
 - An INCONCLUSIVE experiment cannot alone support a hypothesis. A
   TEST_SETUP_CONTROL that removes a failure establishes symptom suppression,
   not test-infrastructure causal ownership by itself.
@@ -24,6 +27,9 @@
   verification, and deterministic verdict.
 - Preserve host evidence and rejected response diagnostics when causal
   finalization fails. Rejected proposals never become accepted causal decisions.
+- Compare repair alternatives only after freezing causality. The repair planner
+  cannot rewrite the diagnosis or verification commands. BLOCKED is valid when
+  the evidence or executor cannot support the required repair.
 
 ## Development workflow
 
@@ -38,12 +44,15 @@ and the October 6, 2026 continuation:
    new focused tests, then the maintained reliability suite.
 5. Report observed test counts. Label unexecuted checks honestly; do not reuse an
    old expected count as a new passing result.
-6. Keep real benchmarks separate from standalone contract milestones. Once runtime
-   gates pass, run the agreed benchmark and inspect its proof before advancing to
-   more planner work. A failed run calls for a bounded fix and revalidation.
+6. Following the October 7 instruction, finish all six implementation milestones
+   and pass the reliability gates before the next real benchmark. Successful live
+   validation remains separate from implementation completion. A failed run calls
+   for a bounded fix and revalidation.
 7. For meaningful changes made locally by the user after verification, provide
    an exact `git add . && git commit -m "..." && git push` reminder. Changes
    already committed remotely should be pulled, not recommitted.
 
-For M4, complete and verify the standalone contract before wiring it into
-`investigate.ts`. Runtime integration and Repair Planning are separate steps.
+Use the user's numbering: M1 reconnaissance, M2 hypothesis board, M3 counterfactual
+tool, M4 experiment planner/information gain, M5 causal decision gate, M6 separate
+repair planner. Preserve phase boundaries and complete runtime/proof integration;
+standalone schemas alone do not complete a milestone.

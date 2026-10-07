@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { planRepair } from "./plan-repair.js";
-import { causalFixture, deferredFreeze, modelResponse, toolResponse } from "./test-fixtures/causal.js";
+import { planRepair, RepairPlanningBlockedError, RepairPlanningError } from "./plan-repair.js";
+import { causalFixture, deferredFreeze, modelResponse, toolResponse, verificationFixture, blockedRepairFixture } from "./test-fixtures/causal.js";
 
 const { send } = vi.hoisted(() => ({ send: vi.fn() }));
 vi.mock("../ai/openrouter.js", () => ({ AGENT_MODEL: "test", openRouter: { chat: { send } } }));
@@ -12,7 +12,7 @@ describe("repair planning after causal freeze", () => {
     const { freeze, causalEvidence, planOutput, reconnaissance } = causalFixture();
     const before = structuredClone({ freeze, causalEvidence });
     send.mockResolvedValueOnce(modelResponse(planOutput));
-    const result = await planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: reconnaissance.inventory });
+    const result = await planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: reconnaissance.inventory });
     expect(result.diagnosis.rootCause).toBe(freeze.causalClaim);
     expect(result.diagnosis.confidence).toBe(freeze.confidence);
     expect(result.diagnosis.rootCauseAnalysis.primaryCause).toEqual({
@@ -22,18 +22,20 @@ describe("repair planning after causal freeze", () => {
     expect(result.diagnosis.rootCauseAnalysis.alternatives[0]!.status).toBe("WEAKENED");
     expect({ freeze, causalEvidence }).toEqual(before);
     expect(send.mock.calls[0]![0].chatRequest).not.toHaveProperty("tools");
+    expect(result.repairPlan.decision).toEqual(planOutput);
+    expect(result.repairPlan.verification).toEqual({ reproductionCommand: "npm test", fullSuiteCommand: "npm run test:all" });
   });
 
   it("does not request any plan for a deferred causal decision", async () => {
     const { freeze, causalEvidence } = causalFixture();
-    await expect(planRepair({ causalFreeze: deferredFreeze(freeze), causalEvidence, discoveredFiles: [] })).rejects.toThrow(/planning is blocked/);
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: deferredFreeze(freeze), causalEvidence, discoveredFiles: [] })).rejects.toThrow(/planning is blocked/);
     expect(send).not.toHaveBeenCalled();
   });
 
   it("revalidates a claimed FROZEN decision before requesting a plan", async () => {
     const { freeze, causalEvidence } = causalFixture();
     freeze.hypothesisAssessments[0]!.evidenceRefs = [{ kind: "FILE", source: "unseen.ts" }];
-    await expect(planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/untrusted FILE/);
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/untrusted FILE/);
     expect(send).not.toHaveBeenCalled();
   });
 
@@ -41,7 +43,7 @@ describe("repair planning after causal freeze", () => {
     const { freeze, causalEvidence, planOutput } = causalFixture();
     Object.assign(planOutput.plan, { [field]: "model replacement" });
     send.mockResolvedValue(modelResponse(planOutput));
-    await expect(planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/failed after one no-tool repair/);
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/failed after one no-tool repair/);
     expect(send).toHaveBeenCalledTimes(2);
   });
 
@@ -49,29 +51,31 @@ describe("repair planning after causal freeze", () => {
     const { freeze, causalEvidence, planOutput } = causalFixture();
     planOutput.plan.evidence.push({ kind: "FILE", source: "src/unseen.ts", observation: "invented observation" });
     send.mockResolvedValue(modelResponse(planOutput));
-    await expect(planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/was not inspected/);
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/was not inspected/);
   });
 
   it("does not allow the plan to drop references used by the frozen cause", async () => {
     const { freeze, causalEvidence, planOutput } = causalFixture();
     planOutput.plan.evidence = planOutput.plan.evidence.filter((entry) => entry.kind !== "TEST");
+    planOutput.alternatives[1]!.evidenceRefs = [{ kind: "FILE", source: "tests/divide.test.ts" }];
     send.mockResolvedValue(modelResponse(planOutput));
-    await expect(planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/does not exist in investigation evidence/);
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/does not exist in investigation evidence/);
   });
 
   it.each(["UNRESOLVED", "SUPPORTED"] as const)("blocks ROOT_CAUSE_FIX while a competitor is %s", async (status) => {
     const { freeze, causalEvidence, planOutput } = causalFixture();
     freeze.hypothesisAssessments[1]!.status = status;
     send.mockResolvedValue(modelResponse(planOutput));
-    await expect(planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/cannot be ROOT_CAUSE_FIX/);
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/cannot be ROOT_CAUSE_FIX/);
   });
 
   it("preserves competing support in a bounded mitigation plan", async () => {
     const { freeze, causalEvidence, planOutput } = causalFixture();
     freeze.hypothesisAssessments[1]!.status = "SUPPORTED";
     planOutput.plan.patchIntents[0]!.repairKind = "MITIGATION";
+    planOutput.alternatives[0]!.repairKind = "MITIGATION";
     send.mockResolvedValueOnce(modelResponse(planOutput));
-    const result = await planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] });
+    const result = await planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] });
     expect(result.diagnosis.rootCauseAnalysis.alternatives[0]!.status).toBe("SUPPORTED");
     expect(result.diagnosis.patchIntents[0]!.repairKind).toBe("MITIGATION");
   });
@@ -83,7 +87,7 @@ describe("repair planning after causal freeze", () => {
     send.mockResolvedValueOnce(modelResponse(initial));
     planOutput.plan.patchIntents[0]!.objective = "Change division to return zero for every input.";
     send.mockResolvedValueOnce(modelResponse(planOutput));
-    await expect(planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/change investigation semantics/);
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/change investigation semantics/);
   });
 
   it("accepts a citation repair from the same observed evidence", async () => {
@@ -92,7 +96,7 @@ describe("repair planning after causal freeze", () => {
     initial.plan.patchIntents[0]!.evidenceRefs = [{ kind: "FILE", source: "unseen.ts" }];
     send.mockResolvedValueOnce(modelResponse(initial));
     send.mockResolvedValueOnce(modelResponse(planOutput));
-    const result = await planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] });
+    const result = await planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] });
     expect(result.diagnosis.rootCause).toBe(freeze.causalClaim);
     expect(send).toHaveBeenCalledTimes(2);
   });
@@ -100,7 +104,43 @@ describe("repair planning after causal freeze", () => {
   it("rejects an unexpected tool call without executing it", async () => {
     const { freeze, causalEvidence } = causalFixture();
     send.mockResolvedValueOnce(toolResponse("apply_patch", {}));
-    await expect(planRepair({ causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/cannot execute tools/);
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/cannot execute tools/);
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts an explicit BLOCKED decision without asking the model to invent a repair", async () => {
+    const { freeze, causalEvidence } = causalFixture();
+    const decision = blockedRepairFixture();
+    send.mockResolvedValueOnce(modelResponse(decision));
+    const error = await planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] }).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(RepairPlanningBlockedError);
+    expect((error as RepairPlanningBlockedError).record.decision).toEqual(decision);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not allow a contract repair to select a different repair alternative", async () => {
+    const { freeze, causalEvidence, planOutput } = causalFixture();
+    const invalid = structuredClone(planOutput);
+    invalid.plan.patchIntents[0]!.evidenceRefs = [{ kind: "FILE", source: "unseen.ts" }];
+    send.mockResolvedValueOnce(modelResponse(invalid));
+    planOutput.selectedAlternativeId = "option-2";
+    send.mockResolvedValueOnce(modelResponse(planOutput));
+    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/change the repair choice/);
+  });
+
+  it.each(["initial", "repair"])("retains the %s request failure and any rejected plan", async (phase) => {
+    const { freeze, causalEvidence, planOutput } = causalFixture();
+    if (phase === "repair") {
+      planOutput.plan.patchIntents[0]!.evidenceRefs = [{ kind: "FILE", source: "unseen.ts" }];
+      send.mockResolvedValueOnce(modelResponse(planOutput));
+    }
+    send.mockRejectedValueOnce(new Error("model unavailable"));
+    const error = await planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] }).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(RepairPlanningError);
+    const attempts = (error as RepairPlanningError).failure.attempts;
+    expect(attempts).toHaveLength(phase === "initial" ? 1 : 2);
+    expect(attempts.at(-1)).toEqual({ responseText: null, error: "model unavailable" });
+    if (phase === "repair") expect(attempts[0]!.responseText).toBe(JSON.stringify(planOutput));
+    expect(send).toHaveBeenCalledTimes(attempts.length);
   });
 });
