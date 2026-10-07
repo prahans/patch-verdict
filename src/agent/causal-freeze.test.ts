@@ -206,6 +206,48 @@ describe("Causal Freeze v4", () => {
     expect(() => assertCausalFreezeGrounding(freeze, context)).not.toThrow();
   });
 
+  it("does not rewrite an assessment that is already WEAKENED", () => {
+    const { freeze, context, experiment } = createCase();
+
+    freeze.hypothesisAssessments[1]!.status = "WEAKENED";
+    const before = structuredClone(freeze.hypothesisAssessments[1]);
+
+    context.experimentPlans = [
+      {
+        selectedCandidateId: "candidate-1",
+        rankings: [
+          {
+            candidate: {
+              id: "candidate-1",
+              predictions: [
+                {
+                  hypothesisId: "H1",
+                  expectedOutcome: "FAILURE_REMOVED",
+                },
+                {
+                  hypothesisId: "H2",
+                  expectedOutcome: "FAILURE_PERSISTS",
+                },
+              ],
+            },
+          },
+        ],
+        execution: {
+          status: "COMPLETED",
+          evidenceSource: experiment.evidenceSource,
+          error: null,
+        },
+      },
+    ];
+
+    const normalized = applyDeterministicExperimentContradictions(
+      freeze,
+      context,
+    );
+
+    expect(normalized.hypothesisAssessments[1]).toEqual(before);
+  });
+
   it("host-normalizes a contradicted selected hypothesis into a deferred decision", () => {
     const { freeze, context, experiment } = createCase();
 

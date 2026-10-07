@@ -203,7 +203,7 @@ export function applyDeterministicExperimentContradictions(
   for (const assessment of normalized.hypothesisAssessments) {
     const items = contradictions.get(assessment.hypothesisId);
 
-    if (!items?.length) {
+    if (!items?.length || assessment.status === "WEAKENED") {
       continue;
     }
 
