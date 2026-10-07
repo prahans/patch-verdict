@@ -223,9 +223,11 @@ ${JSON.stringify(z.toJSONSchema(repairPlanOutputSchema), null, 2)}`,
 One no-tool contract repair is allowed using the same observed evidence.
 If the output parsed, preserve status, selected alternative, alternative ids/paths/
 objectives/repair kinds/decisions/tradeoffs, blockers, scope, evidence observations,
-relevant files, targets, target decisions and intent ids/paths/objectives/repair kinds.
-Only evidenceRefs, explanatory reasons, and report text may change. Frozen causal
-fields cannot change. Return only corrected JSON matching the schema. No tools.`,
+relevant files, and intent ids. The host owns the selected repair authorization and
+may normalize duplicated target/intent path, repairKind, objective, and target decision
+fields from the selected alternative. Only evidenceRefs, explanatory reasons, and
+report text may otherwise change. Frozen causal fields cannot change. Return only
+corrected JSON matching the schema. No tools.`,
       });
     }
   }

@@ -123,14 +123,28 @@ describe("repair planning after causal freeze", () => {
     }
   });
 
-  it("permits one citation repair but cannot use it to change the repair objective", async () => {
+  it("permits one citation repair but cannot change the selected alternative objective", async () => {
     const { freeze, causalEvidence, planOutput } = causalFixture();
     const initial = structuredClone(planOutput);
-    initial.plan.patchIntents[0]!.evidenceRefs = [{ kind: "FILE", source: "unseen.ts" }];
+    initial.plan.patchIntents[0]!.evidenceRefs = [
+      { kind: "FILE", source: "unseen.ts" },
+    ];
+
     send.mockResolvedValueOnce(modelResponse(initial));
-    planOutput.plan.patchIntents[0]!.objective = "Change division to return zero for every input.";
+
+    planOutput.alternatives[0]!.objective =
+      "Change division to return zero for every input.";
+
     send.mockResolvedValueOnce(modelResponse(planOutput));
-    await expect(planRepair({ verificationPlan: verificationFixture, causalFreeze: freeze, causalEvidence, discoveredFiles: [] })).rejects.toThrow(/change investigation semantics/);
+
+    await expect(
+      planRepair({
+        verificationPlan: verificationFixture,
+        causalFreeze: freeze,
+        causalEvidence,
+        discoveredFiles: [],
+      }),
+    ).rejects.toThrow(/change the repair choice/);
   });
 
   it("accepts a citation repair from the same observed evidence", async () => {
