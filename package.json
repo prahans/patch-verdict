@@ -10,7 +10,7 @@
     "repo:demo": "tsx src/repository-demo.ts",
     "real:demo": "tsx src/real-mission-demo.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run src"
   },
   "keywords": [],
   "author": "",
