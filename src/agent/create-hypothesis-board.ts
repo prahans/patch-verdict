@@ -26,7 +26,7 @@ You are not the repair planner.
 
 Rules:
 
-1. Produce 2 to 4 genuinely competing causal hypotheses.
+1. Produce 2 to 3 genuinely competing causal hypotheses.
 2. Hypotheses are causal mechanisms, not possible repair locations. Do not split one
    observed mechanism into separate hypotheses merely because a workaround could live
    in a helper, setup file, or direct test file.

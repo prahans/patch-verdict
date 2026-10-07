@@ -98,7 +98,7 @@ export function hypothesisBoardResponseJsonSchema(context: {
 
   return z.toJSONSchema(
     hypothesisBoardSchema.extend({
-      hypotheses: z.array(constrainedHypothesisSchema).min(2).max(5),
+      hypotheses: z.array(constrainedHypothesisSchema).min(2).max(3),
     }),
   ) as Record<string, unknown>;
 }

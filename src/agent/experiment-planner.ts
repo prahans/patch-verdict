@@ -94,7 +94,16 @@ export type ExperimentRanking = {
   candidate: ExperimentCandidate;
   informationGainBits: number;
   interventionRole: CounterfactualInterventionRole | null;
+  priorityDirect: boolean;
   rejectionReasons: string[];
+};
+
+export type PriorityDirectBooleanIntervention = {
+  path: string;
+  key: string;
+  find: string;
+  replace: string;
+  hypothesisIds: string[];
 };
 export type ExperimentPlan = {
   round: number;
@@ -123,6 +132,64 @@ export type ExperimentPlanningContext = {
 const normalizePath = (value: string) => value.replace(/\\/g, "/").replace(/^\.\//, "");
 const interventionKey = (item: { path: string; find: string; replace: string }) =>
   JSON.stringify([normalizePath(item.path), item.find, item.replace]);
+
+/**
+ * Host-detected direct boolean toggles from inspected runner configuration.
+ * Only variables explicitly named by an original hypothesis are eligible.
+ */
+export function priorityDirectBooleanInterventions(context: {
+  evidence: CreateCausalFreezeInput;
+  runnerConfigPaths: readonly string[];
+}): PriorityDirectBooleanIntervention[] {
+  const runnerPaths = new Set(context.runnerConfigPaths.map(normalizePath));
+  const candidates: PriorityDirectBooleanIntervention[] = [];
+  const seen = new Set<string>();
+
+  for (const file of context.evidence.files) {
+    const path = normalizePath(file.path);
+
+    if (file.truncated || !runnerPaths.has(path)) continue;
+
+    const booleanSetting = /\b([A-Za-z_$][\w$]*)\s*:\s*(true|false)\b/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = booleanSetting.exec(file.content)) !== null) {
+      const key = match[1]!;
+      const current = match[2]!;
+      const hypothesisIds = context.evidence.board.hypotheses
+        .filter((hypothesis) =>
+          hypothesis.hypothesis.toLowerCase().includes(key.toLowerCase()),
+        )
+        .map((hypothesis) => hypothesis.id);
+
+      if (hypothesisIds.length === 0) continue;
+
+      const find = match[0];
+      if (file.content.split(find).length - 1 !== 1) continue;
+
+      const replace = find.replace(
+        /\b(true|false)\b$/,
+        current === "true" ? "false" : "true",
+      );
+      const candidate = { path, key, find, replace, hypothesisIds };
+      const signature = interventionKey(candidate);
+
+      if (seen.has(signature)) continue;
+
+      seen.add(signature);
+      candidates.push(candidate);
+    }
+  }
+
+  return candidates
+    .sort(
+      (a, b) =>
+        b.hypothesisIds.length - a.hypothesisIds.length ||
+        a.path.localeCompare(b.path) ||
+        a.key.localeCompare(b.key),
+    )
+    .slice(0, 2);
+}
 
 function excerpt(value: string, max = 120) {
   const compact = value.replace(/\s+/g, " ").trim();
@@ -197,6 +264,12 @@ export function planExperiments(raw: unknown, context: ExperimentPlanningContext
   ]);
   const candidateIds = proposal.candidates.map((candidate) => candidate.id);
   const keys = proposal.candidates.map(interventionKey);
+  const priorityDirectKeys = new Set(
+    priorityDirectBooleanInterventions({
+      evidence: context.evidence,
+      runnerConfigPaths: context.runnerConfigPaths,
+    }).map(interventionKey),
+  );
 
   for (const candidate of proposal.candidates) {
     const errors: string[] = [];
@@ -228,12 +301,19 @@ export function planExperiments(raw: unknown, context: ExperimentPlanningContext
     }
     const gain = predictedInformationGain(candidate.predictions);
     if (gain <= 0) errors.push("No opposing predicted outcomes; this intervention cannot distinguish hypotheses.");
-    record.rankings.push({ candidate, informationGainBits: gain, interventionRole: role, rejectionReasons: errors });
+    record.rankings.push({
+      candidate,
+      informationGainBits: gain,
+      interventionRole: role,
+      priorityDirect: priorityDirectKeys.has(interventionKey(candidate)),
+      rejectionReasons: errors,
+    });
   }
-  // Equal gain prefers the upstream runner variable, then the smaller edit and
-  // lexical candidate id. Ranking does not select a causal winner or repair.
+  // Test a directly named observed runner boolean before nearby substitutes.
+  // Then use predicted information gain and deterministic tie-breaks.
   record.rankings.sort((a, b) =>
     Number(a.rejectionReasons.length > 0) - Number(b.rejectionReasons.length > 0) ||
+    Number(b.priorityDirect) - Number(a.priorityDirect) ||
     b.informationGainBits - a.informationGainBits ||
     Number(a.interventionRole === "TEST_SETUP_CONTROL") - Number(b.interventionRole === "TEST_SETUP_CONTROL") ||
     (a.candidate.find.length + a.candidate.replace.length) - (b.candidate.find.length + b.candidate.replace.length) ||

@@ -61,6 +61,28 @@ describe("experiment information-gain planner", () => {
     expect(plan.rankings[0]!.informationGainBits).toBeCloseTo(2 / 3);
   });
 
+  it("prioritizes a direct named runner-variable toggle over a nearby flag", () => {
+    const { context, proposal } = setup();
+
+    context.evidence.board.hypotheses[0]!.hypothesis =
+      "The runner setting threads: false causes the reproduced lifecycle failure.";
+
+    const substitute = structuredClone(proposal.candidates[0]!);
+    substitute.id = "candidate-2";
+    substitute.find = "threads: false";
+    substitute.replace = "threads: false, isolate: true";
+    proposal.candidates.unshift(substitute);
+
+    const plan = planExperiments(proposal, context);
+
+    expect(plan.selectedCandidateId).toBe("candidate-1");
+    expect(plan.rankings[0]!.priorityDirect).toBe(true);
+    expect(plan.request).toMatchObject({
+      path: "vite.config.ts",
+      find: "threads: false",
+      replace: "threads: true",
+    });
+  });
   it("uses an upstream runner intervention as a deterministic tie-break", () => {
     const { context, proposal } = setup();
     context.testSetupPaths = ["vitest.setup.ts"];

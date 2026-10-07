@@ -141,6 +141,9 @@ describe("createInitialHypothesisBoard", () => {
       },
     });
     expect(request.responseFormat.jsonSchema.schema).toBeTruthy();
+    expect(
+      request.responseFormat.jsonSchema.schema.properties.hypotheses.maxItems,
+    ).toBe(3);
 
     const responseSchema = JSON.stringify(
       request.responseFormat.jsonSchema.schema,
