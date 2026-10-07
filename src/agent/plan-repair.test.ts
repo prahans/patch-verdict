@@ -87,6 +87,42 @@ describe("repair planning after causal freeze", () => {
     expect(result.diagnosis.patchIntents[0]!.repairKind).toBe("MITIGATION");
   });
 
+  it("binds inconsistent repeated authorization fields to the selected alternative", async () => {
+    const { freeze, causalEvidence, planOutput, reconnaissance } =
+      causalFixture();
+
+    const inconsistent = structuredClone(planOutput);
+    inconsistent.plan.recommendedPatchTargets[0] = "tests/divide.test.ts";
+    inconsistent.plan.patchIntents[0]!.path = "tests/divide.test.ts";
+    inconsistent.plan.patchIntents[0]!.repairKind = "MITIGATION";
+    inconsistent.plan.patchIntents[0]!.objective =
+      "Change a different behavior in the test file.";
+    inconsistent.plan.patchTargetAnalysis[0]!.decision = "REJECT";
+
+    send.mockResolvedValueOnce(modelResponse(inconsistent));
+
+    const result = await planRepair({
+      verificationPlan: verificationFixture,
+      causalFreeze: freeze,
+      causalEvidence,
+      discoveredFiles: reconnaissance.inventory,
+    });
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(result.repairPlan.decision.status).toBe("READY");
+
+    if (result.repairPlan.decision.status === "READY") {
+      expect(result.repairPlan.decision.plan.recommendedPatchTargets).toEqual([
+        "src/divide.ts",
+      ]);
+      expect(result.repairPlan.decision.plan.patchIntents[0]).toMatchObject({
+        path: "src/divide.ts",
+        repairKind: "ROOT_CAUSE_FIX",
+        objective: "Reject a zero divisor before performing division.",
+      });
+    }
+  });
+
   it("permits one citation repair but cannot use it to change the repair objective", async () => {
     const { freeze, causalEvidence, planOutput } = causalFixture();
     const initial = structuredClone(planOutput);

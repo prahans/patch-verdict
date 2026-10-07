@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertRepairAlternatives, repairPlanOutputSchema, type ReadyRepairPlan } from "./repair-plan.js";
+import { assertRepairAlternatives, bindReadyRepairAuthorization, repairPlanOutputSchema, type ReadyRepairPlan } from "./repair-plan.js";
 import { causalFixture, blockedRepairFixture } from "./test-fixtures/causal.js";
 
 function fixture() {
@@ -36,6 +36,34 @@ describe("separate repair decision contract", () => {
       expect(() => assertRepairAlternatives(output, evidence)).toThrow();
     },
   );
+
+  it("binds repeated authorization fields to the selected repair alternative", () => {
+    const { output, evidence } = fixture();
+
+    output.plan.recommendedPatchTargets[0] = "tests/divide.test.ts";
+    output.plan.patchIntents[0]!.path = "tests/divide.test.ts";
+    output.plan.patchIntents[0]!.repairKind = "MITIGATION";
+    output.plan.patchIntents[0]!.objective =
+      "Change a different behavior than the selected repair.";
+    output.plan.patchTargetAnalysis[0]!.decision = "REJECT";
+
+    const bound = bindReadyRepairAuthorization(output) as ReadyRepairPlan;
+    const selected = bound.alternatives[0]!;
+
+    expect(bound.plan.recommendedPatchTargets).toEqual([selected.path]);
+    expect(bound.plan.patchIntents).toHaveLength(1);
+    expect(bound.plan.patchIntents[0]).toMatchObject({
+      path: selected.path,
+      repairKind: selected.repairKind,
+      objective: selected.objective,
+    });
+    expect(
+      bound.plan.patchTargetAnalysis.find(
+        (entry) => entry.path === selected.path,
+      )?.decision,
+    ).toBe("RECOMMEND");
+    expect(() => assertRepairAlternatives(bound, evidence)).not.toThrow();
+  });
 
   it("does not let a blocked plan smuggle in a selection or executable plan", () => {
     const { evidence } = fixture();

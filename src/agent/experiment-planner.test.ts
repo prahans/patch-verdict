@@ -107,12 +107,30 @@ describe("experiment information-gain planner", () => {
     expect(planExperiments(proposal, context)).toMatchObject({ status: "STOPPED", request: null, reason: expect.stringContaining("budget exhausted") });
   });
 
-  it("accepts explicit early stopping and rejects a contradictory proposal", () => {
+  it("accepts explicit early stopping and ignores advisory stop text when candidates exist", () => {
     const { context, proposal } = setup();
-    const stopReason = "Existing observations suffice; no useful intervention remains.";
-    expect(planExperiments({ candidates: [], stopReason }, context)).toMatchObject({ status: "STOPPED", reason: stopReason, request: null });
-    expect(planExperiments({ ...proposal, stopReason }, context).status).toBe("REJECTED");
-    expect(planExperiments({ candidates: [], stopReason: null }, context).status).toBe("REJECTED");
+    const stopReason =
+      "Existing observations suffice; no useful intervention remains.";
+
+    expect(
+      planExperiments({ candidates: [], stopReason }, context),
+    ).toMatchObject({
+      status: "STOPPED",
+      reason: stopReason,
+      request: null,
+    });
+
+    expect(
+      planExperiments({ ...proposal, stopReason }, context),
+    ).toMatchObject({
+      status: "SELECTED",
+      selectedCandidateId: "candidate-1",
+      request: expect.objectContaining({ path: "vite.config.ts" }),
+    });
+
+    expect(
+      planExperiments({ candidates: [], stopReason: null }, context).status,
+    ).toBe("REJECTED");
   });
 
   it.each(["command", "informationGainBits", "recommendedPatchTargets"])("rejects model-owned %s at the planning boundary", (field) => {

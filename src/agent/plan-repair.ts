@@ -23,7 +23,7 @@ import { assertPatchIntentContract } from "./investigation-intents.js";
 import { assertNoSemanticDriftDuringContractRepair } from "./investigation-repair-guard.js";
 
 import {
-  repairPlanOutputSchema, assertRepairAlternatives, assertRepairChoiceUnchanged, repairPlanRecord,
+  repairPlanOutputSchema, assertRepairAlternatives, assertRepairChoiceUnchanged, bindReadyRepairAuthorization, repairPlanRecord,
   type RepairPlanOutput, type ReadyRepairPlan, type RepairPlanRecord, type RepairPlanningFailure,
 } from "./repair-plan.js";
 import type { VerificationPlan } from "../verification/types.js";
@@ -150,8 +150,10 @@ concrete blockers and no plan or selected alternative. BLOCKED is a valid outcom
 Compare at least two repair alternatives for READY; a no-change alternative with
 null path/repairKind is valid if the evidence does not justify another edit.
 Record each option's objective, tradeoff, reason, and observed evidence. Select
-exactly one patch option. Its path, repairKind and objective must exactly match the
-single patch intent and recommended target. The current executor handles one file.
+exactly one patch option. The selected alternative is the authoritative repair
+choice; the host binds its path, repairKind, and objective into the one-file patch
+authorization. Still include exactly one patch intent and a patch-target analysis
+entry for the selected path so their evidence and rationale can be validated.
 If the repair requires multiple files or uninspected content, return BLOCKED.
 Verification commands come from the host plan; do not propose replacement commands.
 
@@ -193,10 +195,16 @@ ${JSON.stringify(z.toJSONSchema(repairPlanOutputSchema), null, 2)}`,
       throw new RepairPlanningError({ attempts });
     }
     try {
-      const output = repairPlanOutputSchema.parse(JSON.parse(text));
+      const parsedOutput = repairPlanOutputSchema.parse(JSON.parse(text));
+      const output = bindReadyRepairAuthorization(parsedOutput);
+
       if (attempt === 0) initialOutput = output;
       else if (initialOutput) assertRepairChoiceUnchanged(initialOutput, output);
-      const projected = output.status === "READY" ? projectDiagnosis(output, freeze, snapshot.causalEvidence) : undefined;
+
+      const projected =
+        output.status === "READY"
+          ? projectDiagnosis(output, freeze, snapshot.causalEvidence)
+          : undefined;
       if (attempt === 0) initial = projected;
       else if (initial && projected) assertNoSemanticDriftDuringContractRepair(initial.diagnosis, projected.diagnosis);
       assertRepairAlternatives(output, snapshot.causalEvidence);

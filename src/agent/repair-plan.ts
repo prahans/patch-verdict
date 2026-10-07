@@ -45,6 +45,62 @@ export type RepairPlanningFailure = {
   attempts: { responseText: string | null; error: string }[];
 };
 
+function normalizePath(value: string) {
+  return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
+}
+
+/**
+ * The selected alternative is the repair decision. The model also has to emit
+ * legacy diagnosis fields for downstream compatibility, but those repeated
+ * authorization fields must not become a second source of truth.
+ *
+ * This function binds the one-file executor authorization to the selected
+ * alternative while leaving evidence, explanations, and candidate comparison
+ * untouched. Missing evidence or missing target-analysis entries still fail
+ * the normal grounding validators.
+ */
+export function bindReadyRepairAuthorization(
+  output: RepairPlanOutput,
+): RepairPlanOutput {
+  const bound = structuredClone(output);
+
+  if (bound.status !== "READY") {
+    return bound;
+  }
+
+  const selected = bound.alternatives.find(
+    (option) =>
+      option.id === bound.selectedAlternativeId &&
+      option.decision === "SELECTED",
+  );
+
+  if (
+    !selected ||
+    selected.path === null ||
+    selected.repairKind === null
+  ) {
+    return bound;
+  }
+
+  bound.plan.recommendedPatchTargets = [selected.path];
+
+  for (const target of bound.plan.patchTargetAnalysis) {
+    target.decision =
+      normalizePath(target.path) === normalizePath(selected.path)
+        ? "RECOMMEND"
+        : "REJECT";
+  }
+
+  if (bound.plan.patchIntents.length === 1) {
+    const intent = bound.plan.patchIntents[0]!;
+    intent.path = selected.path;
+    intent.repairKind = selected.repairKind;
+    intent.objective = selected.objective;
+  }
+
+  return bound;
+}
+
 export function repairPlanRecord(decision: RepairPlanOutput, verification: VerificationPlan): RepairPlanRecord {
   return {
     decision,

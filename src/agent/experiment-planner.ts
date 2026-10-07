@@ -156,12 +156,22 @@ export function planExperiments(raw: unknown, context: ExperimentPlanningContext
   if (!parsed.success) {
     return { ...record, status: "REJECTED", reason: `Invalid experiment proposal: ${parsed.error.message}` };
   }
-  const proposal = parsed.data;
+  const proposal =
+    parsed.data.candidates.length > 0 && parsed.data.stopReason !== null
+      ? { ...parsed.data, stopReason: null }
+      : parsed.data;
+
   if (!proposal.candidates.length) {
-    if (!proposal.stopReason) return { ...record, status: "REJECTED", reason: "An empty proposal requires a stopReason." };
+    if (!proposal.stopReason) {
+      return {
+        ...record,
+        status: "REJECTED",
+        reason: "An empty proposal requires a stopReason.",
+      };
+    }
+
     return { ...record, reason: proposal.stopReason };
   }
-  if (proposal.stopReason !== null) return { ...record, status: "REJECTED", reason: "Candidates and a stopReason are mutually exclusive." };
 
   const ids = context.evidence.board.hypotheses.map((item) => item.id);
   const knownRefs = new Set([
