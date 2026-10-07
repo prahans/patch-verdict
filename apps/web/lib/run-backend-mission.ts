@@ -49,10 +49,17 @@ export async function runBackendMission(
   validateInput(input);
 
   const repositoryRoot = path.resolve(process.cwd(), "../..");
-  const pnpmCommand = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+  const tsxCli = path.join(
+    repositoryRoot,
+    "node_modules",
+    "tsx",
+    "dist",
+    "cli.mjs",
+  );
 
   const args = [
-    "real:demo",
+    tsxCli,
+    "src/real-mission-demo.ts",
     input.repositoryUrl.trim(),
     input.issue.trim(),
     input.reproductionCommand.trim(),
@@ -63,7 +70,7 @@ export async function runBackendMission(
   }
 
   return await new Promise<BackendMissionRun>((resolve, reject) => {
-    const child = spawn(pnpmCommand, args, {
+    const child = spawn(process.execPath, args, {
       cwd: repositoryRoot,
       env: process.env,
       shell: false,
