@@ -81,6 +81,22 @@ const context = {
 };
 
 describe("runCounterfactualWithAccess", () => {
+  it("applies replacement text literally even when it contains dollar substitution tokens", async () => {
+    const harness = createHarness();
+    const replacement = 'threads: true, label: "$& $$ $`"';
+    let during = "";
+    const result = await runCounterfactualWithAccess({
+      request: { ...request, replace: replacement }, context,
+      access: { ...harness.access, runTrustedCommand: async () => {
+        during = harness.content;
+        return commandEvidence({ exitCode: 0 });
+      } },
+    });
+    expect(during).toBe(`export default { test: { ${replacement} } };`);
+    expect(result.intervention.replace).toBe(replacement);
+    expect(harness.content).toBe(harness.original);
+  });
+
   it("temporarily changes one allowlisted causal variable and restores the file", async () => {
     const harness = createHarness();
 

@@ -56,6 +56,28 @@ export type CausalFreezeGroundingContext = {
   }[];
   // Successful tool results only, recorded after verified repository restoration.
   experiments: readonly CounterfactualExperimentEvidence[];
+  // Host-ranked plans are predictions, not evidence. They are used only to
+  // detect when an actual restored experiment contradicts a concrete prediction.
+  experimentPlans?: readonly {
+    selectedCandidateId: string | null;
+    rankings: readonly {
+      candidate: {
+        id: string;
+        predictions: readonly {
+          hypothesisId: string;
+          expectedOutcome:
+            | "FAILURE_REMOVED"
+            | "FAILURE_PERSISTS"
+            | "UNKNOWN";
+        }[];
+      };
+    }[];
+    execution: {
+      status: "COMPLETED" | "FAILED";
+      evidenceSource: string | null;
+      error: string | null;
+    } | null;
+  }[];
 };
 
 export const CAUSAL_FREEZE_JSON_SCHEMA = JSON.stringify(
@@ -86,6 +108,149 @@ export function parseCausalFreeze(text: string): CausalFreeze {
 
 function evidenceKey(ref: { kind: string; source: string }) {
   return `${ref.kind}:${ref.source.trim()}`;
+}
+
+type ExperimentContradiction = {
+  source: string;
+  predictedOutcome: "FAILURE_REMOVED" | "FAILURE_PERSISTS";
+  actualOutcome: "FAILURE_REMOVED" | "FAILURE_PERSISTS";
+};
+
+function experimentContradictions(
+  context: CausalFreezeGroundingContext,
+  suppliedExperiments?: Map<string, CounterfactualExperimentEvidence>,
+) {
+  const boardIds = new Set(context.board.hypotheses.map((item) => item.id));
+  const experiments =
+    suppliedExperiments ??
+    new Map(
+      context.experiments
+        .filter((experiment) => {
+          const source = experiment.evidenceSource.trim();
+          return (
+            experiment.repositoryRestored === true &&
+            source === experiment.experimentId &&
+            /^EXP-[1-9]\d*$/.test(source) &&
+            experiment.hypothesisIds.length >= 2 &&
+            new Set(experiment.hypothesisIds).size ===
+              experiment.hypothesisIds.length &&
+            experiment.hypothesisIds.every((id) => boardIds.has(id))
+          );
+        })
+        .map((experiment) => [experiment.evidenceSource.trim(), experiment]),
+    );
+
+  const contradictions = new Map<string, ExperimentContradiction[]>();
+
+  for (const plan of context.experimentPlans ?? []) {
+    if (
+      plan.execution?.status !== "COMPLETED" ||
+      !plan.execution.evidenceSource ||
+      !plan.selectedCandidateId
+    ) {
+      continue;
+    }
+
+    const experiment = experiments.get(plan.execution.evidenceSource);
+    const selected = plan.rankings.find(
+      (ranking) => ranking.candidate.id === plan.selectedCandidateId,
+    )?.candidate;
+
+    if (
+      !experiment ||
+      !selected ||
+      experiment.outcome === "INCONCLUSIVE"
+    ) {
+      continue;
+    }
+
+    for (const prediction of selected.predictions) {
+      if (
+        prediction.expectedOutcome === "UNKNOWN" ||
+        !experiment.hypothesisIds.includes(prediction.hypothesisId)
+      ) {
+        continue;
+      }
+
+      if (prediction.expectedOutcome !== experiment.outcome) {
+        const items = contradictions.get(prediction.hypothesisId) ?? [];
+        items.push({
+          source: experiment.evidenceSource,
+          predictedOutcome: prediction.expectedOutcome,
+          actualOutcome: experiment.outcome,
+        });
+        contradictions.set(prediction.hypothesisId, items);
+      }
+    }
+  }
+
+  return contradictions;
+}
+
+/**
+ * Experiment outcomes are host evidence. When a completed restored experiment
+ * produces the opposite conclusive outcome from the selected plan prediction,
+ * weakening that hypothesis is deterministic bookkeeping rather than model
+ * reasoning. Apply it before validating or attempting citation-only repair.
+ */
+export function applyDeterministicExperimentContradictions(
+  freeze: CausalFreeze,
+  context: CausalFreezeGroundingContext,
+): CausalFreeze {
+  const normalized = causalFreezeSchema.parse(structuredClone(freeze));
+  const contradictions = experimentContradictions(context);
+
+  for (const assessment of normalized.hypothesisAssessments) {
+    const items = contradictions.get(assessment.hypothesisId);
+
+    if (!items?.length || assessment.status === "WEAKENED") {
+      continue;
+    }
+
+    assessment.status = "WEAKENED";
+    assessment.reason = items
+      .map(
+        (item) =>
+          `Restored experiment ${item.source} produced ${item.actualOutcome}, opposite the selected plan prediction ${item.predictedOutcome} for ${assessment.hypothesisId}.`,
+      )
+      .join(" ");
+
+    const existing = new Set(
+      assessment.evidenceRefs.map(
+        (ref) => `${ref.kind}:${ref.source}`,
+      ),
+    );
+
+    for (const item of items) {
+      const key = `EXPERIMENT:${item.source}`;
+
+      if (!existing.has(key)) {
+        assessment.evidenceRefs.push({
+          kind: "EXPERIMENT",
+          source: item.source,
+        });
+        existing.add(key);
+      }
+    }
+  }
+
+  if (
+    normalized.status === "FROZEN" &&
+    normalized.selectedHypothesisId !== null &&
+    contradictions.has(normalized.selectedHypothesisId)
+  ) {
+    const contradictedSelection = normalized.selectedHypothesisId;
+    normalized.status = "NEEDS_MORE_EVIDENCE";
+    normalized.selectedHypothesisId = null;
+    normalized.causeLayer = null;
+    normalized.causalClaim = null;
+    normalized.confidence = null;
+    normalized.unresolvedQuestions = [
+      `Restored experiment evidence contradicted selected hypothesis ${contradictedSelection}; reassess the remaining original hypotheses before repair planning.`,
+    ];
+  }
+
+  return normalized;
 }
 
 /**
@@ -133,6 +298,11 @@ export function assertCausalFreezeGrounding(
 
     experiments.set(source, experiment);
   }
+
+  const contradictedHypotheses = experimentContradictions(
+    context,
+    experiments,
+  );
 
   const assessedIds = new Set<string>();
 
@@ -200,6 +370,14 @@ export function assertCausalFreezeGrounding(
         `SUPPORTED hypothesis "${id}" needs independent evidence; INCONCLUSIVE experiments and failure-removing TEST_SETUP_CONTROL experiments alone cannot establish test-infrastructure causal ownership.`,
       );
     }
+
+    const contradictions = contradictedHypotheses.get(id) ?? [];
+
+    if (contradictions.length > 0 && assessment.status !== "WEAKENED") {
+      errors.push(
+        `Hypothesis "${id}" must be WEAKENED because restored experiment(s) ${contradictions.map((item) => item.source).join(", ")} produced the opposite conclusive outcome from the selected plan's prediction.`,
+      );
+    }
   }
 
   for (const id of hypotheses.keys()) {
@@ -231,10 +409,13 @@ export function assertCausalFreezeGrounding(
     if (
       decision.confidence === "HIGH" &&
       (decision.causeLayer === "UNKNOWN" ||
-        decision.hypothesisAssessments.some((item) => item.status === "UNRESOLVED") ||
+        decision.hypothesisAssessments.some((item) =>
+          item.status === "UNRESOLVED" ||
+          (item.hypothesisId !== decision.selectedHypothesisId && item.status === "SUPPORTED"),
+        ) ||
         decision.unresolvedQuestions.length > 0)
     ) {
-      errors.push("HIGH confidence is not allowed with an UNKNOWN cause or unresolved causal questions/hypotheses.");
+      errors.push("HIGH confidence is not allowed with an UNKNOWN cause, competing support, or unresolved causal questions/hypotheses.");
     }
   } else {
     if (

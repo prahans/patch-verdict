@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 import type { HypothesisBoard } from "./hypothesis-board.js";
 import {
+  applyDeterministicExperimentContradictions,
   assertCausalFreezeGrounding,
   assertCausalFreezeReadyForPlanning,
   causalFreezeSchema,
@@ -205,6 +206,156 @@ describe("Causal Freeze v4", () => {
     expect(() => assertCausalFreezeGrounding(freeze, context)).not.toThrow();
   });
 
+  it("does not rewrite an assessment that is already WEAKENED", () => {
+    const { freeze, context, experiment } = createCase();
+
+    freeze.hypothesisAssessments[1]!.status = "WEAKENED";
+    const before = structuredClone(freeze.hypothesisAssessments[1]);
+
+    context.experimentPlans = [
+      {
+        selectedCandidateId: "candidate-1",
+        rankings: [
+          {
+            candidate: {
+              id: "candidate-1",
+              predictions: [
+                {
+                  hypothesisId: "H1",
+                  expectedOutcome: "FAILURE_REMOVED",
+                },
+                {
+                  hypothesisId: "H2",
+                  expectedOutcome: "FAILURE_PERSISTS",
+                },
+              ],
+            },
+          },
+        ],
+        execution: {
+          status: "COMPLETED",
+          evidenceSource: experiment.evidenceSource,
+          error: null,
+        },
+      },
+    ];
+
+    const normalized = applyDeterministicExperimentContradictions(
+      freeze,
+      context,
+    );
+
+    expect(normalized.hypothesisAssessments[1]).toEqual(before);
+  });
+
+  it("host-normalizes a contradicted selected hypothesis into a deferred decision", () => {
+    const { freeze, context, experiment } = createCase();
+
+    context.experimentPlans = [
+      {
+        selectedCandidateId: "candidate-1",
+        rankings: [
+          {
+            candidate: {
+              id: "candidate-1",
+              predictions: [
+                {
+                  hypothesisId: "H1",
+                  expectedOutcome: "FAILURE_PERSISTS",
+                },
+                {
+                  hypothesisId: "H2",
+                  expectedOutcome: "FAILURE_REMOVED",
+                },
+              ],
+            },
+          },
+        ],
+        execution: {
+          status: "COMPLETED",
+          evidenceSource: experiment.evidenceSource,
+          error: null,
+        },
+      },
+    ];
+
+    const normalized = applyDeterministicExperimentContradictions(
+      freeze,
+      context,
+    );
+
+    expect(normalized).toMatchObject({
+      status: "NEEDS_MORE_EVIDENCE",
+      selectedHypothesisId: null,
+      causeLayer: null,
+      causalClaim: null,
+      confidence: null,
+    });
+    expect(normalized.hypothesisAssessments[0]).toMatchObject({
+      hypothesisId: "H1",
+      status: "WEAKENED",
+    });
+    expect(normalized.hypothesisAssessments[0]!.evidenceRefs).toContainEqual({
+      kind: "EXPERIMENT",
+      source: "EXP-1",
+    });
+    expect(normalized.unresolvedQuestions[0]).toContain("H1");
+    expect(() =>
+      assertCausalFreezeGrounding(normalized, context),
+    ).not.toThrow();
+  });
+
+  it("requires a hypothesis to be WEAKENED when a selected experiment contradicts its prediction", () => {
+    const { freeze, context, experiment } = createCase();
+
+    context.experimentPlans = [
+      {
+        selectedCandidateId: "candidate-1",
+        rankings: [
+          {
+            candidate: {
+              id: "candidate-1",
+              predictions: [
+                {
+                  hypothesisId: "H1",
+                  expectedOutcome: "FAILURE_PERSISTS",
+                },
+                {
+                  hypothesisId: "H2",
+                  expectedOutcome: "FAILURE_REMOVED",
+                },
+              ],
+            },
+          },
+        ],
+        execution: {
+          status: "COMPLETED",
+          evidenceSource: experiment.evidenceSource,
+          error: null,
+        },
+      },
+    ];
+
+    // Actual outcome is FAILURE_REMOVED, contradicting H1's concrete prediction.
+    expect(() =>
+      assertCausalFreezeGrounding(freeze, context),
+    ).toThrow(/H1.*must be WEAKENED/i);
+
+    freeze.hypothesisAssessments[0]!.status = "WEAKENED";
+    freeze.status = "NEEDS_MORE_EVIDENCE";
+    freeze.selectedHypothesisId = null;
+    freeze.causeLayer = null;
+    freeze.causalClaim = null;
+    freeze.confidence = null;
+    freeze.unresolvedQuestions = [
+      "Which remaining hypothesis is supported after the contradiction?",
+    ];
+
+    expect(() =>
+      assertCausalFreezeGrounding(freeze, context),
+    ).not.toThrow();
+  });
+
   it("rejects invented experiments", () => {
     const { freeze, context } = createCase();
     context.experiments = [];
@@ -347,6 +498,13 @@ describe("Causal Freeze v4", () => {
     const { freeze, context } = createCase();
     freeze.confidence = "HIGH";
     expect(() => assertCausalFreezeGrounding(freeze, context)).not.toThrow();
+  });
+
+  it("rejects HIGH confidence when a competing hypothesis is also supported", () => {
+    const { freeze, context } = createCase();
+    freeze.confidence = "HIGH";
+    freeze.hypothesisAssessments[1]!.status = "SUPPORTED";
+    expect(() => assertCausalFreezeGrounding(freeze, context)).toThrow(/HIGH confidence is not allowed/);
   });
 
   it.each(["hypothesis", "question", "unknown layer"])("rejects HIGH confidence with unresolved %s", (gap) => {

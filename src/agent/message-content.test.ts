@@ -25,6 +25,12 @@ describe("messageContentToText", () => {
     ).toBe("first\nsecond");
   });
 
+  it("serializes structured object content", () => {
+    expect(messageContentToText({ status: "FROZEN", confidence: "HIGH" })).toBe(
+      '{"status":"FROZEN","confidence":"HIGH"}',
+    );
+  });
+
   it("returns an empty string for unsupported content", () => {
     expect(messageContentToText(null)).toBe("");
   });

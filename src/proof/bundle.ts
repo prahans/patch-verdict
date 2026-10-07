@@ -102,6 +102,8 @@ export async function writeProofBundle({
 
     status: result.status,
 
+    error: result.error ?? null,
+
     verdict: result.verdict ?? null,
 
     checks: result.checks ?? null,
@@ -132,7 +134,19 @@ export async function writeProofBundle({
 
           experiments: result.investigation.experiments ?? [],
 
-          diagnosis: result.investigation.diagnosis,
+          causalFreeze: result.investigation.causalFreeze ?? null,
+
+          causalEvidence: result.investigation.causalEvidence ?? null,
+
+          causalFreezeFailure: result.investigation.causalFreezeFailure ?? null,
+
+          experimentPlanning: result.investigation.causalEvidence?.experimentPlanning ?? null,
+
+          repairPlan: result.investigation.repairPlan ?? null,
+
+          repairPlanningFailure: result.investigation.repairPlanningFailure ?? null,
+
+          diagnosis: result.investigation.diagnosis ?? null,
         }
       : null,
 

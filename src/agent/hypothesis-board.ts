@@ -57,6 +57,52 @@ export const HYPOTHESIS_BOARD_JSON_SCHEMA = JSON.stringify(
   2,
 );
 
+export function hypothesisBoardResponseJsonSchema(context: {
+  baselineCommand: string;
+  preInspectedFiles: readonly string[];
+}): Record<string, unknown> {
+  const baselineCommand = context.baselineCommand.trim();
+
+  const fileSources = [
+    ...new Set(
+      context.preInspectedFiles
+        .map((filePath) => filePath.trim())
+        .filter(Boolean),
+    ),
+  ];
+
+  const testRefSchema = z
+    .object({
+      kind: z.literal("TEST"),
+      source: z.literal(baselineCommand),
+    })
+    .strict();
+
+  const evidenceRefSchema =
+    fileSources.length === 0
+      ? testRefSchema
+      : z.discriminatedUnion("kind", [
+          z
+            .object({
+              kind: z.literal("FILE"),
+              source: z.enum(fileSources as [string, ...string[]]),
+            })
+            .strict(),
+          testRefSchema,
+        ]);
+
+  const constrainedHypothesisSchema = hypothesisSchema.extend({
+    supportingEvidenceRefs: z.array(evidenceRefSchema).max(10),
+    contradictingEvidenceRefs: z.array(evidenceRefSchema).max(10),
+  });
+
+  return z.toJSONSchema(
+    hypothesisBoardSchema.extend({
+      hypotheses: z.array(constrainedHypothesisSchema).min(2).max(3),
+    }),
+  ) as Record<string, unknown>;
+}
+
 function evidenceKey(ref: HypothesisEvidenceRef) {
   return `${ref.kind}:${ref.source.trim()}`;
 }

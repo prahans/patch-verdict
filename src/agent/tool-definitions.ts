@@ -1,3 +1,6 @@
+import { z } from "zod";
+import { experimentProposalSchema } from "./experiment-planner.js";
+
 export const investigationToolDefinitions = [
   {
     type: "function" as const,
@@ -79,73 +82,10 @@ export const investigationToolDefinitions = [
 
   {
     type: "function" as const,
-
     function: {
-      name: "run_counterfactual",
-
-      description:
-        "Run one reversible causal experiment against the trusted reproduction command. PatchVerdict temporarily changes exactly one allowlisted runner-config or shared test-setup text fragment, runs the trusted reproduction command, restores the original file exactly, and returns experiment evidence with a deterministic intervention role. Use this only to distinguish competing hypotheses, never as a candidate patch. A shared test-setup control suppressing the failure does not by itself prove root-cause ownership.",
-
-      parameters: {
-        type: "object",
-
-        properties: {
-          experimentId: {
-            type: "string",
-            pattern: "^EXP-[1-9]\\d*$",
-            description: "Unique experiment id, for example EXP-1.",
-          },
-
-          hypothesisIds: {
-            type: "array",
-            minItems: 2,
-            maxItems: 5,
-            items: {
-              type: "string",
-              pattern: "^H[1-5]$",
-            },
-            description:
-              "Two or more hypothesis ids from the initial Hypothesis Board that this experiment is intended to distinguish.",
-          },
-
-          question: {
-            type: "string",
-            minLength: 10,
-            description:
-              "The causal discrimination question this temporary intervention is intended to answer.",
-          },
-
-          path: {
-            type: "string",
-            description:
-              "Repository-relative runner-config or shared test-setup path from deterministic reconnaissance.",
-          },
-
-          find: {
-            type: "string",
-            minLength: 1,
-            description:
-              "Exact text fragment expected to occur exactly once in the allowlisted file.",
-          },
-
-          replace: {
-            type: "string",
-            description:
-              "Temporary replacement text. The original file is restored automatically after the trusted reproduction command.",
-          },
-        },
-
-        required: [
-          "experimentId",
-          "hypothesisIds",
-          "question",
-          "path",
-          "find",
-          "replace",
-        ],
-
-        additionalProperties: false,
-      },
+      name: "plan_experiments",
+      description: "Propose up to three reversible, single-variable experiments with evidence-grounded outcome predictions for every original hypothesis. The host ranks information gain and executes only the selected intervention using the trusted reproduction, then restores the file. Use UNKNOWN rather than inventing a prediction. Supply no candidates and a stopReason when no useful experiment remains. Predictions and scores are planning assumptions, never observations or causal proof.",
+      parameters: z.toJSONSchema(experimentProposalSchema),
     },
   },
 

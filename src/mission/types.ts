@@ -6,6 +6,9 @@ import type { PatchAuthorizationEvidence } from "../agent/patch-authorization.js
 import type { ReconnaissanceSummary } from "../agent/reconnaissance.js";
 import type { HypothesisBoard } from "../agent/hypothesis-board.js";
 import type { CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
+import type { CausalFreeze } from "../agent/causal-freeze.js";
+import type { CausalFreezeFailure, CreateCausalFreezeInput } from "../agent/create-causal-freeze.js";
+import type { RepairPlanRecord, RepairPlanningFailure } from "../agent/repair-plan.js";
 
 export type MissionState =
   | "PREPARING"
@@ -61,7 +64,17 @@ export type MissionResult = {
 
     experiments?: CounterfactualExperimentEvidence[];
 
-    diagnosis: InvestigationDiagnosis;
+    causalFreeze?: CausalFreeze;
+
+    causalEvidence?: CreateCausalFreezeInput;
+
+    causalFreezeFailure?: CausalFreezeFailure;
+
+    repairPlan?: RepairPlanRecord;
+
+    repairPlanningFailure?: RepairPlanningFailure;
+
+    diagnosis?: InvestigationDiagnosis;
   };
 
   patch?: {

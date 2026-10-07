@@ -210,7 +210,7 @@ export async function runCounterfactualWithAccess(input: {
     );
   }
 
-  const mutated = original.replace(parsed.find, parsed.replace);
+  const mutated = original.replace(parsed.find, () => parsed.replace);
 
   let commandEvidence: CommandEvidence | undefined;
   let experimentError: unknown;
