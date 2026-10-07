@@ -90,14 +90,15 @@ describe("live causal investigation finalization", () => {
     expect(result.causalFreeze.status).toBe("FROZEN");
   });
 
-  it("carries restored counterfactual evidence into the frozen decision inputs", async () => {
+  it.each(["FAILURE_REMOVED", "FAILURE_PERSISTS", "INCONCLUSIVE"])("records and displays restored %s counterfactual evidence", async (outcome) => {
     const fixture = causalFixture();
+    const exitCode = outcome === "FAILURE_REMOVED" ? 0 : 1;
     const experiment = {
       experimentId: "EXP-1", evidenceSource: "EXP-1", hypothesisIds: ["H1", "H2"],
       question: "Does the failure persist under an alternate runner condition?",
       intervention: { path: "vite.config.ts", role: "RUNNER_CONFIGURATION", find: "threads: false", replace: "threads: true" },
-      command: { command: "npm test", exitCode: 1, stdout: "expected to throw", stderr: "", durationMs: 2 },
-      outcome: "FAILURE_PERSISTS", repositoryRestored: true,
+      command: { command: "npm test", exitCode, stdout: outcome === "FAILURE_PERSISTS" ? "expected to throw" : "", stderr: "", durationMs: 2 },
+      outcome, repositoryRestored: true,
     };
     send.mockResolvedValueOnce(toolResponse("run_counterfactual", { experimentId: "EXP-1", hypothesisIds: ["H1", "H2"] }));
     counterfactual.mockResolvedValueOnce(experiment);
@@ -108,6 +109,8 @@ describe("live causal investigation finalization", () => {
     expect(result.experiments).toEqual([experiment]);
     expect(result.causalEvidence.experiments).toEqual([experiment]);
     expect(result.causalFreeze).toEqual(fixture.freeze);
+    expect(console.log).toHaveBeenCalledWith("← run_counterfactual",
+      `EXP-1: ${outcome} | RUNNER_CONFIGURATION | hypotheses H1, H2 | exit ${exitCode} | repository restored: true`);
   });
 
   it("records only successful file/test observations for the finalizer", async () => {

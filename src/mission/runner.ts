@@ -1,6 +1,6 @@
 import type { Sandbox } from "e2b";
 
-import { investigateIssue } from "../agent/investigate.js";
+import { CausalInvestigationError, investigateIssue } from "../agent/investigate.js";
 import { planRepair } from "../agent/plan-repair.js";
 import { assertCausalFreezeReadyForPlanning } from "../agent/causal-freeze.js";
 import { causalFreezeGroundingContext } from "../agent/create-causal-freeze.js";
@@ -150,7 +150,21 @@ export async function runMission(
       investigationBaseline,
       reconnaissance,
       input.projectRoot,
-    );
+    ).catch((error: unknown) => {
+      if (error instanceof CausalInvestigationError) {
+        const causalEvidence = error.freezeError.evidence;
+        investigationResult = {
+          report: error.message,
+          iterations: error.iterations,
+          reconnaissance: reconnaissanceSummary(reconnaissance),
+          hypothesisBoard: causalEvidence.board,
+          experiments: [...causalEvidence.experiments],
+          causalEvidence,
+          causalFreezeFailure: error.freezeError.failure,
+        };
+      }
+      throw error;
+    });
 
     if (!investigation.completed) {
       throw new Error("AI investigation did not complete");

@@ -22,6 +22,8 @@
 - Keep the proof chain inspectable: baseline, observations, hypotheses,
   experiments, causal decision, repair intent, authorization, actual diff,
   verification, and deterministic verdict.
+- Preserve host evidence and rejected response diagnostics when causal
+  finalization fails. Rejected proposals never become accepted causal decisions.
 
 ## Development workflow
 
@@ -36,7 +38,9 @@ and the October 6, 2026 continuation:
    new focused tests, then the maintained reliability suite.
 5. Report observed test counts. Label unexecuted checks honestly; do not reuse an
    old expected count as a new passing result.
-6. Do not run the real benchmark during this standalone contract milestone.
+6. Keep real benchmarks separate from standalone contract milestones. Once runtime
+   gates pass, run the agreed benchmark and inspect its proof before advancing to
+   more planner work. A failed run calls for a bounded fix and revalidation.
 7. For meaningful changes made locally by the user after verification, provide
    an exact `git add . && git commit -m "..." && git push` reminder. Changes
    already committed remotely should be pulled, not recommitted.

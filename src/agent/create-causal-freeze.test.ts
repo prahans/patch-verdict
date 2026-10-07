@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CausalFreeze } from "./causal-freeze.js";
-import { createCausalFreeze, type CreateCausalFreezeInput } from "./create-causal-freeze.js";
+import { CausalFreezeError, createCausalFreeze, type CreateCausalFreezeInput } from "./create-causal-freeze.js";
 
 const { send } = vi.hoisted(() => ({ send: vi.fn() }));
 
@@ -94,6 +94,34 @@ function invalidCitation(freeze: CausalFreeze): CausalFreeze {
   return invalid;
 }
 
+function citationRepair(freeze: CausalFreeze) {
+  return {
+    assessmentUpdates: freeze.hypothesisAssessments.map(({ hypothesisId, reason, evidenceRefs }) =>
+      ({ hypothesisId, reason, evidenceRefs }),
+    ),
+  };
+}
+
+// Synthetic records exercise the reported EXP-2/H3 scope mismatch. These are
+// not claimed outcomes or rejected model responses from the user's benchmark.
+function experimentScopeFixture() {
+  const { input, freeze } = fixture();
+  for (const id of ["H3", "H4"]) {
+    input.board.hypotheses.push({ ...input.board.hypotheses[1]!, id });
+    freeze.hypothesisAssessments.push({ ...freeze.hypothesisAssessments[1]!, hypothesisId: id });
+  }
+  input.experiments = [{
+    experimentId: "EXP-2", evidenceSource: "EXP-2", hypothesisIds: ["H1", "H4"],
+    question: "Does the reproduced failure persist under another runner mode?",
+    intervention: { path: "vite.config.ts", role: "RUNNER_CONFIGURATION", find: "threads: false", replace: "threads: true" },
+    command: { command: "npm test", exitCode: 1, stdout: "expected function to throw", stderr: "", durationMs: 5 },
+    outcome: "FAILURE_PERSISTS", repositoryRestored: true,
+  }];
+  const invalid = structuredClone(freeze);
+  invalid.hypothesisAssessments[2]!.evidenceRefs = [{ kind: "EXPERIMENT", source: "EXP-2" }];
+  return { input, freeze, invalid };
+}
+
 describe("createCausalFreeze", () => {
   beforeEach(() => send.mockReset());
 
@@ -148,53 +176,47 @@ describe("createCausalFreeze", () => {
   it("repairs a citation using existing evidence without changing causal semantics", async () => {
     const { input, freeze } = fixture();
     send.mockResolvedValueOnce(completion(invalidCitation(freeze)));
-    send.mockResolvedValueOnce(completion(freeze));
+    send.mockResolvedValueOnce(completion(citationRepair(freeze)));
 
     expect(await createCausalFreeze(input)).toEqual(freeze);
     expect(send).toHaveBeenCalledTimes(2);
   });
 
-  it("allows harmless assessment ordering and explanatory-reason changes during repair", async () => {
+  it("applies reordered citation updates while preserving the original assessment order", async () => {
     const { input, freeze } = fixture();
     send.mockResolvedValueOnce(completion(invalidCitation(freeze)));
-    freeze.hypothesisAssessments.reverse();
-    freeze.hypothesisAssessments[0]!.reason = "The inspected test uses a zero divisor as required by the reported issue.";
-    send.mockResolvedValueOnce(completion(freeze));
+    freeze.hypothesisAssessments[1]!.reason = "The inspected test uses a zero divisor as required by the reported issue.";
+    const repair = citationRepair(freeze);
+    repair.assessmentUpdates.reverse();
+    send.mockResolvedValueOnce(completion(repair));
 
     expect(await createCausalFreeze(input)).toEqual(freeze);
   });
 
-  it.each(["selection", "claim", "confidence", "assessment", "questions", "decision"])(
-    "rejects changing %s during a no-tool contract repair", async (change) => {
+  it.each(["selectedHypothesisId", "causalClaim", "confidence", "causeLayer", "assessment status", "unresolvedQuestions", "status"])(
+    "rejects the protected field %s in a citation-only repair", async (field) => {
       const { input, freeze } = fixture();
       send.mockResolvedValueOnce(completion(invalidCitation(freeze)));
-      if (change === "selection") {
-        freeze.selectedHypothesisId = "H2";
-        freeze.causeLayer = "TEST_FILE";
-        freeze.hypothesisAssessments[1]!.status = "SUPPORTED";
-      }
-      if (change === "claim") freeze.causalClaim = "The test runtime changed the behavior of division.";
-      if (change === "confidence") freeze.confidence = "HIGH";
-      if (change === "assessment") freeze.hypothesisAssessments[1]!.status = "UNRESOLVED";
-      if (change === "questions") freeze.unresolvedQuestions = ["Does runtime behavior affect the observed failure?"];
-      if (change === "decision") {
-        freeze.status = "NEEDS_MORE_EVIDENCE";
-        freeze.selectedHypothesisId = null;
-        freeze.causeLayer = null;
-        freeze.causalClaim = null;
-        freeze.confidence = null;
-        freeze.unresolvedQuestions = ["What causal evidence is still missing?"];
-      }
-      send.mockResolvedValueOnce(completion(freeze));
+      const repair = citationRepair(freeze);
+      if (field === "assessment status") Object.assign(repair.assessmentUpdates[0]!, { status: "UNRESOLVED" });
+      else Object.assign(repair, { [field]: "forbidden causal rewrite" });
+      send.mockResolvedValueOnce(completion(repair));
 
-      await expect(createCausalFreeze(input)).rejects.toThrow(/change causal semantics/);
+      const error = await createCausalFreeze(input).catch((error: unknown) => error);
+      expect(error).toBeInstanceOf(CausalFreezeError);
+      const failure = (error as CausalFreezeError).failure;
+      expect(failure.attempts[1]!.error).toContain('"unrecognized_keys"');
+      expect(failure.attempts[1]!.error).toContain(field === "assessment status" ? "status" : field);
+      expect(failure.attempts[1]!.responseFormat).toBe("CITATION_REPAIR");
+      expect(failure.attempts[1]!.responseText).toBe(JSON.stringify(repair));
       expect(send).toHaveBeenCalledTimes(2);
     },
   );
 
   it("fails closed after two invalid responses instead of retrying until something passes", async () => {
     const { input, freeze } = fixture();
-    send.mockResolvedValue(completion(invalidCitation(freeze)));
+    send.mockResolvedValueOnce(completion(invalidCitation(freeze)));
+    send.mockResolvedValueOnce(completion(citationRepair(invalidCitation(freeze))));
 
     await expect(createCausalFreeze(input)).rejects.toThrow(/failed after one no-tool repair/);
     expect(send).toHaveBeenCalledTimes(2);
@@ -217,9 +239,12 @@ describe("createCausalFreeze", () => {
       input.files = [...input.files, { path: "src/unseen.ts", content: "new observation", truncated: false }];
       return completion(invalidCitation(freeze));
     });
-    send.mockResolvedValueOnce(completion(invalidCitation(freeze)));
+    send.mockResolvedValueOnce(completion(citationRepair(invalidCitation(freeze))));
 
-    await expect(createCausalFreeze(input)).rejects.toThrow(/untrusted FILE evidence "src\/unseen.ts"/);
+    const error = await createCausalFreeze(input).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(CausalFreezeError);
+    expect((error as Error).message).toMatch(/untrusted FILE evidence "src\/unseen.ts"/);
+    expect((error as CausalFreezeError).evidence.files.some((file) => file.path === "src/unseen.ts")).toBe(false);
   });
 
   it("grounds references in actual recorded test selectors and commands", async () => {
@@ -241,7 +266,8 @@ describe("createCausalFreeze", () => {
   it("rejects unexecuted experiment references even if the model supplies a plausible reason", async () => {
     const { input, freeze } = fixture();
     freeze.hypothesisAssessments[0]!.evidenceRefs = [{ kind: "EXPERIMENT", source: "EXP-1" }];
-    send.mockResolvedValue(completion(freeze));
+    send.mockResolvedValueOnce(completion(freeze));
+    send.mockResolvedValueOnce(completion(citationRepair(freeze)));
 
     await expect(createCausalFreeze(input)).rejects.toThrow(/was not executed/);
     expect(send).toHaveBeenCalledTimes(2);
@@ -264,6 +290,69 @@ describe("createCausalFreeze", () => {
 
     expect(await createCausalFreeze(input)).toEqual(freeze);
     expect(send.mock.calls[0]![0].chatRequest.messages[1].content).toContain('"FAILURE_PERSISTS"');
+  });
+
+  it("repairs the EXP-2/H3 citation without widening the experiment's recorded scope", async () => {
+    const { input, freeze, invalid } = experimentScopeFixture();
+    const before = structuredClone(input);
+    send.mockResolvedValueOnce(completion(invalid));
+    send.mockResolvedValueOnce(completion({ assessmentUpdates: [citationRepair(freeze).assessmentUpdates[2]] }));
+
+    expect(await createCausalFreeze(input)).toEqual(freeze);
+    expect(input).toEqual(before);
+    const request = send.mock.calls[1]![0].chatRequest;
+    expect(request).not.toHaveProperty("tools");
+    const repairContext = JSON.parse(request.messages[1].content);
+    expect(repairContext.originalDecision).toEqual(invalid);
+    expect(repairContext.validationError).toContain('EXPERIMENT "EXP-2" did not address hypothesis "H3"');
+    expect(repairContext.citationIndex.allowedExperimentSourcesByHypothesis).toEqual({
+      H1: ["EXP-2"], H2: [], H3: [], H4: ["EXP-2"],
+    });
+  });
+
+  it("retains both rejected responses and evidence when the scope mismatch survives citation repair", async () => {
+    const { input, invalid } = experimentScopeFixture();
+    const repair = citationRepair(invalid);
+    send.mockResolvedValueOnce(completion(invalid));
+    send.mockResolvedValueOnce(completion(repair));
+    const error = await createCausalFreeze(input).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(CausalFreezeError);
+    expect((error as CausalFreezeError).evidence).toEqual(input);
+    expect((error as CausalFreezeError).failure.attempts).toEqual([
+      { phase: "INITIAL", responseFormat: "DECISION", responseText: JSON.stringify(invalid), error: expect.stringContaining('did not address hypothesis "H3"') },
+      { phase: "REPAIR", responseFormat: "CITATION_REPAIR", responseText: JSON.stringify(repair), error: expect.stringContaining('did not address hypothesis "H3"') },
+    ]);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["duplicate", "unknown"])("rejects %s assessment ids in citation updates", async (kind) => {
+    const { input, freeze } = fixture();
+    const repair = citationRepair(freeze);
+    if (kind === "duplicate") repair.assessmentUpdates.push(repair.assessmentUpdates[0]!);
+    else repair.assessmentUpdates[0]!.hypothesisId = "H3";
+    send.mockResolvedValueOnce(completion(invalidCitation(freeze)));
+    send.mockResolvedValueOnce(completion(repair));
+    await expect(createCausalFreeze(input)).rejects.toThrow(/unique existing assessment/);
+  });
+
+  it("does not accept an entire decision as a citation repair", async () => {
+    const { input, freeze } = fixture();
+    send.mockResolvedValueOnce(completion(invalidCitation(freeze)));
+    send.mockResolvedValueOnce(completion(freeze));
+    await expect(createCausalFreeze(input)).rejects.toThrow(/Causal citation repair did not satisfy/);
+  });
+
+  it.each(["initial", "repair"])("retains evidence when the %s request fails without a response", async (phase) => {
+    const { input, freeze } = fixture();
+    if (phase === "repair") send.mockResolvedValueOnce(completion(invalidCitation(freeze)));
+    send.mockRejectedValueOnce(new Error("model request unavailable"));
+    const error = await createCausalFreeze(input).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(CausalFreezeError);
+    expect((error as CausalFreezeError).evidence).toEqual(input);
+    const attempts = (error as CausalFreezeError).failure.attempts;
+    expect(attempts).toHaveLength(phase === "initial" ? 1 : 2);
+    expect(attempts.at(-1)).toMatchObject({ responseText: null, error: "model request unavailable" });
+    expect(send).toHaveBeenCalledTimes(attempts.length);
   });
 
   it.each(["initial", "repair"])("rejects unsolicited tool calls in the %s response", async (phase) => {

@@ -11,7 +11,7 @@ import { validateDiscoveredReadPath } from "./investigation-paths.js";
 import { findUninspectedCausalContext } from "./investigation-causal-context.js";
 import { reconnaissanceForModel, type ReconnaissanceContext } from "./reconnaissance.js";
 import { createInitialHypothesisBoard } from "./create-hypothesis-board.js";
-import { createCausalFreeze, type CreateCausalFreezeInput } from "./create-causal-freeze.js";
+import { CausalFreezeError, createCausalFreeze, type CreateCausalFreezeInput } from "./create-causal-freeze.js";
 import { runCounterfactualExperiment, type CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 
 const MAX_ITERATIONS = 8;
@@ -19,6 +19,13 @@ const MAX_DUPLICATE_CALLS = 2;
 const MAX_TEST_CALLS = 2;
 const MAX_COUNTERFACTUAL_EXPERIMENTS = 2;
 const ALLOWED_TOOLS = new Set(investigationToolDefinitions.map((tool) => tool.function.name));
+
+export class CausalInvestigationError extends Error {
+  constructor(readonly freezeError: CausalFreezeError, readonly iterations: number) {
+    super(freezeError.message, { cause: freezeError });
+    this.name = "CausalInvestigationError";
+  }
+}
 
 function createToolCallKey(toolName: string, input: unknown) {
   return `${toolName}:${JSON.stringify(input)}`;
@@ -413,6 +420,7 @@ Important:
       console.log(`→ ${toolName}`, input);
 
       let result;
+      let experimentSummary: string | undefined;
 
       try {
         if (toolName === "run_counterfactual") {
@@ -470,6 +478,7 @@ Important:
           counterfactualCalls++;
           executedExperiments.add(evidence.experimentId);
           counterfactualEvidence.push(evidence);
+          experimentSummary = `${evidence.experimentId}: ${evidence.outcome} | ${evidence.intervention.role} | hypotheses ${evidence.hypothesisIds.join(", ")} | exit ${evidence.command.exitCode} | repository restored: ${evidence.repositoryRestored}`;
 
           result = {
             ok: true as const,
@@ -490,7 +499,7 @@ Important:
         };
       }
 
-      console.log(`← ${toolName}`, result.ok ? "OK" : "ERROR");
+      console.log(`← ${toolName}`, result.ok ? experimentSummary ?? "OK" : "ERROR");
 
       /*
        * Cache the actual evidence so an
@@ -610,7 +619,12 @@ Important:
     tests: observedTests,
     experiments: counterfactualEvidence,
   };
-  const causalFreeze = await createCausalFreeze(causalEvidence);
+  const causalFreeze = await createCausalFreeze(causalEvidence).catch((error: unknown) => {
+    if (error instanceof CausalFreezeError) {
+      throw new CausalInvestigationError(error, completedIterations);
+    }
+    throw error;
+  });
   const report = [
     `Causal Freeze: ${causalFreeze.status}`,
     causalFreeze.causalClaim ?? "No causal selection is justified by the current evidence.",

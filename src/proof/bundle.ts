@@ -138,6 +138,8 @@ export async function writeProofBundle({
 
           causalEvidence: result.investigation.causalEvidence ?? null,
 
+          causalFreezeFailure: result.investigation.causalFreezeFailure ?? null,
+
           diagnosis: result.investigation.diagnosis ?? null,
         }
       : null,

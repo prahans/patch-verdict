@@ -85,10 +85,19 @@ trusted evidence, and later mutation of caller records cannot expand it.
 
 No tools or repair-planning schema are exposed. Unexpected tool calls are rejected.
 A valid `NEEDS_MORE_EVIDENCE` decision returns immediately. A malformed or
-ungrounded response gets at most one no-tool contract repair. If the initial
-decision parsed, the repair may change citations and explanatory reasons, but
-must preserve selection, claim, layer, confidence, assessment ids/statuses, and
-unresolved questions. Transport/protocol failures do not trigger evidence repair.
+ungrounded response gets at most one no-tool contract repair. Both the initial
+request and repair receive a host-derived citation index, including the allowed
+experiment sources for each original hypothesis.
+
+If the initial decision parsed, the repair response uses a separate strict schema:
+`assessmentUpdates` containing only an existing hypothesis id, explanatory reason,
+and complete replacement citation list. The host applies these updates to a clone
+of the initial decision and revalidates it. Selection, claim, layer, confidence,
+assessment ids/statuses, ordering, and unresolved questions remain host-owned.
+Unknown or repeated ids and additional fields are rejected. The model does not
+regenerate the full decision during citation repair. If the original response did
+not parse into the decision contract, one full contract repair remains available.
+Transport/protocol failures do not trigger evidence repair.
 
 `assertCausalFreezeReadyForPlanning()` first revalidates grounding and then blocks
 any non-FROZEN decision. It is separate from `assertCausalFreezeGrounding()` because
@@ -99,6 +108,9 @@ collector's free-text final message is discarded; only host-recorded file conten
 test results, and restored experiments enter causal assessment. Failed tool calls
 do not add trusted evidence. The host rejects tools outside the investigation
 allowlist, and an experiment restoration failure aborts the investigation.
+Completed experiments print their actual outcome, intervention role, addressed
+hypotheses, command exit code, and restoration status in the terminal. Tool
+completion by itself does not indicate that a failure was removed.
 
 ## Frozen-cause planning bridge
 
@@ -124,6 +136,19 @@ error alongside the original board and experiments. Diagnosis is null when no
 repair plan was accepted. Existing web report rendering can display the textual
 causal report; dedicated causal proof UI is not part of this change.
 
+When finalization fails, `CausalFreezeError` carries the same host snapshot used by
+the model and validator. The investigator and mission runner preserve it in the
+failed proof bundle, including board, file/test observations, restored experiments,
+iteration count, and reconnaissance summary. `causalFreezeFailure.attempts` records
+the initial and, if attempted, repair response text, expected response format, and
+error. Request failures have null response text if no response arrived. Rejected
+responses are diagnostics; `causalFreeze`, diagnosis, and patch remain null.
+
 Runtime tests mock model/sandbox boundaries while exercising collection,
-finalization, planning, mission gating, and proof serialization. The real benchmark
-and live model/E2B validation remain deferred.
+finalization, planning, mission gating, and proof serialization. The user's October
+7, 2026 cleanup benchmark reproduced the bug but stopped before planning: EXP-2 was
+cited for H3 despite being scoped to H1/H4, and the full-decision repair changed
+protected causal semantics. The terminal output did not expose experiment outcomes
+or rejected decisions, so those details remain unknown for that run. Citation-only
+repair and failed-finalization proof preservation address these runtime gaps;
+successful real-run validation is still pending.
