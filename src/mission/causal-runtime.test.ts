@@ -68,6 +68,59 @@ describe("mission causal gate and proof preservation", () => {
     expect(phases.indexOf("Causal decision: FROZEN")).toBeLessThan(phases.indexOf("AI patch phase started"));
   });
 
+  it("guarantees one host-planned experiment when the collector never requests M4", async () => {
+    const { fixture, proposal } = experimentFixture();
+    recon.mockResolvedValue(fixture.reconnaissance);
+
+    const experiment: CounterfactualExperimentEvidence = {
+      experimentId: "EXP-1",
+      evidenceSource: "EXP-1",
+      hypothesisIds: ["H1", "H2"],
+      question: proposal.candidates[0]!.question,
+      intervention: {
+        path: "vite.config.ts",
+        role: "RUNNER_CONFIGURATION",
+        find: "threads: false",
+        replace: "threads: true",
+      },
+      command: {
+        command: "npm test",
+        exitCode: 1,
+        stdout: "expected to throw",
+        stderr: "",
+        durationMs: 1,
+      },
+      outcome: "FAILURE_PERSISTS",
+      repositoryRestored: true,
+    };
+
+    counterfactual.mockResolvedValueOnce(experiment);
+
+    send.mockResolvedValueOnce(modelResponse("done collecting"));
+    send.mockResolvedValueOnce(modelResponse(proposal));
+    send.mockResolvedValueOnce(modelResponse(fixture.freeze));
+    send.mockResolvedValueOnce(modelResponse(fixture.planOutput));
+
+    const result = await runMission({} as Sandbox, input);
+
+    expect(result.status).toBe("COMPLETED");
+    expect(result.verdict).toBe("VERIFIED");
+    expect(result.investigation?.experiments).toEqual([experiment]);
+    expect(result.investigation?.causalEvidence?.experimentPlanning?.plans[0]?.selectedCandidateId).toBe("candidate-1");
+    expect(counterfactual).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(4);
+
+    const plannerRequest = send.mock.calls[1]![0].chatRequest;
+    expect(plannerRequest).not.toHaveProperty("tools");
+    expect(plannerRequest.responseFormat).toMatchObject({
+      type: "json_schema",
+      jsonSchema: {
+        name: "patchverdict_experiment_proposal",
+        strict: true,
+      },
+    });
+  });
+
   it("stops a deferred mission before planning, patching, or post-patch verification", async () => {
     const { freeze } = causalFixture();
     send.mockResolvedValueOnce(modelResponse("done collecting"));

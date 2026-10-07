@@ -121,8 +121,18 @@ Rules:
 - FROZEN requires a selected SUPPORTED hypothesis, its original causeLayer, a causalClaim,
   and confidence. HIGH confidence is disallowed with an unknown cause, a competing
   SUPPORTED hypothesis, or unresolved causal gaps.
+- Before returning NEEDS_MORE_EVIDENCE, check every unresolved question against the
+  supplied FILE, TEST, and EXPERIMENT records. Do not defer on a question already
+  answered by inspected file contents or recorded execution evidence.
+- In particular, if an inspected test/setup/helper file visibly contains or omits a
+  cleanup, unmount, lifecycle hook, configuration flag, or wrapper behavior, treat
+  that as observed FILE evidence rather than asking whether it exists.
+- External library/runtime semantics that were not observed may remain unresolved.
+  Do not use model memory as evidence. But do not require external documentation when
+  the supplied repository evidence plus a restored counterfactual already supports
+  one original hypothesis at LOW or MEDIUM confidence.
 - If selection is unjustified, return NEEDS_MORE_EVIDENCE with selection, causeLayer,
-  causalClaim, and confidence all null, and explain the unresolvedQuestions.
+  causalClaim, and confidence all null, and explain only genuinely unresolved questions.
 - NEEDS_MORE_EVIDENCE is an acceptable outcome. Do not invent certainty to unlock planning.
 
 Authoritative Causal Freeze JSON Schema:

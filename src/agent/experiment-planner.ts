@@ -6,23 +6,88 @@ const refSchema = z.object({
   kind: z.enum(["FILE", "TEST", "EXPERIMENT"]), source: z.string().trim().min(1).max(500),
 }).strict();
 
+const experimentPredictionSchema = z.object({
+  hypothesisId: z.string().regex(/^H[1-5]$/),
+  expectedOutcome: z.enum(["FAILURE_REMOVED", "FAILURE_PERSISTS", "UNKNOWN"]),
+  reason: z.string().trim().min(10).max(1500),
+  evidenceRefs: z.array(refSchema).min(1).max(10),
+}).strict();
+
+const experimentCandidateSchema = z.object({
+  id: z.string().regex(/^candidate-[1-9]\d*$/),
+  question: z.string().trim().min(10).max(1500),
+  causalVariable: z.string().trim().min(10).max(1000),
+  path: z.string().trim().min(1).max(500),
+  find: z.string().min(1).max(4000),
+  replace: z.string().max(4000),
+  predictions: z.array(experimentPredictionSchema).min(2).max(5),
+}).strict();
+
 export const experimentProposalSchema = z.object({
-  candidates: z.array(z.object({
-    id: z.string().regex(/^candidate-[1-9]\d*$/),
-    question: z.string().trim().min(10).max(1500),
-    causalVariable: z.string().trim().min(10).max(1000),
-    path: z.string().trim().min(1).max(500),
-    find: z.string().min(1).max(4000),
-    replace: z.string().max(4000),
-    predictions: z.array(z.object({
-      hypothesisId: z.string().regex(/^H[1-5]$/),
-      expectedOutcome: z.enum(["FAILURE_REMOVED", "FAILURE_PERSISTS", "UNKNOWN"]),
-      reason: z.string().trim().min(10).max(1500),
-      evidenceRefs: z.array(refSchema).min(1).max(10),
-    }).strict()).min(2).max(5),
-  }).strict()).max(3),
+  candidates: z.array(experimentCandidateSchema).max(3),
   stopReason: z.string().trim().min(10).max(1500).nullable(),
 }).strict();
+
+export function experimentProposalResponseJsonSchema(context: {
+  evidence: CreateCausalFreezeInput;
+  runnerConfigPaths: readonly string[];
+  testSetupPaths: readonly string[];
+}): Record<string, unknown> {
+  const hypothesisIds = context.evidence.board.hypotheses.map((item) => item.id);
+  const inspectedPaths = new Set(
+    context.evidence.files
+      .filter((file) => !file.truncated)
+      .map((file) => normalizePath(file.path)),
+  );
+  const allowedPaths = [
+    ...new Set(
+      [...context.runnerConfigPaths, ...context.testSetupPaths]
+        .map(normalizePath)
+        .filter((filePath) => inspectedPaths.has(filePath)),
+    ),
+  ];
+
+  if (allowedPaths.length === 0) {
+    throw new Error("No inspected runner configuration or shared test-setup file is available for a counterfactual experiment.");
+  }
+
+  const evidenceSources = [
+    ...new Set([
+      context.evidence.baseline.command,
+      ...context.evidence.files.map((file) => file.path),
+      ...context.evidence.tests.flatMap((test) => [
+        test.selector,
+        test.evidence.command,
+      ]),
+      ...context.evidence.experiments
+        .filter((experiment) => experiment.repositoryRestored)
+        .map((experiment) => experiment.evidenceSource),
+    ]),
+  ];
+
+  const constrainedRefSchema = refSchema.extend({
+    source: z.enum(evidenceSources as [string, ...string[]]),
+  });
+
+  const constrainedPredictionSchema = experimentPredictionSchema.extend({
+    hypothesisId: z.enum(hypothesisIds as [string, ...string[]]),
+    evidenceRefs: z.array(constrainedRefSchema).min(1).max(10),
+  });
+
+  const constrainedCandidateSchema = experimentCandidateSchema.extend({
+    path: z.enum(allowedPaths as [string, ...string[]]),
+    predictions: z
+      .array(constrainedPredictionSchema)
+      .min(hypothesisIds.length)
+      .max(hypothesisIds.length),
+  });
+
+  return z.toJSONSchema(
+    experimentProposalSchema.extend({
+      candidates: z.array(constrainedCandidateSchema).max(3),
+    }),
+  ) as Record<string, unknown>;
+}
 
 export type ExperimentCandidate = z.infer<typeof experimentProposalSchema>["candidates"][number];
 export type ExperimentRanking = {

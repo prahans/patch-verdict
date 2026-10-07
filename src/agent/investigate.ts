@@ -13,6 +13,7 @@ import { reconnaissanceForModel, type ReconnaissanceContext } from "./reconnaiss
 import { createInitialHypothesisBoard } from "./create-hypothesis-board.js";
 import { CausalFreezeError, createCausalFreeze, type CreateCausalFreezeInput } from "./create-causal-freeze.js";
 import { planExperiments, type ExperimentPlan } from "./experiment-planner.js";
+import { proposeExperiments } from "./propose-experiments.js";
 import { runCounterfactualExperiment, type CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 
 const MAX_MODEL_TURNS = 8;
@@ -189,6 +190,131 @@ Important:
       usage: { modelTurns: completedIterations, toolCalls: toolCallsUsed, testExecutions: testCalls, experimentExecutions: counterfactualCalls },
     },
   });
+
+  const hasExperimentSurface = () =>
+    [...reconnaissance.runnerConfigs, ...reconnaissance.testSetups].some(
+      (filePath) => {
+        const normalized = filePath.replace(/\\/g, "/").replace(/^\.\//, "");
+        const file = observedFiles.get(normalized);
+        return file !== undefined && !file.truncated;
+      },
+    );
+
+  const canHostPlanExperiment = () =>
+    hasExperimentSurface() &&
+    counterfactualCalls < MAX_COUNTERFACTUAL_EXPERIMENTS &&
+    experimentPlans.length < MAX_EXPERIMENT_PLANNING_ROUNDS;
+
+  const runHostPlannedExperiment = async (
+    focusQuestions: readonly string[] = [],
+  ): Promise<boolean> => {
+    if (!canHostPlanExperiment()) {
+      return false;
+    }
+
+    console.log("");
+    console.log("HOST EXPERIMENT PLANNER");
+    console.log(
+      focusQuestions.length > 0
+        ? "Causal Freeze requested more evidence — planning one bounded follow-up experiment..."
+        : "Planning one bounded counterfactual from collected evidence...",
+    );
+
+    const snapshot = evidenceSnapshot();
+
+    let proposal: unknown;
+
+    try {
+      proposal = await proposeExperiments({
+        evidence: snapshot,
+        runnerConfigPaths: reconnaissance.runnerConfigs,
+        testSetupPaths: reconnaissance.testSetups,
+        previousPlans: experimentPlans,
+        focusQuestions,
+      });
+    } catch (error) {
+      stopReason = "HOST_EXPERIMENT_PLANNER_FAILED";
+      console.log(
+        `⊘ host experiment planner unavailable — ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+      return false;
+    }
+
+    const plan = planExperiments(proposal, {
+      evidence: snapshot,
+      runnerConfigPaths: reconnaissance.runnerConfigs,
+      testSetupPaths: reconnaissance.testSetups,
+      previousPlans: experimentPlans,
+      remainingExecutions:
+        MAX_COUNTERFACTUAL_EXPERIMENTS - counterfactualCalls,
+      maxPlanningRounds: MAX_EXPERIMENT_PLANNING_ROUNDS,
+      nextExperimentId: `EXP-${counterfactualCalls + 1}`,
+    });
+
+    experimentPlans.push(plan);
+
+    if (!plan.request) {
+      stopReason = "HOST_EXPERIMENT_PLANNER_STOP";
+      console.log(`⊘ no executable counterfactual selected — ${plan.reason}`);
+      return false;
+    }
+
+    console.log(
+      `Selected ${plan.selectedCandidateId}: ${plan.request.question}`,
+    );
+
+    counterfactualCalls++;
+
+    try {
+      const evidence = await runCounterfactualExperiment(
+        sandbox,
+        plan.request,
+        {
+          projectRoot,
+          trustedCommand: baseline.command,
+          baselineExitCode: baseline.exitCode,
+          requiredOutput: baseline.requiredOutput,
+          runnerConfigPaths: reconnaissance.runnerConfigs,
+          testSetupPaths: reconnaissance.testSetups,
+        },
+      );
+
+      counterfactualEvidence.push(evidence);
+      plan.execution = {
+        status: "COMPLETED",
+        evidenceSource: evidence.evidenceSource,
+        error: null,
+      };
+      stopReason = "HOST_EXPERIMENT_EXECUTED";
+
+      console.log(
+        `← ${evidence.experimentId}: ${evidence.outcome} | ${evidence.intervention.role} | hypotheses ${evidence.hypothesisIds.join(", ")} | repository restored: ${evidence.repositoryRestored}`,
+      );
+
+      return true;
+    } catch (error) {
+      plan.execution = {
+        status: "FAILED",
+        evidenceSource: null,
+        error: error instanceof Error ? error.message : "Experiment failed",
+      };
+
+      stopReason = "HOST_EXPERIMENT_FAILED";
+
+      if (
+        error instanceof Error &&
+        /restoration failed closed/i.test(error.message)
+      ) {
+        throw error;
+      }
+
+      console.log(
+        `⊘ host counterfactual failed — ${error instanceof Error ? error.message : "unknown error"}`,
+      );
+
+      return false;
+    }
+  };
 
   try {
     for (let iteration = 1; iteration <= MAX_MODEL_TURNS; iteration++) {
@@ -605,14 +731,65 @@ Important:
     throw new InvestigationEvidenceError(evidenceSnapshot(), completedIterations, "Causal investigation cannot finish without successfully inspected files.");
   }
 
+  // M4 is a host-managed phase. The collector may request experiments itself,
+  // but forgetting to do so must not silently skip the causal experiment stage.
+  if (counterfactualEvidence.length === 0 && canHostPlanExperiment()) {
+    try {
+      await runHostPlannedExperiment();
+    } catch (error) {
+      stopReason = "COLLECTION_FAILED";
+      throw new InvestigationEvidenceError(
+        evidenceSnapshot(),
+        completedIterations,
+        error instanceof Error ? error.message : "Host experiment failed",
+      );
+    }
+  }
+
   console.log("Causal evidence collection complete — assessing hypotheses without tools");
-  const causalEvidence = evidenceSnapshot();
-  const causalFreeze = await createCausalFreeze(causalEvidence).catch((error: unknown) => {
+
+  let causalEvidence = evidenceSnapshot();
+  let causalFreeze = await createCausalFreeze(causalEvidence).catch((error: unknown) => {
     if (error instanceof CausalFreezeError) {
       throw new CausalInvestigationError(error, completedIterations);
     }
     throw error;
   });
+
+  // A deferred freeze may unlock exactly one more bounded experiment using its
+  // explicit unresolved questions. No unbounded investigate-plan-freeze loop.
+  if (
+    causalFreeze.status === "NEEDS_MORE_EVIDENCE" &&
+    counterfactualEvidence.length > 0 &&
+    canHostPlanExperiment()
+  ) {
+    let executed = false;
+
+    try {
+      executed = await runHostPlannedExperiment(
+        causalFreeze.unresolvedQuestions,
+      );
+    } catch (error) {
+      stopReason = "COLLECTION_FAILED";
+      throw new InvestigationEvidenceError(
+        evidenceSnapshot(),
+        completedIterations,
+        error instanceof Error ? error.message : "Follow-up experiment failed",
+      );
+    }
+
+    if (executed) {
+      console.log("Reassessing causality with the new counterfactual evidence...");
+      causalEvidence = evidenceSnapshot();
+      causalFreeze = await createCausalFreeze(causalEvidence).catch((error: unknown) => {
+        if (error instanceof CausalFreezeError) {
+          throw new CausalInvestigationError(error, completedIterations);
+        }
+        throw error;
+      });
+    }
+  }
+
   const report = [
     `Causal Freeze: ${causalFreeze.status}`,
     causalFreeze.causalClaim ?? "No causal selection is justified by the current evidence.",
