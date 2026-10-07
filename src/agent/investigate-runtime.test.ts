@@ -92,6 +92,16 @@ describe("live causal investigation finalization", () => {
 
   it.each(["FAILURE_REMOVED", "FAILURE_PERSISTS", "INCONCLUSIVE"])("records and displays restored %s counterfactual evidence", async (outcome) => {
     const { fixture, proposal } = experimentFixture();
+
+    // Keep the synthetic planner predictions consistent with the frozen H1
+    // decision. The test exercises evidence recording, not contradiction handling.
+    if (outcome === "FAILURE_REMOVED") {
+      proposal.candidates[0]!.predictions[0]!.expectedOutcome =
+        "FAILURE_REMOVED";
+      proposal.candidates[0]!.predictions[1]!.expectedOutcome =
+        "FAILURE_PERSISTS";
+    }
+
     const exitCode = outcome === "FAILURE_REMOVED" ? 0 : 1;
     const experiment = {
       experimentId: "EXP-1", evidenceSource: "EXP-1", hypothesisIds: ["H1", "H2"],
