@@ -82,7 +82,9 @@ Rules:
     do not bypass the contract. Stop and report that the investigation
     did not authorize the required patch.
 
-23. After one real apply_patch succeeds, stop patching.
+23. After one real apply_patch succeeds with changed: true, stop patching.
+    An apply_patch result with changed: false is a no-op, not a candidate patch.
+    Reuse the returned file content and make the smallest authorized real change instead of rereading or resubmitting identical content.
 
 24. Do not claim the patch is verified.
 

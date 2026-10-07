@@ -19,7 +19,7 @@ import {
   type PatchAuthorizationEvidence,
 } from "./patch-authorization.js";
 
-const MAX_PATCH_ITERATIONS = 4;
+const MAX_PATCH_ITERATIONS = 5;
 const PATCH_ALLOWED_TOOLS = new Set<string>([
   "list_files",
   "read_file",
@@ -180,20 +180,30 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
         };
       }
 
-      if (result.ok) {
-        console.log(`← ${toolName} OK`);
-      } else {
-        console.log(`← ${toolName} ERROR: ${result.error}`);
-      }
-
-      if (
+      const isApplyPatchResult =
         toolName === "apply_patch" &&
         result.ok &&
         "data" in result &&
+        typeof result.data === "object" &&
+        result.data !== null &&
         "changed" in result.data &&
-        result.data.changed
-      ) {
+        typeof result.data.changed === "boolean";
+
+      const applyPatchChanged =
+        isApplyPatchResult && result.data.changed === true;
+
+      const applyPatchNoChange =
+        isApplyPatchResult && result.data.changed === false;
+
+      if (applyPatchChanged) {
+        console.log("← apply_patch OK — repository changed");
         patchApplied = true;
+      } else if (applyPatchNoChange) {
+        console.log("← apply_patch NO CHANGE — replacement matched the existing file");
+      } else if (result.ok) {
+        console.log(`← ${toolName} OK`);
+      } else {
+        console.log(`← ${toolName} ERROR: ${result.error}`);
       }
 
       messages.push({
@@ -203,6 +213,19 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
 
         content: JSON.stringify(result),
       });
+
+      if (applyPatchNoChange) {
+        messages.push({
+          role: "user",
+          content: [
+            "The authorized apply_patch was a no-op: the replacement content exactly matched the existing file.",
+            "No candidate patch has been produced yet.",
+            "Use the file content already returned by apply_patch and make the smallest real change required by the authorized patch intent.",
+            "Do not call apply_patch again with unchanged content.",
+            "Do not claim success until apply_patch reports changed: true.",
+          ].join("\n"),
+        });
+      }
     }
 
     /*
