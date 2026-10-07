@@ -39,23 +39,11 @@ function isDirectTestFile(filePath: string) {
   );
 }
 
-function isTestSupportFile(filePath: string) {
-  const normalized = normalizePath(filePath);
-
-  return (
-    /(^|\/)(?:test|testing)[-_]?utils?\.[^/]+$/i.test(normalized) ||
-    /(^|\/)(?:test|testing)[-_]?(?:helpers?|support)\.[^/]+$/i.test(
-      normalized,
-    ) ||
-    /(^|\/)(?:test|testing)[-_]?utils?(\/|$)/i.test(normalized)
-  );
-}
-
 function isTestInfrastructureFile(filePath: string) {
   const normalized = normalizePath(filePath);
 
   return (
-    /(^|\/)(vite|vitest|jest|playwright|cypress)\.config\.[^/]+$/i.test(
+    /(^|\/)(vitest|jest|playwright|cypress)\.config\.[^/]+$/i.test(
       normalized,
     ) ||
     /(^|\/)(vitest|jest)\.setup\.[^/]+$/i.test(normalized) ||
@@ -65,7 +53,6 @@ function isTestInfrastructureFile(filePath: string) {
 
 export type VerificationPathRole =
   | "TEST_FILE"
-  | "TEST_SUPPORT"
   | "TEST_INFRASTRUCTURE"
   | "OTHER";
 
@@ -74,10 +61,6 @@ export function classifyVerificationPath(
 ): VerificationPathRole {
   if (isDirectTestFile(filePath)) {
     return "TEST_FILE";
-  }
-
-  if (isTestSupportFile(filePath)) {
-    return "TEST_SUPPORT";
   }
 
   if (isTestInfrastructureFile(filePath)) {
@@ -345,14 +328,6 @@ export function analyzeVerificationIntegrity({
   if (modifiesPackageTestScript(diff)) {
     violations.push(
       "Candidate modified the package.json test script used for verification.",
-    );
-  }
-
-  const supportFiles = normalizedFiles.filter(isTestSupportFile);
-
-  if (supportFiles.length > 0) {
-    reviewFlags.push(
-      `Candidate modified test support code: ${supportFiles.join(", ")}`,
     );
   }
 

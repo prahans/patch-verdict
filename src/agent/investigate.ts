@@ -18,9 +18,6 @@ import { messageContentToText } from "./message-content.js";
 import { assertInvestigationProvenance } from "./investigation-provenance.js";
 import type { InvestigationBaselineContext } from "./investigation-context.js";
 import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
-import { assertPatchIntentContract } from "./investigation-intents.js";
-import { assertFailureScopeAnalysis } from "./investigation-scope.js";
-import { validateDiscoveredReadPath } from "./investigation-paths.js";
 
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
@@ -38,35 +35,6 @@ function getInputString(input: unknown, key: string) {
   const value = (input as Record<string, unknown>)[key];
 
   return typeof value === "string" ? value.trim() : undefined;
-}
-
-function assertFinalInvestigationContracts(
-  structured: InvestigationModelOutput,
-  context: {
-    inspectedFiles: readonly string[];
-    executedTests: readonly string[];
-    executedTestCommands: readonly string[];
-    searchQueries: readonly string[];
-    trustedTestCommands: readonly string[];
-  },
-) {
-  assertInvestigationProvenance(structured.diagnosis, {
-    inspectedFiles: context.inspectedFiles,
-    executedTests: context.executedTests,
-    executedTestCommands: context.executedTestCommands,
-    searchQueries: context.searchQueries,
-    trustedTestCommands: context.trustedTestCommands,
-  });
-
-  assertFailureScopeAnalysis(structured.diagnosis, {
-    inspectedFiles: context.inspectedFiles,
-  });
-
-  assertPatchTargetAnalysis(structured.diagnosis, {
-    inspectedFiles: context.inspectedFiles,
-  });
-
-  assertPatchIntentContract(structured.diagnosis);
 }
 
 async function parseFinalInvestigation(
@@ -107,16 +75,6 @@ Use exactly this shape:
   "report": "Human-readable investigation summary.",
   "diagnosis": {
     "rootCause": "Evidence-supported root cause hypothesis.",
-    "scopeAnalysis": {
-      "scope": "UNKNOWN",
-      "reason": "Evidence-supported explanation of whether the failure is local, shared, or still uncertain.",
-      "evidenceRefs": [
-        {
-          "kind": "FILE",
-          "source": "src/example.ts"
-        }
-      ]
-    },
     "evidence": [
       {
         "kind": "FILE",
@@ -131,31 +89,12 @@ Use exactly this shape:
       "src/example.ts"
     ],
     "patchTargetAnalysis": [
-      {
-        "path": "src/example.ts",
-        "decision": "RECOMMEND",
-        "reason": "This location directly addresses the diagnosed root cause.",
-        "evidenceRefs": [
-          {
-            "kind": "FILE",
-            "source": "src/example.ts"
-          }
-        ]
-      }
-    ],
-    "patchIntents": [
-      {
-        "id": "intent-1",
-        "path": "src/example.ts",
-        "objective": "Correct the behavior identified by the investigation.",
-        "evidenceRefs": [
-          {
-            "kind": "FILE",
-            "source": "src/example.ts"
-          }
-        ]
-      }
-    ],
+  {
+    "path": "src/example.ts",
+    "decision": "RECOMMEND",
+    "reason": "This location directly addresses the diagnosed root cause."
+  }
+],
     "confidence": "LOW"
   }
 }
@@ -166,40 +105,8 @@ FILE, TEST, SEARCH
 Allowed confidence values:
 LOW, MEDIUM, HIGH
 
-Allowed failure scope values:
-LOCAL, SHARED, UNKNOWN
-
 Allowed patch-target decisions:
 RECOMMEND, REJECT
-
-Failure-scope rules:
-
-- scope must be LOCAL, SHARED, or UNKNOWN
-- scopeAnalysis evidenceRefs must exactly match diagnosis.evidence
-- scopeAnalysis must cite at least one FILE evidence entry
-- UNKNOWN scope cannot use HIGH confidence
-- LOCAL or SHARED scope must be supported by evidence, not inferred only from where the failure surfaced
-- SHARED scope must cite at least one TEST evidence entry and FILE evidence outside a direct test file
-- LOCAL scope must cite every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate so shared scope is ruled out explicitly
-- a passing isolated test may support order-dependence but does not by itself prove LOCAL or SHARED scope
-- do not claim multiple affected tests/components/consumers unless the cited evidence actually demonstrates those affected cases
-- if scopeAnalysis.reason relies on baseline/runtime behavior, include the matching TEST evidenceRef
-
-Patch-target decision rules:
-
-- every patchTargetAnalysis entry must include evidenceRefs
-- every patchTargetAnalysis evidenceRefs entry must exactly match diagnosis.evidence
-- every patchTargetAnalysis entry must include FILE evidence for its own path
-- do not claim LOCAL/SHARED/isolated/global scope unless the cited evidence supports that claim
-
-Patch-intent rules:
-
-- intent ids must use intent-1, intent-2, and so on
-- every patch intent path must be a recommendedPatchTargets path
-- every patch intent path must be marked RECOMMEND in patchTargetAnalysis
-- every evidenceRefs entry must exactly match evidence already present in diagnosis.evidence
-- patch intent objectives should describe required behavior, not exact implementation syntax or API calls
-- do not introduce a repair objective that is unrelated to the diagnosed root cause
 
 Do not use Markdown fences.
 Do not call tools.
@@ -286,13 +193,7 @@ Important:
 
   const executedTests = new Set<string>();
 
-  const executedTestCommands = new Set<string>();
-
   const searchQueries = new Set<string>();
-
-  const discoveredFiles = new Set<string>();
-
-  let discoveredDepth = 0;
 
   for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     completedIterations = iteration;
@@ -360,12 +261,16 @@ Use list_files or search_code when necessary, then read_file the files that supp
       );
 
       try {
-        assertFinalInvestigationContracts(structured, {
+        assertInvestigationProvenance(structured.diagnosis, {
           inspectedFiles: [...inspectedFiles],
+
           executedTests: [...executedTests],
-          executedTestCommands: [...executedTestCommands],
+
           searchQueries: [...searchQueries],
           trustedTestCommands: [baseline.command],
+        });
+        assertPatchTargetAnalysis(structured.diagnosis, {
+          inspectedFiles: [...inspectedFiles],
         });
       } catch (error) {
         const reason =
@@ -401,20 +306,11 @@ Use tools to inspect any missing files or revise the diagnosis so that:
   every inspected test-infrastructure candidate must be included in relevantFiles
   and explicitly accounted for in patchTargetAnalysis as RECOMMEND or REJECT
 - FILE evidence refers to a successfully read file
-- TEST evidence must refer to either:
-  - the exact test selector passed to a successful run_test call
-  - the exact command returned by a successful run_test call
-  - the authoritative baseline command supplied by PatchVerdict
+- TEST evidence must refer either to a test selector actually executed
+with run_test or to the authoritative baseline command supplied by PatchVerdict
 - SEARCH evidence refers to a search query actually executed during this investigation
-- failure scope is explicitly classified as LOCAL, SHARED, or UNKNOWN
-- failure-scope evidenceRefs exactly match existing diagnosis evidence
-- every patchTargetAnalysis entry cites existing diagnosis evidence
-- every patchTargetAnalysis entry includes FILE evidence for its own path
-- every recommended patch target has at least one patchIntents entry
-- every patch intent targets a RECOMMEND path
-- every patch intent evidenceRefs entry exactly matches existing diagnosis evidence
 
-Do not invent paths, evidence, or unrelated patch objectives.
+Do not invent paths or evidence.
 `.trim(),
         });
 
@@ -521,42 +417,6 @@ Do not invent paths, evidence, or unrelated patch objectives.
         }
       }
 
-      if (toolName === "read_file") {
-        const requestedPath = getInputString(input, "path");
-
-        if (requestedPath) {
-          const validation = validateDiscoveredReadPath(
-            requestedPath,
-            [...discoveredFiles],
-            discoveredDepth,
-          );
-
-          if (!validation.ok) {
-            const rejectedResult = {
-              ok: false as const,
-              error: validation.error,
-              ...(validation.suggestions.length > 0 && {
-                suggestions: validation.suggestions,
-              }),
-            };
-
-            toolCallCache.set(toolKey, rejectedResult);
-
-            console.log(
-              "⊘ read_file REJECTED — path not present in discovered repository inventory",
-            );
-
-            messages.push({
-              role: "tool",
-              toolCallId: toolCall.id,
-              content: JSON.stringify(rejectedResult),
-            });
-
-            continue;
-          }
-        }
-      }
-
       /*
        * Only NEW run_test executions count
        * against the execution budget.
@@ -613,33 +473,6 @@ Do not invent paths, evidence, or unrelated patch objectives.
       toolCallCache.set(toolKey, result);
 
       if (result.ok) {
-        if (
-          toolName === "list_files" &&
-          "data" in result &&
-          typeof result.data === "object" &&
-          result.data !== null &&
-          "files" in result.data &&
-          Array.isArray(result.data.files)
-        ) {
-          for (const file of result.data.files) {
-            if (typeof file === "string" && file.trim()) {
-              discoveredFiles.add(
-                file.replace(/\\/g, "/").replace(/^\.\//, "").trim(),
-              );
-            }
-          }
-
-          if (
-            typeof input === "object" &&
-            input !== null &&
-            "depth" in input &&
-            typeof input.depth === "number" &&
-            Number.isInteger(input.depth)
-          ) {
-            discoveredDepth = Math.max(discoveredDepth, input.depth);
-          }
-        }
-
         if (toolName === "read_file") {
           const filePath = getInputString(input, "path");
 
@@ -655,16 +488,6 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
           if (testName) {
             executedTests.add(testName);
-          }
-
-          if (
-            "data" in result &&
-            typeof result.data === "object" &&
-            result.data !== null &&
-            "command" in result.data &&
-            typeof result.data.command === "string"
-          ) {
-            executedTestCommands.add(result.data.command.trim());
           }
         }
 
@@ -701,26 +524,8 @@ Do not invent paths, evidence, or unrelated patch objectives.
 
   messages.push({
     role: "user",
-    content: `
-The investigation tool budget is exhausted. You may not call any more tools.
-
-Based only on the evidence already collected, provide your final investigation report now.
-
-Before returning the JSON, re-check all PatchVerdict contracts:
-
-- every relevant file and recommended target must be grounded in observed evidence
-- failure scope must be LOCAL, SHARED, or UNKNOWN and grounded in existing evidence
-- SHARED scope must include TEST evidence and non-direct-test FILE evidence
-- LOCAL scope must explicitly cite every inspected TEST_INFRASTRUCTURE or TEST_SUPPORT candidate
-- scopeAnalysis.reason may only summarize facts supported by its evidenceRefs
-- runtime/baseline scope claims must cite the matching TEST evidenceRef
-- UNKNOWN scope cannot use HIGH confidence
-- if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
-- every RECOMMEND target must have a grounded patchIntent
-- do not invent new evidence, files, tests, commands, or patch objectives
-
-Return only the final structured JSON.
-`.trim(),
+    content:
+      "The investigation tool budget is exhausted. You may not call any more tools. Based only on the evidence already collected, provide your final investigation report now.",
   });
 
   const finalResponse = await openRouter.chat.send({
@@ -743,94 +548,22 @@ Return only the final structured JSON.
 
   messages.push(finalMessage);
 
-  let structured = await parseFinalInvestigation(
+  const structured = await parseFinalInvestigation(
     messages,
     finalMessage.content,
   );
 
-  const finalizationContext = {
+  assertInvestigationProvenance(structured.diagnosis, {
     inspectedFiles: [...inspectedFiles],
+
     executedTests: [...executedTests],
-    executedTestCommands: [...executedTestCommands],
+
     searchQueries: [...searchQueries],
     trustedTestCommands: [baseline.command],
-  };
-
-  try {
-    assertFinalInvestigationContracts(structured, finalizationContext);
-  } catch (error) {
-    const reason =
-      error instanceof Error
-        ? error.message
-        : "Unknown final investigation validation error";
-
-    console.log(
-      [
-        "⊘ FINAL REPORT REJECTED AFTER BUDGET — requesting one no-tool contract repair",
-        "",
-        reason,
-      ].join("\n"),
-    );
-
-    messages.push({
-      role: "user",
-      content: `
-PatchVerdict rejected your final structured diagnosis.
-
-Validation error:
-
-${reason}
-
-You may not call tools. Revise the JSON only from evidence already collected.
-
-Important:
-
-- do not invent evidence or claim new observations
-- do not add files that were not successfully inspected
-- if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
-- every patchTargetAnalysis entry must cite existing evidence and include FILE evidence for its own path
-- every recommended target must have a matching grounded patchIntent
-- every patchIntent evidenceRefs entry must exactly match diagnosis.evidence
-
-Return only corrected structured JSON.
-`.trim(),
-    });
-
-    const repairResponse = await openRouter.chat.send({
-      chatRequest: {
-        model: AGENT_MODEL,
-        messages,
-        stream: false,
-      },
-    });
-
-    if (!("choices" in repairResponse)) {
-      throw new Error(
-        "Expected a non-streaming final investigation contract repair response",
-      );
-    }
-
-    const repairMessage = repairResponse.choices[0]?.message;
-
-    if (!repairMessage) {
-      throw new Error(
-        "Model returned no final investigation contract repair response",
-      );
-    }
-
-    messages.push(repairMessage);
-
-    structured = await parseFinalInvestigation(
-      messages,
-      repairMessage.content,
-    );
-
-    /*
-     * Exactly one semantic contract-repair attempt.
-     * If this still fails, the mission fails closed.
-     */
-    assertFinalInvestigationContracts(structured, finalizationContext);
-  }
+  });
+  assertPatchTargetAnalysis(structured.diagnosis, {
+    inspectedFiles: [...inspectedFiles],
+  });
 
   return {
     completed: true,

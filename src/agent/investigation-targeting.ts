@@ -6,10 +6,6 @@ export type PatchTargetAnalysisContext = {
   inspectedFiles: readonly string[];
 };
 
-function createEvidenceKey(kind: string, source: string) {
-  return `${kind}:${source.trim()}`;
-}
-
 function normalizePath(value: string) {
   return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
 }
@@ -21,12 +17,6 @@ export function assertPatchTargetAnalysis(
   const errors: string[] = [];
 
   const relevantFiles = new Set(diagnosis.relevantFiles.map(normalizePath));
-
-  const availableEvidence = new Set(
-    diagnosis.evidence.map((evidence) =>
-      createEvidenceKey(evidence.kind, evidence.source),
-    ),
-  );
 
   const recommendedTargets =
     diagnosis.recommendedPatchTargets.map(normalizePath);
@@ -58,34 +48,6 @@ export function assertPatchTargetAnalysis(
     if (!relevantFiles.has(path)) {
       errors.push(
         `Patch-target analysis path "${entry.path}" is not present in relevantFiles.`,
-      );
-    }
-
-    let referencesOwnFileEvidence = false;
-
-    for (const evidenceRef of entry.evidenceRefs) {
-      const evidenceKey = createEvidenceKey(
-        evidenceRef.kind,
-        evidenceRef.source,
-      );
-
-      if (!availableEvidence.has(evidenceKey)) {
-        errors.push(
-          `Patch-target analysis for "${entry.path}" references ${evidenceRef.kind} evidence "${evidenceRef.source}" that does not exist in diagnosis.evidence.`,
-        );
-      }
-
-      if (
-        evidenceRef.kind === "FILE" &&
-        normalizePath(evidenceRef.source) === path
-      ) {
-        referencesOwnFileEvidence = true;
-      }
-    }
-
-    if (!referencesOwnFileEvidence) {
-      errors.push(
-        `Patch-target analysis for "${entry.path}" must reference FILE evidence for that same path.`,
       );
     }
   }

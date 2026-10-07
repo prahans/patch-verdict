@@ -7,18 +7,6 @@ import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 const diagnosis = {
   rootCause: "Shared test cleanup is missing.",
 
-  scopeAnalysis: {
-    scope: "SHARED",
-    reason:
-      "The missing cleanup behavior belongs to shared test lifecycle infrastructure.",
-    evidenceRefs: [
-      {
-        kind: "FILE",
-        source: "vitest.setup.ts",
-      },
-    ],
-  },
-
   evidence: [
     {
       kind: "FILE" as const,
@@ -45,12 +33,6 @@ const diagnosis = {
 
       reason:
         "This shared lifecycle setup can establish cleanup for every affected test.",
-      evidenceRefs: [
-        {
-          kind: "FILE",
-          source: "vitest.setup.ts",
-        },
-      ],
     },
 
     {
@@ -60,31 +42,6 @@ const diagnosis = {
 
       reason:
         "Changing only this test would fix the local symptom rather than the shared lifecycle.",
-      evidenceRefs: [
-        {
-          kind: "FILE",
-          source: "src/components/DarkMode.test.tsx",
-        },
-      ],
-    },
-  ],
-
-  patchIntents: [
-    {
-      id: "intent-1",
-
-      path: "vitest.setup.ts",
-
-      objective:
-        "Ensure the shared test lifecycle cleans rendered DOM between tests.",
-
-      evidenceRefs: [
-        {
-          kind: "FILE" as const,
-
-          source: "vitest.setup.ts",
-        },
-      ],
     },
   ],
 
@@ -116,12 +73,6 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "This is only the visible failure location and not the shared root cause.",
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "src/components/DarkMode.test.tsx",
-                },
-              ],
             },
           ],
         },
@@ -146,12 +97,6 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "Example unsupported extra recommendation for validation.",
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "src/components/DarkMode.tsx",
-                },
-              ],
             },
           ],
 
@@ -181,12 +126,6 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "This file is intentionally unrelated for the validation test.",
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "src/unrelated.ts",
-                },
-              ],
             },
           ],
         },
@@ -210,12 +149,6 @@ describe("assertPatchTargetAnalysis", () => {
               decision: "RECOMMEND",
 
               reason: "The test file is proposed as the patch location.",
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "src/components/DarkMode.test.tsx",
-                },
-              ],
             },
           ],
         },
@@ -224,78 +157,11 @@ describe("assertPatchTargetAnalysis", () => {
     ).toThrow(/missing analysis for: vitest\.setup\.ts/i);
   });
 
-  it("rejects target analysis that cites unknown evidence", () => {
-    expect(() =>
-      assertPatchTargetAnalysis(
-        {
-          ...diagnosis,
-
-          patchTargetAnalysis: [
-            {
-              ...diagnosis.patchTargetAnalysis[0]!,
-
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "src/made-up.ts",
-                },
-              ],
-            },
-
-            diagnosis.patchTargetAnalysis[1]!,
-          ],
-        },
-        targetingContext,
-      ),
-    ).toThrow(/does not exist in diagnosis\.evidence/i);
-  });
-
-  it("requires each target decision to cite FILE evidence for its own path", () => {
-    expect(() =>
-      assertPatchTargetAnalysis(
-        {
-          ...diagnosis,
-
-          patchTargetAnalysis: [
-            {
-              ...diagnosis.patchTargetAnalysis[0]!,
-
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "src/components/DarkMode.test.tsx",
-                },
-              ],
-            },
-
-            diagnosis.patchTargetAnalysis[1]!,
-          ],
-        },
-        targetingContext,
-      ),
-    ).toThrow(/must reference FILE evidence for that same path/i);
-  });
-
   it("allows a direct test recommendation when inspected infrastructure is explicitly rejected", () => {
     expect(() =>
       assertPatchTargetAnalysis(
         {
           rootCause: "The defect is isolated to this test's custom lifecycle.",
-
-          scopeAnalysis: {
-            scope: "LOCAL",
-
-            reason:
-              "The evidence in this fixture says the custom lifecycle defect belongs only to the direct test.",
-
-            evidenceRefs: [
-              {
-                kind: "FILE",
-
-                source: "src/components/DarkMode.test.tsx",
-              },
-            ],
-          },
 
           evidence: [
             {
@@ -327,12 +193,6 @@ describe("assertPatchTargetAnalysis", () => {
               decision: "RECOMMEND",
 
               reason: "The lifecycle defect is isolated to this direct test.",
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "src/components/DarkMode.test.tsx",
-                },
-              ],
             },
 
             {
@@ -342,31 +202,6 @@ describe("assertPatchTargetAnalysis", () => {
 
               reason:
                 "The shared setup is already correct and should not be modified for this isolated lifecycle defect.",
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "vitest.setup.ts",
-                },
-              ],
-            },
-          ],
-
-          patchIntents: [
-            {
-              id: "intent-1",
-
-              path: "src/components/DarkMode.test.tsx",
-
-              objective:
-                "Add local teardown for this test-specific lifecycle.",
-
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-
-                  source: "src/components/DarkMode.test.tsx",
-                },
-              ],
             },
           ],
 

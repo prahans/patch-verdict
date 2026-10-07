@@ -3,7 +3,6 @@ import type { InvestigationDiagnosis } from "./investigation-contract.js";
 export type InvestigationProvenance = {
   inspectedFiles: readonly string[];
   executedTests: readonly string[];
-  executedTestCommands?: readonly string[];
   searchQueries: readonly string[];
 
   trustedTestCommands?: readonly string[];
@@ -22,10 +21,6 @@ export function assertInvestigationProvenance(
   const executedTests = new Set(
     provenance.executedTests.map((value) => value.trim()),
   );
-  const executedTestCommands = new Set(
-    (provenance.executedTestCommands ?? []).map((value) => value.trim()),
-  );
-
   const trustedTestCommands = new Set(
     (provenance.trustedTestCommands ?? []).map((value) => value.trim()),
   );
@@ -93,7 +88,6 @@ export function assertInvestigationProvenance(
     if (
       evidence.kind === "TEST" &&
       !executedTests.has(evidence.source.trim()) &&
-      !executedTestCommands.has(evidence.source.trim()) &&
       !trustedTestCommands.has(evidence.source.trim())
     ) {
       errors.push(

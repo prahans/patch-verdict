@@ -12,10 +12,6 @@ type ProofSource = {
 type ProofBundleInput = {
   missionId: string;
 
-  missionKey?: string;
-
-  executionId?: string;
-
   input: MissionInput;
 
   result: MissionResult;
@@ -25,8 +21,6 @@ type ProofBundleInput = {
 
 export async function writeProofBundle({
   missionId,
-  missionKey,
-  executionId,
   input,
   result,
   source,
@@ -57,10 +51,6 @@ export async function writeProofBundle({
 
     mission: {
       id: missionId,
-
-      key: missionKey ?? missionId,
-
-      executionId: executionId ?? null,
 
       issue: input.issue,
 
@@ -133,8 +123,6 @@ export async function writeProofBundle({
     patch: result.patch
       ? {
           applied: result.patch.applied,
-
-          authorization: result.patch.authorization ?? null,
 
           baseCommit: result.patch.baseCommit,
 

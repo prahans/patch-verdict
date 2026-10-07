@@ -31,24 +31,6 @@ const investigationEvidenceSchema = z
   })
   .strict();
 
-const evidenceRefSchema = z
-  .object({
-    kind: z.enum(["FILE", "TEST", "SEARCH"]),
-
-    source: z.string().trim().min(1).max(500),
-  })
-  .strict();
-
-const failureScopeAnalysisSchema = z
-  .object({
-    scope: z.enum(["LOCAL", "SHARED", "UNKNOWN"]),
-
-    reason: z.string().trim().min(10).max(2000),
-
-    evidenceRefs: z.array(evidenceRefSchema).min(1).max(10),
-  })
-  .strict();
-
 const patchTargetAnalysisEntrySchema = z
   .object({
     path: repositoryPathSchema,
@@ -56,36 +38,12 @@ const patchTargetAnalysisEntrySchema = z
     decision: z.enum(["RECOMMEND", "REJECT"]),
 
     reason: z.string().trim().min(10).max(2000),
-
-    evidenceRefs: z.array(evidenceRefSchema).min(1).max(10),
-  })
-  .strict();
-
-const patchIntentEvidenceRefSchema = evidenceRefSchema;
-
-const patchIntentSchema = z
-  .object({
-    id: z
-      .string()
-      .trim()
-      .regex(
-        /^intent-[1-9]\d*$/,
-        "Expected an intent id such as intent-1.",
-      ),
-
-    path: repositoryPathSchema,
-
-    objective: z.string().trim().min(10).max(2000),
-
-    evidenceRefs: z.array(patchIntentEvidenceRefSchema).min(1).max(10),
   })
   .strict();
 
 export const investigationDiagnosisSchema = z
   .object({
     rootCause: z.string().trim().min(1).max(4000),
-
-    scopeAnalysis: failureScopeAnalysisSchema,
 
     evidence: z.array(investigationEvidenceSchema).min(1).max(20),
 
@@ -94,8 +52,6 @@ export const investigationDiagnosisSchema = z
     recommendedPatchTargets: z.array(repositoryPathSchema).min(1).max(10),
 
     patchTargetAnalysis: z.array(patchTargetAnalysisEntrySchema).min(1).max(20),
-
-    patchIntents: z.array(patchIntentSchema).min(1).max(20),
 
     confidence: z.enum(["LOW", "MEDIUM", "HIGH"]),
   })

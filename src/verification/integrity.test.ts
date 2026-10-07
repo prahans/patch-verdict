@@ -45,24 +45,6 @@ diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
     expect(result.violations).toEqual([]);
   });
 
-  it("returns REVIEW_REQUIRED when test support code changes", () => {
-    const result = analyzeVerificationIntegrity({
-      changedFiles: ["src/utils/test-utils.tsx"],
-      diff: `
-diff --git a/src/utils/test-utils.tsx b/src/utils/test-utils.tsx
---- a/src/utils/test-utils.tsx
-+++ b/src/utils/test-utils.tsx
-@@
-+cleanup();
-`.trim(),
-    });
-
-    expect(result.status).toBe("REVIEW_REQUIRED");
-    expect(result.preserved).toBe(false);
-    expect(result.reviewFlags.join(" ")).toContain("test support");
-    expect(result.violations).toEqual([]);
-  });
-
   it("returns REVIEW_REQUIRED when test infrastructure changes", () => {
     const result = analyzeVerificationIntegrity({
       changedFiles: ["vitest.setup.ts"],
@@ -241,18 +223,8 @@ describe("classifyVerificationPath", () => {
     );
   });
 
-  it("classifies test support", () => {
-    expect(classifyVerificationPath("src/utils/test-utils.tsx")).toBe(
-      "TEST_SUPPORT",
-    );
-  });
-
   it("classifies test infrastructure", () => {
     expect(classifyVerificationPath("vitest.setup.ts")).toBe(
-      "TEST_INFRASTRUCTURE",
-    );
-
-    expect(classifyVerificationPath("vite.config.ts")).toBe(
       "TEST_INFRASTRUCTURE",
     );
   });

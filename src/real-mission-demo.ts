@@ -2,7 +2,7 @@ import { prepareRepository } from "./repository/prepare.js";
 import { createVerificationPlan } from "./verification/create-plan.js";
 import { runMission } from "./mission/runner.js";
 import { createSandbox, destroySandbox } from "./sandbox/e2b.js";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 
 import { writeProofBundle } from "./proof/bundle.js";
 
@@ -94,28 +94,15 @@ async function main() {
       .digest("hex")
       .slice(0, 8);
 
-    const missionKey = [
+    const missionId = [
       "real",
       safeRepositoryName,
       prepared.baseCommit.slice(0, 8),
       issueHash,
     ].join("-");
 
-    const timestamp = new Date()
-      .toISOString()
-      .replace(/[-:TZ.]/g, "")
-      .slice(0, 14);
-
-    const executionId = `${timestamp}-${randomUUID().slice(0, 8)}`;
-
-    const missionId = `${missionKey}-${executionId}`;
-
     const bundle = await writeProofBundle({
       missionId,
-
-      missionKey,
-
-      executionId,
 
       input: missionInput,
 
@@ -135,10 +122,6 @@ async function main() {
     console.log("PROOF BUNDLE");
     console.log("----------------------------");
     console.log(`✓ ${bundle.outputDirectory}`);
-    console.log(`Mission key: ${missionKey}`);
-
-    console.log(`Execution ID: ${executionId}`);
-
     console.log(`Mission ID: ${missionId}`);
 
     console.log(`Execution: ${result.status}`);

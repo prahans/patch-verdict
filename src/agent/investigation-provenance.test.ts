@@ -6,18 +6,6 @@ import { assertInvestigationProvenance } from "./investigation-provenance.js";
 const diagnosis = {
   rootCause: "Shared cleanup is missing.",
 
-  scopeAnalysis: {
-    scope: "SHARED",
-    reason:
-      "The missing cleanup behavior belongs to shared test lifecycle infrastructure.",
-    evidenceRefs: [
-      {
-        kind: "FILE",
-        source: "vitest.setup.ts",
-      },
-    ],
-  },
-
   evidence: [
     {
       kind: "FILE",
@@ -36,26 +24,6 @@ const diagnosis = {
       decision: "RECOMMEND",
       reason:
         "The shared test setup is the smallest location that addresses the missing cleanup lifecycle.",
-      evidenceRefs: [
-        {
-          kind: "FILE",
-          source: "vitest.setup.ts",
-        },
-      ],
-    },
-  ],
-
-  patchIntents: [
-    {
-      id: "intent-1",
-      path: "vitest.setup.ts",
-      objective: "Ensure rendered DOM is cleaned between tests.",
-      evidenceRefs: [
-        {
-          kind: "FILE",
-          source: "vitest.setup.ts",
-        },
-      ],
     },
   ],
 
@@ -106,12 +74,6 @@ describe("assertInvestigationProvenance", () => {
           decision: "RECOMMEND" as const,
           reason:
             "This file is intentionally used as an uninspected target for the test.",
-          evidenceRefs: [
-            {
-              kind: "FILE" as const,
-              source: "src/fake.ts",
-            },
-          ],
         },
       ],
     };
@@ -152,12 +114,6 @@ describe("assertInvestigationProvenance", () => {
           decision: "RECOMMEND" as const,
           reason:
             "This intentionally inconsistent target verifies the relevant-file rule.",
-          evidenceRefs: [
-            {
-              kind: "FILE" as const,
-              source: "vitest.setup.ts",
-            },
-          ],
         },
       ],
     };
@@ -227,18 +183,6 @@ describe("assertInvestigationProvenance", () => {
     const missingFileEvidenceDiagnosis = {
       rootCause: "Shared cleanup is missing.",
 
-      scopeAnalysis: {
-        scope: "LOCAL" as const,
-        reason:
-          "This fixture treats the lifecycle defect as local to the direct test for provenance validation.",
-        evidenceRefs: [
-          {
-            kind: "FILE" as const,
-            source: "src/components/DarkMode.test.tsx",
-          },
-        ],
-      },
-
       evidence: [
         {
           kind: "FILE" as const,
@@ -259,31 +203,6 @@ describe("assertInvestigationProvenance", () => {
 
           reason:
             "This test intentionally verifies that every relevant file requires FILE evidence.",
-          evidenceRefs: [
-            {
-              kind: "FILE" as const,
-              source: "src/components/DarkMode.test.tsx",
-            },
-          ],
-        },
-      ],
-
-      patchIntents: [
-        {
-          id: "intent-1",
-
-          path: "src/components/DarkMode.test.tsx",
-
-          objective:
-            "Add the local teardown behavior required by this fixture.",
-
-          evidenceRefs: [
-            {
-              kind: "FILE" as const,
-
-              source: "src/components/DarkMode.test.tsx",
-            },
-          ],
         },
       ],
 
