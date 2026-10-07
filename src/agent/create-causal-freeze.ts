@@ -2,6 +2,7 @@ import type { ChatMessages } from "@openrouter/sdk/models";
 import { z } from "zod";
 
 import { openRouter, AGENT_MODEL } from "../ai/openrouter.js";
+import { jsonSchemaResponseFormat } from "../ai/structured-output.js";
 import type { CommandEvidence } from "../evidence/command-evidence.js";
 import type { CounterfactualExperimentEvidence } from "../tools/run-counterfactual.js";
 import type { HypothesisBoard } from "./hypothesis-board.js";
@@ -205,6 +206,16 @@ async function requestDecision(messages: ChatMessages[], attempt: CausalFreezeAt
     chatRequest: {
       model: AGENT_MODEL,
       messages,
+      responseFormat: jsonSchemaResponseFormat(
+        attempt.responseFormat === "DECISION"
+          ? "patchverdict_causal_freeze"
+          : "patchverdict_causal_citation_repair",
+        z.toJSONSchema(
+          attempt.responseFormat === "DECISION"
+            ? causalFreezeSchema
+            : citationRepairSchema,
+        ) as Record<string, unknown>,
+      ),
       stream: false,
     },
   });

@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ChatMessages } from "@openrouter/sdk/models";
 
 import { openRouter, AGENT_MODEL } from "../ai/openrouter.js";
+import { jsonSchemaResponseFormat } from "../ai/structured-output.js";
 import { messageContentToText } from "./message-content.js";
 import type { InvestigationModelOutput } from "./investigation-contract.js";
 import {
@@ -112,7 +113,15 @@ function assertPlanGrounding(output: InvestigationModelOutput, input: PlanRepair
 
 async function requestPlan(messages: ChatMessages[], capture: (text: string) => void) {
   const response = await openRouter.chat.send({
-    chatRequest: { model: AGENT_MODEL, messages, stream: false },
+    chatRequest: {
+      model: AGENT_MODEL,
+      messages,
+      responseFormat: jsonSchemaResponseFormat(
+        "patchverdict_repair_plan",
+        z.toJSONSchema(repairPlanOutputSchema) as Record<string, unknown>,
+      ),
+      stream: false,
+    },
   });
   if (!("choices" in response)) throw new Error("Expected a non-streaming repair-plan response.");
   const message = response.choices[0]?.message;

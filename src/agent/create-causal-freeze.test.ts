@@ -136,6 +136,13 @@ describe("createCausalFreeze", () => {
 
     const request = send.mock.calls[0]![0].chatRequest;
     expect(request).not.toHaveProperty("tools");
+    expect(request.responseFormat).toMatchObject({
+      type: "json_schema",
+      jsonSchema: {
+        name: "patchverdict_causal_freeze",
+        strict: true,
+      },
+    });
     expect(request.stream).toBe(false);
     const content = request.messages.map((message: { content: string }) => message.content).join("\n");
     expect(content).toContain(input.files[0]!.content);

@@ -22,6 +22,13 @@ describe("repair planning after causal freeze", () => {
     expect(result.diagnosis.rootCauseAnalysis.alternatives[0]!.status).toBe("WEAKENED");
     expect({ freeze, causalEvidence }).toEqual(before);
     expect(send.mock.calls[0]![0].chatRequest).not.toHaveProperty("tools");
+    expect(send.mock.calls[0]![0].chatRequest.responseFormat).toMatchObject({
+      type: "json_schema",
+      jsonSchema: {
+        name: "patchverdict_repair_plan",
+        strict: true,
+      },
+    });
     expect(result.repairPlan.decision).toEqual(planOutput);
     expect(result.repairPlan.verification).toEqual({ reproductionCommand: "npm test", fullSuiteCommand: "npm run test:all" });
   });

@@ -4,6 +4,14 @@ export function messageContentToText(content: unknown): string {
   }
 
   if (!Array.isArray(content)) {
+    if (typeof content === "object" && content !== null) {
+      try {
+        return JSON.stringify(content);
+      } catch {
+        return "";
+      }
+    }
+
     return "";
   }
 

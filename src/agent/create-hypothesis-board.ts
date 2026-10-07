@@ -1,6 +1,7 @@
 import type { ChatMessages } from "@openrouter/sdk/models";
 
 import { openRouter, AGENT_MODEL } from "../ai/openrouter.js";
+import { jsonSchemaResponseFormat } from "../ai/structured-output.js";
 
 import { messageContentToText } from "./message-content.js";
 import type { InvestigationBaselineContext } from "./investigation-context.js";
@@ -105,6 +106,10 @@ Important:
     chatRequest: {
       model: AGENT_MODEL,
       messages,
+      responseFormat: jsonSchemaResponseFormat(
+        "patchverdict_hypothesis_board",
+        JSON.parse(HYPOTHESIS_BOARD_JSON_SCHEMA),
+      ),
       stream: false,
     },
   });
@@ -159,6 +164,10 @@ ${HYPOTHESIS_BOARD_JSON_SCHEMA}
       chatRequest: {
         model: AGENT_MODEL,
         messages,
+        responseFormat: jsonSchemaResponseFormat(
+          "patchverdict_hypothesis_board_repair",
+          JSON.parse(HYPOTHESIS_BOARD_JSON_SCHEMA),
+        ),
         stream: false,
       },
     });
