@@ -139,7 +139,7 @@ describe("causal environment context", () => {
   });
 
 
-  it("rejects strong test-stack cause that does not cite runtime evidence", () => {
+  it("allows a strong test-stack cause without duplicating TEST evidence in primaryCause", () => {
     expect(() =>
       assertCausalContextCoverage(
         {
@@ -164,7 +164,7 @@ describe("causal environment context", () => {
           ],
         },
       ),
-    ).toThrow(/must cite TEST evidence/i);
+    ).not.toThrow();
   });
 
   it("rejects high-confidence test-infrastructure cause without environment inspection", () => {

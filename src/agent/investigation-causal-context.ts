@@ -90,20 +90,6 @@ export function assertCausalContextCoverage(
 
   const inspected = new Set(context.inspectedFiles.map(normalizePath));
 
-  const primaryCauseHasRuntimeEvidence =
-    diagnosis.rootCauseAnalysis.primaryCause.evidenceRefs.some(
-      (ref) => ref.kind === "TEST",
-    );
-
-  if (!primaryCauseHasRuntimeEvidence) {
-    throw new Error(
-      [
-        "Strong test-stack causal claim is disconnected from observed execution behavior.",
-        `A ${causeLayer} cause with ${diagnosis.confidence} confidence${hasRootCauseFix ? " and ROOT_CAUSE_FIX intent" : ""} must cite TEST evidence in primaryCause.evidenceRefs.`,
-      ].join("\n"),
-    );
-  }
-
   const required: string[] = [];
 
   if (candidates.runnerConfigs.length > 0) {

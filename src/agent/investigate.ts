@@ -498,9 +498,6 @@ Use tools to inspect any missing files or revise the diagnosis so that:
 - every relevantFiles path was successfully read
 - every recommendedPatchTargets path was successfully read
 - every recommended patch target is also listed in relevantFiles
-- if you recommend a direct test file after inspecting test infrastructure,
-  every inspected test-infrastructure candidate must be included in relevantFiles
-  and explicitly accounted for in patchTargetAnalysis as RECOMMEND or REJECT
 - FILE evidence refers to a successfully read file
 - TEST evidence must refer to either:
   - the exact test selector passed to a successful run_test call
@@ -870,7 +867,6 @@ Before returning the JSON, re-check all PatchVerdict contracts:
 - scopeAnalysis.reason may only summarize facts supported by its evidenceRefs
 - runtime/baseline scope claims must cite the matching TEST evidenceRef
 - UNKNOWN scope cannot use HIGH confidence
-- if recommending a direct test file after inspecting test infrastructure, explicitly account for every inspected test-infrastructure candidate in patchTargetAnalysis
 - rootCauseAnalysis must separate failure mechanism from underlying cause
 - do not infer the cause layer from the easiest patch location
 - when discovered package/test-runner context could distinguish TEST_INFRASTRUCTURE, CONFIGURATION, and DEPENDENCY_RUNTIME, inspect and account for it before HIGH confidence or ROOT_CAUSE_FIX
@@ -951,7 +947,6 @@ Important:
 
 - do not invent evidence or claim new observations
 - do not add files that were not successfully inspected
-- if a direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was inspected, every inspected test-infrastructure candidate must be explicitly represented in relevantFiles and patchTargetAnalysis as RECOMMEND or REJECT
 - every patchTargetAnalysis entry must cite existing evidence and include FILE evidence for its own path
 - rootCauseAnalysis must remain grounded in diagnosis.evidence
 - do not use unobserved external-library/API behavior as if it were repository evidence

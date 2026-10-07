@@ -246,7 +246,7 @@ ROOT CAUSE CONTRACT V3
 
 64. If primaryCause.layer is DEPENDENCY_RUNTIME, cite TEST evidence demonstrating the runtime behavior.
 
-65. For HIGH-confidence or ROOT_CAUSE_FIX claims in TEST_INFRASTRUCTURE, CONFIGURATION, or DEPENDENCY_RUNTIME, primaryCause.evidenceRefs must include TEST evidence and you must inspect discovered package/test-runner context when available (for example package.json and the active test-runner configuration) and account for it in primaryCause or alternative-cause evidence.
+65. For HIGH-confidence or ROOT_CAUSE_FIX claims in TEST_INFRASTRUCTURE, CONFIGURATION, or DEPENDENCY_RUNTIME, inspect discovered package/test-runner context when available (for example package.json and the active test-runner configuration) and account for it in the diagnosis. The authoritative baseline TEST evidence may remain in the diagnosis or scope evidence; it does not need to be duplicated in primaryCause.evidenceRefs.
 
 66. Do not infer the underlying cause from the easiest repair location.
     A missing compensating hook, reset, cleanup call, or guard in a candidate patch file proves that the workaround is absent; it does not by itself prove that this file owns the underlying cause.
