@@ -180,26 +180,30 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
         };
       }
 
-      const isApplyPatchResult =
-        toolName === "apply_patch" &&
-        result.ok &&
-        "data" in result &&
-        typeof result.data === "object" &&
-        result.data !== null &&
-        "changed" in result.data &&
-        typeof result.data.changed === "boolean";
+      let applyPatchChanged = false;
+      let applyPatchNoChange = false;
 
-      const applyPatchChanged =
-        isApplyPatchResult && result.data.changed === true;
+      if (toolName === "apply_patch" && result.ok) {
+        const data: unknown = result.data;
 
-      const applyPatchNoChange =
-        isApplyPatchResult && result.data.changed === false;
+        if (
+          typeof data === "object" &&
+          data !== null &&
+          "changed" in data &&
+          typeof data.changed === "boolean"
+        ) {
+          applyPatchChanged = data.changed;
+          applyPatchNoChange = !data.changed;
+        }
+      }
 
       if (applyPatchChanged) {
         console.log("← apply_patch OK — repository changed");
         patchApplied = true;
       } else if (applyPatchNoChange) {
-        console.log("← apply_patch NO CHANGE — replacement matched the existing file");
+        console.log(
+          "← apply_patch NO CHANGE — replacement matched the existing file",
+        );
       } else if (result.ok) {
         console.log(`← ${toolName} OK`);
       } else {
