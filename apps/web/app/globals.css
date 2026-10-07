@@ -1330,3 +1330,186 @@ summary,
     transition: none !important;
   }
 }
+
+
+/* Local mission launcher */
+.launcher-shell {
+  max-width: 1120px;
+}
+.launcher-hero {
+  padding: 36px 0 8px;
+  max-width: 820px;
+}
+.launcher-hero h2 {
+  margin: 10px 0 12px;
+  font-size: clamp(30px, 4vw, 48px);
+  font-weight: 540;
+  letter-spacing: -1.6px;
+  line-height: 1.08;
+}
+.launcher-hero > p:last-child {
+  max-width: 720px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.launcher-panel {
+  margin-top: 8px;
+}
+.launcher-panel .panel-header {
+  padding: 24px 26px;
+}
+.launcher-panel h1 {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 550;
+}
+.launcher-intro {
+  margin-top: 7px;
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.launcher-form {
+  padding: 24px 26px 26px;
+  display: grid;
+  gap: 19px;
+}
+.launcher-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.launcher-field {
+  display: grid;
+  gap: 8px;
+}
+.launcher-field > span {
+  color: #c8cbce;
+  font-size: 11px;
+}
+.launcher-field input,
+.launcher-field textarea {
+  width: 100%;
+  border: 1px solid #34383c;
+  border-radius: 5px;
+  background: #101315;
+  color: var(--foreground);
+  padding: 11px 12px;
+  font: inherit;
+  line-height: 1.55;
+  resize: vertical;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+.launcher-field input {
+  font-family: var(--font-geist-mono), Consolas, monospace;
+  font-size: 11px;
+}
+.launcher-field textarea {
+  min-height: 104px;
+  font-size: 12px;
+}
+.launcher-field input:hover,
+.launcher-field textarea:hover {
+  border-color: #50555a;
+}
+.launcher-field input:focus,
+.launcher-field textarea:focus {
+  border-color: var(--amber);
+  background: #121618;
+  outline: none;
+}
+.launcher-field input:disabled,
+.launcher-field textarea:disabled,
+.launcher-submit:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+.launcher-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-top: 3px;
+}
+.launcher-actions > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.launcher-submit {
+  min-width: 145px;
+  color: #17130d;
+  border-color: #c48d47;
+  background: var(--amber);
+  font-weight: 650;
+}
+.launcher-submit:hover {
+  color: #111;
+  border-color: #e7b873;
+  background: #edbd7c;
+}
+.launcher-error {
+  border: 1px solid #603333;
+  border-radius: 5px;
+  background: #2c1b1b;
+  padding: 13px 15px;
+  color: var(--red);
+}
+.launcher-error strong {
+  font-size: 11px;
+}
+.launcher-error p {
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.launcher-flow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--border);
+}
+.launcher-flow > div {
+  min-width: 0;
+  padding: 18px;
+  background: var(--panel);
+}
+.launcher-flow span {
+  color: var(--amber);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+}
+.launcher-flow strong {
+  display: block;
+  margin-top: 12px;
+  font-size: 12px;
+  font-weight: 550;
+}
+.launcher-flow p {
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+@media (max-width: 767px) {
+  .launcher-grid,
+  .launcher-flow {
+    grid-template-columns: 1fr;
+  }
+  .launcher-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .launcher-submit {
+    width: 100%;
+  }
+}

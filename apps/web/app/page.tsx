@@ -1,83 +1,70 @@
-import { connection } from "next/server";
 import { MissionHeader } from "@/components/mission/mission-header";
-import { MissionSummary } from "@/components/mission/mission-summary";
-import { FlightRecorder } from "@/components/mission/flight-recorder";
-import { ProofChain } from "@/components/mission/proof-chain";
-import { DiffViewer } from "@/components/mission/diff-viewer";
-import { InvestigationReport } from "@/components/mission/investigation-report";
-import { VerificationEvidence } from "@/components/mission/verification-evidence";
+import { MissionLauncher } from "@/components/mission/mission-launcher";
 import { Icon } from "@/components/mission/icon";
-import { loadProofBundle } from "@/lib/load-proof-bundle";
-import type { MissionViewModel } from "@/lib/mission-types";
 
-export default async function Home() {
-  // Read artifacts for each request, including after a new backend run.
-  await connection();
-
-  let bundle: MissionViewModel;
-  try {
-    bundle = await loadProofBundle("fixture-divide-zero");
-  } catch (error) {
-    return (
-      <>
-        <MissionHeader verdict={null} />
-        <main id="mission" className="mission-shell">
-          <section className="panel bundle-notice" aria-labelledby="bundle-error-title">
-            <p className="eyebrow amber">PROOF BUNDLE UNAVAILABLE</p>
-            <h1 id="bundle-error-title">Mission artifacts could not be loaded</h1>
-            <p>{error instanceof Error ? error.message : "An unexpected error occurred while reading the proof bundle."}</p>
-            <p>Check the backend-generated files in <code>output/fixture-divide-zero</code>, then reload this page.</p>
-          </section>
-        </main>
-      </>
-    );
-  }
-
-  const { mission, details: missionDetails, warnings } = bundle;
+export default function Home() {
   return (
     <>
-      <a className="skip-link" href="#mission">Skip to mission</a>
-      <MissionHeader verdict={mission.verdict} />
-      <main id="mission" className="mission-shell">
+      <MissionHeader verdict={null} />
+
+      <main id="mission" className="mission-shell launcher-shell">
         <div className="workspace-bar">
           <div className="flex items-center gap-3">
             <Icon name="terminal" />
             <span>Mission control</span>
-            <span className="text-muted" aria-hidden="true">/</span>
-            <span className="font-mono text-muted">{missionDetails.id}</span>
+            <span className="text-muted" aria-hidden="true">
+              /
+            </span>
+            <span className="font-mono text-muted">new mission</span>
           </div>
-          <span className="bundle-label"><span className="status-dot" />Proof bundle</span>
+
+          <span className="bundle-label">
+            <span className="status-dot amber" />
+            Backend connected
+          </span>
         </div>
-        <MissionSummary mission={mission} details={missionDetails} />
-        {mission.status === "FAILED" && (
-          <section className="panel bundle-notice is-failed" aria-label="Mission failure">
-            <h2>Mission failed</h2>
-            <p>{mission.error ?? "The backend recorded a failed mission without an error description."}</p>
-          </section>
-        )}
-        {warnings.length > 0 && (
-          <aside className="panel bundle-notice" aria-label="Artifact availability">
-            <h2>Some proof artifacts are unavailable</h2>
-            <ul>{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
-          </aside>
-        )}
-        <div className="section-divider">
-          <span>MISSION RECORD</span>
-          <span className="section-divider-line" />
-          <span>REASONING / EVIDENCE / VERDICT</span>
-        </div>
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-          <FlightRecorder events={mission.events} />
-          <ProofChain mission={mission} />
-        </div>
-        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-          <DiffViewer patch={mission.patch} />
-          <InvestigationReport investigation={mission.investigation} details={missionDetails} />
-        </div>
-        <VerificationEvidence evidence={mission.evidence} bugReproducedBeforePatch={mission.checks?.bugReproducedBeforePatch} />
+
+        <section className="launcher-hero">
+          <p className="eyebrow amber">PATCH VERIFICATION</p>
+          <h2>Every patch earns its verdict.</h2>
+          <p>
+            AI proposes the repair. PatchVerdict executes it in a sandbox,
+            reruns the reported failure and full test suite, and records the
+            evidence before producing a verdict.
+          </p>
+        </section>
+
+        <MissionLauncher />
+
+        <section className="launcher-flow" aria-label="PatchVerdict workflow">
+          <div>
+            <span>01</span>
+            <strong>Reproduce</strong>
+            <p>Confirm the reported failure before allowing any patch.</p>
+          </div>
+          <div>
+            <span>02</span>
+            <strong>Investigate</strong>
+            <p>Use bounded repository tools to gather evidence.</p>
+          </div>
+          <div>
+            <span>03</span>
+            <strong>Patch</strong>
+            <p>Apply one evidence-backed, authorized candidate change.</p>
+          </div>
+          <div>
+            <span>04</span>
+            <strong>Verify</strong>
+            <p>Rerun the reproduction and full suite for the verdict.</p>
+          </div>
+        </section>
+
         <footer className="mission-footer">
-          <p><span className="footer-mark">PV</span> AI proposes. Tools execute. Tests verify. Humans approve.</p>
-          <span>PROOF BUNDLE · DETERMINISTIC EVIDENCE</span>
+          <p>
+            <span className="footer-mark">PV</span> AI proposes. Tools execute.
+            Tests verify. Humans approve.
+          </p>
+          <span>LOCAL HACKATHON MISSION RUNNER</span>
         </footer>
       </main>
     </>
