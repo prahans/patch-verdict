@@ -56,6 +56,28 @@ export type CausalFreezeGroundingContext = {
   }[];
   // Successful tool results only, recorded after verified repository restoration.
   experiments: readonly CounterfactualExperimentEvidence[];
+  // Host-ranked plans are predictions, not evidence. They are used only to
+  // detect when an actual restored experiment contradicts a concrete prediction.
+  experimentPlans?: readonly {
+    selectedCandidateId: string | null;
+    rankings: readonly {
+      candidate: {
+        id: string;
+        predictions: readonly {
+          hypothesisId: string;
+          expectedOutcome:
+            | "FAILURE_REMOVED"
+            | "FAILURE_PERSISTS"
+            | "UNKNOWN";
+        }[];
+      };
+    }[];
+    execution: {
+      status: "COMPLETED" | "FAILED";
+      evidenceSource: string | null;
+      error: string | null;
+    } | null;
+  }[];
 };
 
 export const CAUSAL_FREEZE_JSON_SCHEMA = JSON.stringify(
@@ -134,6 +156,40 @@ export function assertCausalFreezeGrounding(
     experiments.set(source, experiment);
   }
 
+  const contradictedHypotheses = new Map<string, string[]>();
+
+  for (const plan of context.experimentPlans ?? []) {
+    if (
+      plan.execution?.status !== "COMPLETED" ||
+      !plan.execution.evidenceSource ||
+      !plan.selectedCandidateId
+    ) {
+      continue;
+    }
+
+    const experiment = experiments.get(plan.execution.evidenceSource);
+    const selected = plan.rankings.find(
+      (ranking) => ranking.candidate.id === plan.selectedCandidateId,
+    )?.candidate;
+
+    if (!experiment || !selected || experiment.outcome === "INCONCLUSIVE") {
+      continue;
+    }
+
+    for (const prediction of selected.predictions) {
+      if (prediction.expectedOutcome === "UNKNOWN") {
+        continue;
+      }
+
+      if (prediction.expectedOutcome !== experiment.outcome) {
+        const sources =
+          contradictedHypotheses.get(prediction.hypothesisId) ?? [];
+        sources.push(experiment.evidenceSource);
+        contradictedHypotheses.set(prediction.hypothesisId, sources);
+      }
+    }
+  }
+
   const assessedIds = new Set<string>();
 
   for (const assessment of decision.hypothesisAssessments) {
@@ -198,6 +254,14 @@ export function assertCausalFreezeGrounding(
     if (assessment.status === "SUPPORTED" && !hasIndependentSupport) {
       errors.push(
         `SUPPORTED hypothesis "${id}" needs independent evidence; INCONCLUSIVE experiments and failure-removing TEST_SETUP_CONTROL experiments alone cannot establish test-infrastructure causal ownership.`,
+      );
+    }
+
+    const contradictions = contradictedHypotheses.get(id) ?? [];
+
+    if (contradictions.length > 0 && assessment.status !== "WEAKENED") {
+      errors.push(
+        `Hypothesis "${id}" must be WEAKENED because restored experiment(s) ${contradictions.join(", ")} produced the opposite conclusive outcome from the selected plan's prediction.`,
       );
     }
   }

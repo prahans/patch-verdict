@@ -28,6 +28,20 @@ describe("experiment information-gain planner", () => {
     expect({ context, proposal }).toEqual(before);
   });
 
+  it("uses a host-owned question tied to the actual intervention", () => {
+    const { context, proposal } = setup();
+
+    proposal.candidates[0]!.question =
+      "Does editing src/utils/test-utils.tsx add cleanup correctly?";
+
+    const plan = planExperiments(proposal, context);
+
+    expect(plan.request?.question).toContain("vite.config.ts");
+    expect(plan.request?.question).toContain("threads: false");
+    expect(plan.request?.question).toContain("threads: true");
+    expect(plan.request?.question).not.toContain("src/utils/test-utils.tsx");
+  });
+
   it("penalizes uncertainty without claiming a calibrated causal probability", () => {
     const { proposal } = setup();
     const predictions = proposal.candidates[0]!.predictions as ExperimentCandidate["predictions"];

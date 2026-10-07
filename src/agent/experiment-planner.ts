@@ -124,6 +124,18 @@ const normalizePath = (value: string) => value.replace(/\\/g, "/").replace(/^\.\
 const interventionKey = (item: { path: string; find: string; replace: string }) =>
   JSON.stringify([normalizePath(item.path), item.find, item.replace]);
 
+function excerpt(value: string, max = 120) {
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length <= max ? compact : `${compact.slice(0, max - 1)}…`;
+}
+
+function hostExperimentQuestion(candidate: ExperimentCandidate) {
+  return [
+    `Does the trusted reproduction outcome change when ${normalizePath(candidate.path)} is temporarily changed`,
+    `from "${excerpt(candidate.find)}" to "${excerpt(candidate.replace)}" while all other repository state is restored?`,
+  ].join(" ");
+}
+
 function entropy(probability: number) {
   if (probability === 0 || probability === 1) return 0;
   return -probability * Math.log2(probability) - (1 - probability) * Math.log2(1 - probability);
@@ -235,7 +247,7 @@ export function planExperiments(raw: unknown, context: ExperimentPlanningContext
     request: {
       experimentId: context.nextExperimentId,
       hypothesisIds: winner.candidate.predictions.filter((item) => item.expectedOutcome !== "UNKNOWN").map((item) => item.hypothesisId),
-      question: winner.candidate.question, path: normalizePath(winner.candidate.path),
+      question: hostExperimentQuestion(winner.candidate), path: normalizePath(winner.candidate.path),
       find: winner.candidate.find, replace: winner.candidate.replace,
     },
   };

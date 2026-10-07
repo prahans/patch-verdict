@@ -205,6 +205,57 @@ describe("Causal Freeze v4", () => {
     expect(() => assertCausalFreezeGrounding(freeze, context)).not.toThrow();
   });
 
+  it("requires a hypothesis to be WEAKENED when a selected experiment contradicts its prediction", () => {
+    const { freeze, context, experiment } = createCase();
+
+    context.experimentPlans = [
+      {
+        selectedCandidateId: "candidate-1",
+        rankings: [
+          {
+            candidate: {
+              id: "candidate-1",
+              predictions: [
+                {
+                  hypothesisId: "H1",
+                  expectedOutcome: "FAILURE_PERSISTS",
+                },
+                {
+                  hypothesisId: "H2",
+                  expectedOutcome: "FAILURE_REMOVED",
+                },
+              ],
+            },
+          },
+        ],
+        execution: {
+          status: "COMPLETED",
+          evidenceSource: experiment.evidenceSource,
+          error: null,
+        },
+      },
+    ];
+
+    // Actual outcome is FAILURE_REMOVED, contradicting H1's concrete prediction.
+    expect(() =>
+      assertCausalFreezeGrounding(freeze, context),
+    ).toThrow(/H1.*must be WEAKENED/i);
+
+    freeze.hypothesisAssessments[0]!.status = "WEAKENED";
+    freeze.status = "NEEDS_MORE_EVIDENCE";
+    freeze.selectedHypothesisId = null;
+    freeze.causeLayer = null;
+    freeze.causalClaim = null;
+    freeze.confidence = null;
+    freeze.unresolvedQuestions = [
+      "Which remaining hypothesis is supported after the contradiction?",
+    ];
+
+    expect(() =>
+      assertCausalFreezeGrounding(freeze, context),
+    ).not.toThrow();
+  });
+
   it("rejects invented experiments", () => {
     const { freeze, context } = createCase();
     context.experiments = [];

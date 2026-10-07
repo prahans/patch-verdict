@@ -118,6 +118,11 @@ Rules:
   TEST_SETUP_CONTROL cannot alone establish test-infrastructure causal ownership.
 - Neither FAILURE_REMOVED nor FAILURE_PERSISTS automatically proves or rejects a cause;
   evaluate what the hypothesis predicted and what the intervention actually changed.
+- When a completed selected experiment made a concrete prediction for a hypothesis
+  and the restored experiment produced the opposite conclusive outcome, that hypothesis
+  is contradicted by the experiment and must be assessed WEAKENED. Do not keep it
+  SUPPORTED or UNRESOLVED merely by asking whether some narrower version might still hold.
+- Matching a prediction is consistent evidence, not automatic proof.
 - FROZEN requires a selected SUPPORTED hypothesis, its original causeLayer, a causalClaim,
   and confidence. HIGH confidence is disallowed with an unknown cause, a competing
   SUPPORTED hypothesis, or unresolved causal gaps.
@@ -152,6 +157,7 @@ export function causalFreezeGroundingContext(input: CreateCausalFreezeInput): Ca
       ]),
     ],
     experiments: input.experiments,
+    experimentPlans: input.experimentPlanning?.plans ?? [],
   };
 }
 

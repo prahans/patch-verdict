@@ -26,17 +26,27 @@ You are not the repair planner.
 
 Rules:
 
-1. Produce 2 to 5 genuinely competing causal hypotheses.
-2. Use only evidence supplied by PatchVerdict's trusted baseline and deterministic reconnaissance.
-3. Evidence refs must use:
+1. Produce 2 to 4 genuinely competing causal hypotheses.
+2. Hypotheses are causal mechanisms, not possible repair locations. Do not split one
+   observed mechanism into separate hypotheses merely because a workaround could live
+   in a helper, setup file, or direct test file.
+3. Each hypothesis should name a causal variable/mechanism that could make a different
+   prediction under at least one plausible controlled experiment.
+4. For cross-test state/DOM leakage, explicitly inspect runner lifecycle/isolation
+   settings (for example threads, isolate, pool, environment, globals, setupFiles)
+   before attributing the cause to missing manual cleanup in several downstream files.
+5. Manual cleanup absence can be evidence or a workaround opportunity, but it is not
+   automatically a distinct root cause if automatic cleanup may be expected.
+6. Use only evidence supplied by PatchVerdict's trusted baseline and deterministic reconnaissance.
+7. Evidence refs must use:
    - FILE with an exact path from preInspectedFiles
    - TEST with the exact trusted baseline command
-4. Do not invent repository observations.
-5. Keep meaningful uncertainty explicit in missingEvidence.
-6. The discriminationGoal should identify what evidence would best distinguish the leading hypotheses.
-7. Do not propose patch targets, edits, repair kinds, implementation steps, or fixes.
-8. Every hypothesis status is OPEN at this stage.
-9. Return only JSON that satisfies the authoritative schema below.
+8. Do not invent repository observations.
+9. Keep meaningful uncertainty explicit in missingEvidence.
+10. The discriminationGoal should identify what evidence would best distinguish the leading hypotheses.
+11. Do not propose patch targets, edits, repair kinds, implementation steps, or fixes.
+12. Every hypothesis status is OPEN at this stage.
+13. Return only JSON that satisfies the authoritative schema below.
 
 Authoritative Hypothesis Board JSON Schema:
 
@@ -96,7 +106,13 @@ Build the initial target-free causal hypothesis board.
 
 Important:
 - A repair location is not proof of causal ownership.
-- Prefer distinct explanations that could be separated by future evidence.
+- Prefer distinct upstream mechanisms that would make observably different predictions.
+- Treat "cleanup missing in helper", "cleanup missing in setup", and "cleanup missing in
+  the test file" as one cleanup-mechanism family unless repository evidence shows they
+  are independent causes.
+- If runner configuration exposes a lifecycle/isolation variable relevant to leaked
+  state, include that upstream configuration/runtime mechanism as a competing hypothesis
+  instead of filling the board with downstream cleanup variants.
 - inventoryPreview is discovery only. A discovered path is not FILE evidence unless it also appears in preInspectedFiles.
 - If a useful discovered file was not pre-inspected, mention the need to inspect it in missingEvidence; do not cite it as observed FILE evidence.
 - TEST evidence source must be exactly the trusted baseline command, never the command plus a description.

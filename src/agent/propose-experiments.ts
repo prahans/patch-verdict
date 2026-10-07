@@ -33,6 +33,13 @@ does not by itself prove that test infrastructure owns the root cause. Prefer a
 RUNNER_CONFIGURATION intervention when it directly tests an upstream execution
 hypothesis.
 
+The candidate question and causalVariable must describe the actual path/find/replace
+intervention. Never describe an edit to one file while proposing a mutation to another.
+For cross-test DOM/state leakage, prioritize direct runner lifecycle/isolation variables
+before downstream cleanup controls. Do not spend an experiment on mock-reset behavior
+unless an original hypothesis specifically attributes the reproduced failure to mock
+state and the observed evidence makes that mechanism plausible.
+
 If no safe, discriminating experiment remains, return candidates: [] and a concrete
 stopReason. Never invent a path, observation, command, experiment result, or fix.
 `.trim();
