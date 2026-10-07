@@ -214,7 +214,7 @@ describe("assertPatchTargetAnalysis", () => {
     ).toThrow(/not present in relevantFiles/i);
   });
 
-  it("requires test infrastructure comparison before recommending a direct test", () => {
+  it("allows a direct test recommendation without requiring analysis of every inspected infrastructure file", () => {
     expect(() =>
       assertPatchTargetAnalysis(
         {
@@ -240,7 +240,7 @@ describe("assertPatchTargetAnalysis", () => {
         },
         targetingContext,
       ),
-    ).toThrow(/missing analysis for: vitest\.setup\.ts/i);
+    ).not.toThrow();
   });
 
   it("rejects target analysis that cites unknown evidence", () => {
