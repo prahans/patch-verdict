@@ -187,8 +187,11 @@ describe("live causal investigation finalization", () => {
     expect(result.iterations).toBe(1);
     expect(result.causalEvidence.experimentPlanning?.stopReason).toBe("EXPERIMENT_PLANNER_STOP");
     expect(result.causalEvidence.experimentPlanning?.plans[0]?.request).toBeNull();
+    expect(result.causalEvidence.experimentPlanning?.plans).toHaveLength(1);
     expect(counterfactual).not.toHaveBeenCalled();
     expect(executeTool).not.toHaveBeenCalled();
+    // A deliberate zero-information-gain stop counts as an M4 attempt.
+    // The host fallback must not invoke a second planner before Causal Freeze.
     expect(send).toHaveBeenCalledTimes(2);
   });
 

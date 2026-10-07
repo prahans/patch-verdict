@@ -733,7 +733,11 @@ Important:
 
   // M4 is a host-managed phase. The collector may request experiments itself,
   // but forgetting to do so must not silently skip the causal experiment stage.
-  if (counterfactualEvidence.length === 0 && canHostPlanExperiment()) {
+  if (
+    counterfactualEvidence.length === 0 &&
+    experimentPlans.length === 0 &&
+    canHostPlanExperiment()
+  ) {
     try {
       await runHostPlannedExperiment();
     } catch (error) {

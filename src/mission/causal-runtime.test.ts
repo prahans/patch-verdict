@@ -308,49 +308,100 @@ describe("mission causal gate and proof preservation", () => {
   });
 
   it.each(["blocked repair", "invalid repair", "restoration failure"])("preserves %s without granting patch access", async (failure) => {
-    const { fixture, proposal } = experimentFixture();
+    const experimentCase = experimentFixture();
+    const fixture =
+      failure === "restoration failure"
+        ? experimentCase.fixture
+        : causalFixture();
+    const proposal = experimentCase.proposal;
     const blocked = blockedRepairFixture();
+
     recon.mockResolvedValue(fixture.reconnaissance);
+
     if (failure === "restoration failure") {
       send.mockResolvedValueOnce(toolResponse("plan_experiments", proposal));
-      counterfactual.mockRejectedValueOnce(new Error("Counterfactual experiment restoration failed closed: dirty after"));
+      counterfactual.mockRejectedValueOnce(
+        new Error(
+          "Counterfactual experiment restoration failed closed: dirty after",
+        ),
+      );
     } else {
+      // These cases exercise downstream M6/proof behavior. Use a fixture with
+      // no experiment surface so the guaranteed M4 fallback is irrelevant.
       send.mockResolvedValueOnce(modelResponse("done collecting"));
       send.mockResolvedValueOnce(modelResponse(fixture.freeze));
-      if (failure === "blocked repair") send.mockResolvedValueOnce(modelResponse(blocked));
-      else {
-        fixture.planOutput.plan.patchIntents[0]!.evidenceRefs = [{ kind: "FILE", source: "unseen.ts" }];
+
+      if (failure === "blocked repair") {
+        send.mockResolvedValueOnce(modelResponse(blocked));
+      } else {
+        fixture.planOutput.plan.patchIntents[0]!.evidenceRefs = [
+          { kind: "FILE", source: "unseen.ts" },
+        ];
         send.mockResolvedValue(modelResponse(fixture.planOutput));
       }
     }
+
     const result = await runMission({} as Sandbox, input);
+
     expect(result.status).toBe("FAILED");
     expect(result.investigation?.diagnosis).toBeUndefined();
     expect(patch).not.toHaveBeenCalled();
     expect(gitEvidence).not.toHaveBeenCalled();
     expect(verify).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledTimes(failure === "restoration failure" ? 1 : failure === "blocked repair" ? 3 : 4);
+    expect(send).toHaveBeenCalledTimes(
+      failure === "restoration failure"
+        ? 1
+        : failure === "blocked repair"
+          ? 3
+          : 4,
+    );
 
-    const directory = await mkdtemp(path.join(tmpdir(), "patchverdict-blocked-proof-"));
+    const directory = await mkdtemp(
+      path.join(tmpdir(), "patchverdict-blocked-proof-"),
+    );
     const cwd = vi.spyOn(process, "cwd").mockReturnValue(directory);
+
     try {
-      const bundle = await writeProofBundle({ missionId: "blocked-milestone", input, result });
-      const proof = JSON.parse(await readFile(path.join(bundle.outputDirectory, "proof.json"), "utf8"));
+      const bundle = await writeProofBundle({
+        missionId: "blocked-milestone",
+        input,
+        result,
+      });
+      const proof = JSON.parse(
+        await readFile(path.join(bundle.outputDirectory, "proof.json"), "utf8"),
+      );
+
       expect(proof.patch).toBeNull();
       expect(proof.investigation.diagnosis).toBeNull();
-      expect(proof.investigation.causalEvidence.files).toEqual(fixture.causalEvidence.files);
+      expect(proof.investigation.causalEvidence.files).toEqual(
+        fixture.causalEvidence.files,
+      );
+
       if (failure === "restoration failure") {
         expect(proof.investigation.causalFreeze).toBeNull();
         expect(proof.investigation.experiments).toEqual([]);
-        expect(proof.investigation.experimentPlanning.stopReason).toBe("COLLECTION_FAILED");
-        expect(proof.investigation.experimentPlanning.plans[0].execution).toMatchObject({ status: "FAILED", evidenceSource: null });
+        expect(proof.investigation.experimentPlanning.stopReason).toBe(
+          "COLLECTION_FAILED",
+        );
+        expect(
+          proof.investigation.experimentPlanning.plans[0].execution,
+        ).toMatchObject({
+          status: "FAILED",
+          evidenceSource: null,
+        });
       } else {
         expect(proof.investigation.causalFreeze).toEqual(fixture.freeze);
-        if (failure === "blocked repair") expect(proof.investigation.repairPlan.decision).toEqual(blocked);
-        else {
+
+        if (failure === "blocked repair") {
+          expect(proof.investigation.repairPlan.decision).toEqual(blocked);
+        } else {
           expect(proof.investigation.repairPlan).toBeNull();
-          expect(proof.investigation.repairPlanningFailure.attempts).toHaveLength(2);
-          expect(proof.investigation.repairPlanningFailure.attempts[0].responseText).toBe(JSON.stringify(fixture.planOutput));
+          expect(
+            proof.investigation.repairPlanningFailure.attempts,
+          ).toHaveLength(2);
+          expect(
+            proof.investigation.repairPlanningFailure.attempts[0].responseText,
+          ).toBe(JSON.stringify(fixture.planOutput));
         }
       }
     } finally {
