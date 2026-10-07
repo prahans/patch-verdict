@@ -48,7 +48,8 @@ Rules:
 - Neither FAILURE_REMOVED nor FAILURE_PERSISTS automatically proves or rejects a cause;
   evaluate what the hypothesis predicted and what the intervention actually changed.
 - FROZEN requires a selected SUPPORTED hypothesis, its original causeLayer, a causalClaim,
-  and confidence. HIGH confidence is disallowed with unknown or unresolved causal gaps.
+  and confidence. HIGH confidence is disallowed with an unknown cause, a competing
+  SUPPORTED hypothesis, or unresolved causal gaps.
 - If selection is unjustified, return NEEDS_MORE_EVIDENCE with selection, causeLayer,
   causalClaim, and confidence all null, and explain the unresolvedQuestions.
 - NEEDS_MORE_EVIDENCE is an acceptable outcome. Do not invent certainty to unlock planning.
@@ -58,7 +59,7 @@ Authoritative Causal Freeze JSON Schema:
 ${CAUSAL_FREEZE_JSON_SCHEMA}
 `.trim();
 
-function groundingContext(input: CreateCausalFreezeInput): CausalFreezeGroundingContext {
+export function causalFreezeGroundingContext(input: CreateCausalFreezeInput): CausalFreezeGroundingContext {
   return {
     board: input.board,
     trustedEvidence: [
@@ -122,7 +123,7 @@ export async function createCausalFreeze(input: CreateCausalFreezeInput): Promis
   // Keep the model's evidence and the validator's allowlist bound to the same
   // snapshot even if a caller mutates its records while awaiting the model.
   const snapshot = structuredClone(input);
-  const context = groundingContext(snapshot);
+  const context = causalFreezeGroundingContext(snapshot);
   const messages: ChatMessages[] = [
     { role: "system", content: CAUSAL_FREEZE_SYSTEM_PROMPT },
     {

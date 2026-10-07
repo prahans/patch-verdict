@@ -35,7 +35,7 @@ const alternativeCauseSchema = z
   .object({
     layer: causeLayerSchema,
     hypothesis: z.string().trim().min(10).max(3000),
-    status: z.enum(["REJECTED", "UNRESOLVED"]),
+    status: z.enum(["REJECTED", "UNRESOLVED", "SUPPORTED", "WEAKENED"]),
     reason: z.string().trim().min(10).max(3000),
     evidenceRefs: z.array(evidenceRefSchema).min(1).max(10),
   })
@@ -131,11 +131,11 @@ export function assertRootCauseAnalysisGrounding(
   if (
     confidence === "HIGH" &&
     analysis.alternatives.some(
-      (alternative) => alternative.status === "UNRESOLVED",
+      (alternative) => alternative.status === "UNRESOLVED" || alternative.status === "SUPPORTED",
     )
   ) {
     errors.push(
-      "HIGH diagnosis confidence is not allowed while a competing cause remains UNRESOLVED.",
+      "HIGH diagnosis confidence is not allowed while a competing cause remains UNRESOLVED or SUPPORTED.",
     );
   }
 

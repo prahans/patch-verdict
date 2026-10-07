@@ -1,6 +1,9 @@
 import type { Sandbox } from "e2b";
 
 import { investigateIssue } from "../agent/investigate.js";
+import { planRepair } from "../agent/plan-repair.js";
+import { assertCausalFreezeReadyForPlanning } from "../agent/causal-freeze.js";
+import { causalFreezeGroundingContext } from "../agent/create-causal-freeze.js";
 
 import { patchIssue } from "../agent/patch.js";
 
@@ -166,10 +169,29 @@ export async function runMission(
 
       experiments: investigation.experiments,
 
-      diagnosis: investigation.diagnosis,
+      causalFreeze: investigation.causalFreeze,
+
+      causalEvidence: investigation.causalEvidence,
     };
 
-    record("INVESTIGATING", "AI investigation completed");
+    record("INVESTIGATING", `Causal decision: ${investigation.causalFreeze.status}`);
+
+    // Save the decision above before enforcing the gate, so deferred evidence
+    // survives in failed mission proof bundles. No planner or patcher runs then.
+    assertCausalFreezeReadyForPlanning(
+      investigation.causalFreeze,
+      causalFreezeGroundingContext(investigation.causalEvidence),
+    );
+
+    record("INVESTIGATING", "Cause frozen — repair planning started");
+    const planned = await planRepair({
+      causalFreeze: investigation.causalFreeze,
+      causalEvidence: investigation.causalEvidence,
+      discoveredFiles: investigation.discoveredFiles,
+    });
+    investigationResult.report = `${investigationReport}\n\nRepair plan:\n${planned.report}`;
+    investigationResult.diagnosis = planned.diagnosis;
+    record("INVESTIGATING", "Grounded repair planning completed");
 
     // -------------------------
     // PATCH
@@ -178,9 +200,9 @@ export async function runMission(
     record("PATCHING", "AI patch phase started");
 
     const patch = await patchIssue(sandbox, input.issue, {
-      report: investigationReport,
+      report: investigationResult.report,
 
-      diagnosis: investigation.diagnosis,
+      diagnosis: planned.diagnosis,
     });
 
     if (!patch.patchApplied) {

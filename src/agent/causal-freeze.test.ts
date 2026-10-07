@@ -349,6 +349,13 @@ describe("Causal Freeze v4", () => {
     expect(() => assertCausalFreezeGrounding(freeze, context)).not.toThrow();
   });
 
+  it("rejects HIGH confidence when a competing hypothesis is also supported", () => {
+    const { freeze, context } = createCase();
+    freeze.confidence = "HIGH";
+    freeze.hypothesisAssessments[1]!.status = "SUPPORTED";
+    expect(() => assertCausalFreezeGrounding(freeze, context)).toThrow(/HIGH confidence is not allowed/);
+  });
+
   it.each(["hypothesis", "question", "unknown layer"])("rejects HIGH confidence with unresolved %s", (gap) => {
     const { freeze, context } = createCase();
     freeze.confidence = "HIGH";

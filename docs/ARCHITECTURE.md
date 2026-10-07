@@ -9,7 +9,8 @@ goal is a defensible repair and an inspectable proof bundle.
 
 The host prepares a repository at a known commit, detects its tooling, and runs
 a trusted baseline reproduction. Investigation uses repository observations and
-bounded tools. Patch authorization constrains edits; verification checks the
+bounded tools, followed by causal-only finalization and a separate gated repair
+plan. Patch authorization constrains edits; verification checks the
 actual changes, reruns reproduction and the full suite, and produces a verdict.
 The proof bundle preserves the investigation, commands, diff, and checks.
 
@@ -44,14 +45,14 @@ Status for the continuation based on v4 commit `df5a332`:
 | M1: Reconnaissance | Implemented |
 | M2: Hypothesis Board | Implemented |
 | M3: Counterfactual Experiment Tool | Implemented, including intervention-role semantics |
-| M4: Causal Freeze | Schema, grounding validator, no-tool finalizer, explicit planning gate, and tests implemented; runtime integration still pending |
-| M5: Repair Planner | Pending |
+| M4: Causal Freeze | Integrated into normal completion and budget exhaustion; planning gate and proof preservation covered by mocked runtime tests |
+| M5: Repair Planner | Minimal separate planning bridge introduced for the existing patch pipeline; further planner development and real-run validation remain |
 
-The current `investigate.ts` still produces the older combined diagnosis and
-repair fields. The standalone M4 modules do not yet enforce causal
-freeze in the live mission flow. The next integration must separate causal
-assessment from repair planning and prevent `NEEDS_MORE_EVIDENCE` from reaching
-the planner.
+`investigate.ts` now collects causal evidence and returns a separate freeze.
+It no longer accepts a combined diagnosis and repair plan. `runMission()` stores
+the decision and evidence before invoking the explicit planning gate. A grounded
+`NEEDS_MORE_EVIDENCE` decision stops the mission before planning or patching and
+remains available in the failed mission's proof bundle.
 
 ## Causal Freeze trust boundary
 
@@ -65,8 +66,8 @@ Every original hypothesis must appear exactly once. Experiment references must
 resolve to uniquely identified, restored experiments addressing that hypothesis.
 A frozen selection must be supported and retain its original cause layer.
 Deferred decisions leave all selection fields null and name an unresolved
-question. HIGH confidence is incompatible with an unknown cause or unresolved
-causal hypotheses/questions.
+question. HIGH confidence is incompatible with an unknown cause, a competing
+SUPPORTED hypothesis, or unresolved causal hypotheses/questions.
 
 These are provenance and consistency checks, not semantic proof. A cited file
 or test must still substantiate the causal claim during reasoning/review; its
@@ -93,9 +94,36 @@ unresolved questions. Transport/protocol failures do not trigger evidence repair
 any non-FROZEN decision. It is separate from `assertCausalFreezeGrounding()` because
 a grounded deferred decision is a legitimate result, not permission to plan.
 
-Next integration must replace both existing investigator finalization paths
-(normal completion and exhausted tool budget) with causal-only output. Only
-after the explicit gate may a separate repair phase run. Preserve a deferred
-decision and its evidence in the mission proof; do not silently discard it or
-run patching after it. The no-tool finalizer and gate are not wired into those
-paths yet. The real benchmark remains deferred.
+Both normal completion and exhausted tool budgets now use this finalizer. The
+collector's free-text final message is discarded; only host-recorded file contents,
+test results, and restored experiments enter causal assessment. Failed tool calls
+do not add trusted evidence. The host rejects tools outside the investigation
+allowlist, and an experiment restoration failure aborts the investigation.
+
+## Frozen-cause planning bridge
+
+`planRepair()` runs only after `assertCausalFreezeReadyForPlanning()` succeeds.
+Its response schema contains scope, evidence observations, relevant files,
+target comparisons, intents, and a report. It contains no root-cause or confidence
+fields. The host projects those fields from the accepted freeze into the existing
+diagnosis format used by authorization and patching.
+
+Competing assessment statuses are preserved: WEAKENED is not relabeled REJECTED.
+SUPPORTED and UNRESOLVED competitors block ROOT_CAUSE_FIX. HIGH confidence also
+cannot coexist with competing support. The legacy failureMechanism field currently
+reuses the frozen causalClaim; the planner cannot invent a new causal mechanism.
+
+The bridge retains provenance, causal-context, scope, target, repair-kind, and
+intent validators. No tools are available during planning. One no-tool repair
+may fix citations or explanations in a parsed plan, but may not change its target,
+scope, evidence observations, or repair objectives. A failed plan does not erase
+the already recorded causal decision.
+
+`proof.json` now records causalFreeze, the causalEvidence snapshot, and any mission
+error alongside the original board and experiments. Diagnosis is null when no
+repair plan was accepted. Existing web report rendering can display the textual
+causal report; dedicated causal proof UI is not part of this change.
+
+Runtime tests mock model/sandbox boundaries while exercising collection,
+finalization, planning, mission gating, and proof serialization. The real benchmark
+and live model/E2B validation remain deferred.

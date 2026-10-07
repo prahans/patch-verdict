@@ -231,10 +231,13 @@ export function assertCausalFreezeGrounding(
     if (
       decision.confidence === "HIGH" &&
       (decision.causeLayer === "UNKNOWN" ||
-        decision.hypothesisAssessments.some((item) => item.status === "UNRESOLVED") ||
+        decision.hypothesisAssessments.some((item) =>
+          item.status === "UNRESOLVED" ||
+          (item.hypothesisId !== decision.selectedHypothesisId && item.status === "SUPPORTED"),
+        ) ||
         decision.unresolvedQuestions.length > 0)
     ) {
-      errors.push("HIGH confidence is not allowed with an UNKNOWN cause or unresolved causal questions/hypotheses.");
+      errors.push("HIGH confidence is not allowed with an UNKNOWN cause, competing support, or unresolved causal questions/hypotheses.");
     }
   } else {
     if (
