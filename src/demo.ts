@@ -270,8 +270,6 @@ async function main() {
       // This legacy demo applies a trusted/manual patch rather than
       // an autonomous candidate patch that needs integrity analysis.
       verificationIntegrityStatus: "PRESERVED",
-
-      repairKind: "ROOT_CAUSE_FIX",
     });
 
     console.log("");

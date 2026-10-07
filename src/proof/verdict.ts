@@ -1,5 +1,4 @@
 import type { VerificationIntegrityStatus } from "../verification/integrity.js";
-import type { RepairKind } from "../agent/root-cause-contract.js";
 
 export type VerdictStatus = "VERIFIED" | "REVIEW_REQUIRED" | "FAILED";
 
@@ -13,8 +12,6 @@ export type VerdictChecks = {
   fullSuitePassesAfterPatch: boolean;
 
   verificationIntegrityStatus: VerificationIntegrityStatus;
-
-  repairKind: RepairKind;
 };
 
 export type VerdictResult = {
@@ -36,8 +33,6 @@ export function determineVerdict(checks: VerdictChecks): VerdictResult {
   } else if (checks.verificationIntegrityStatus === "COMPROMISED") {
     status = "FAILED";
   } else if (checks.verificationIntegrityStatus === "REVIEW_REQUIRED") {
-    status = "REVIEW_REQUIRED";
-  } else if (checks.repairKind !== "ROOT_CAUSE_FIX") {
     status = "REVIEW_REQUIRED";
   } else {
     status = "VERIFIED";

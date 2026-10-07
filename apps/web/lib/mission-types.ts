@@ -37,7 +37,6 @@ export type MissionResult = {
       intentId: string;
       authorizedPath: string;
       objective: string;
-      repairKind?: "ROOT_CAUSE_FIX" | "WORKAROUND" | "MITIGATION";
       evidenceRefs: Array<{
         kind: "FILE" | "TEST" | "SEARCH";
         source: string;

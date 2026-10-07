@@ -161,7 +161,7 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
         authorizationEvidence = authorization.authorization;
 
         console.log(
-          `  intent: ${authorization.authorization.intentId} [${authorization.authorization.repairKind}] -> ${authorization.authorization.authorizedPath}`,
+          `  intent: ${authorization.authorization.intentId} -> ${authorization.authorization.authorizedPath}`,
         );
 
         executionInput = authorization.input;

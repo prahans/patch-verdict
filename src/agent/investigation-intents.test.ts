@@ -7,23 +7,6 @@ import { assertPatchIntentContract } from "./investigation-intents.js";
 const diagnosis = {
   rootCause: "Shared test cleanup is missing.",
 
-  rootCauseAnalysis: {
-    failureMechanism:
-      "Rendered DOM remains mounted because the shared test lifecycle does not clean it between tests.",
-    primaryCause: {
-      layer: "TEST_INFRASTRUCTURE",
-      hypothesis:
-        "The shared test lifecycle infrastructure does not register the cleanup behavior required by the affected tests.",
-      evidenceRefs: [
-        {
-          kind: "FILE",
-          source: "vitest.setup.ts",
-        },
-      ],
-    },
-    alternatives: [],
-  },
-
   scopeAnalysis: {
     scope: "SHARED",
     reason:
@@ -79,7 +62,6 @@ const diagnosis = {
       id: "intent-1",
       path: "vitest.setup.ts",
       objective: "Ensure rendered DOM is cleaned between tests.",
-      repairKind: "ROOT_CAUSE_FIX",
       evidenceRefs: [
         {
           kind: "FILE",
@@ -124,7 +106,6 @@ describe("assertPatchIntentContract", () => {
             id: "intent-1",
             path: "src/example.ts",
             objective: "Change unrelated application behavior.",
-            repairKind: "MITIGATION",
             evidenceRefs: [
               {
                 kind: "TEST",
@@ -186,99 +167,4 @@ describe("assertPatchIntentContract", () => {
       }),
     ).toThrow(/not marked RECOMMEND/i);
   });
-  it("rejects ROOT_CAUSE_FIX while a competing cause remains unresolved", () => {
-    expect(() =>
-      assertPatchIntentContract({
-        ...diagnosis,
-        rootCauseAnalysis: {
-          ...diagnosis.rootCauseAnalysis,
-          alternatives: [
-            {
-              layer: "CONFIGURATION",
-              hypothesis:
-                "A configuration-level cause remains plausible for this fixture.",
-              status: "UNRESOLVED",
-              reason:
-                "The available fixture evidence does not rule out the configuration explanation.",
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "vitest.setup.ts",
-                },
-              ],
-            },
-          ],
-        },
-      }),
-    ).toThrow(/competing cause remains UNRESOLVED/i);
-  });
-
-  it("rejects ROOT_CAUSE_FIX when a dependency-runtime cause is patched through test infrastructure", () => {
-    expect(() =>
-      assertPatchIntentContract({
-        ...diagnosis,
-        rootCauseAnalysis: {
-          failureMechanism:
-            "Automatic cleanup is not active for later suites, so rendered DOM persists.",
-          primaryCause: {
-            layer: "DEPENDENCY_RUNTIME",
-            hypothesis:
-              "Runtime module caching prevents the automatic cleanup hook from remaining active for later suites.",
-            evidenceRefs: [
-              {
-                kind: "FILE",
-                source: "vitest.setup.ts",
-              },
-              {
-                kind: "TEST",
-                source: "npm test",
-              },
-            ],
-          },
-          alternatives: [],
-        },
-        patchIntents: [
-          {
-            ...diagnosis.patchIntents[0]!,
-            repairKind: "ROOT_CAUSE_FIX",
-          },
-        ],
-      }),
-    ).toThrow(/incompatible repair classification/i);
-  });
-
-  it("allows WORKAROUND when test infrastructure compensates for a dependency-runtime cause", () => {
-    expect(() =>
-      assertPatchIntentContract({
-        ...diagnosis,
-        rootCauseAnalysis: {
-          failureMechanism:
-            "Automatic cleanup is not active for later suites, so rendered DOM persists.",
-          primaryCause: {
-            layer: "DEPENDENCY_RUNTIME",
-            hypothesis:
-              "Runtime module caching prevents the automatic cleanup hook from remaining active for later suites.",
-            evidenceRefs: [
-              {
-                kind: "FILE",
-                source: "vitest.setup.ts",
-              },
-              {
-                kind: "TEST",
-                source: "npm test",
-              },
-            ],
-          },
-          alternatives: [],
-        },
-        patchIntents: [
-          {
-            ...diagnosis.patchIntents[0]!,
-            repairKind: "WORKAROUND",
-          },
-        ],
-      }),
-    ).not.toThrow();
-  });
-
 });

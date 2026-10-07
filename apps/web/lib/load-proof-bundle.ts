@@ -449,23 +449,6 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
             true,
           ),
 
-          ...(authorization.repairKind !== undefined && {
-            repairKind: (() => {
-              if (
-                authorization.repairKind !== "ROOT_CAUSE_FIX" &&
-                authorization.repairKind !== "WORKAROUND" &&
-                authorization.repairKind !== "MITIGATION"
-              ) {
-                return invalid(
-                  "proof.json patch.authorization.repairKind",
-                  "ROOT_CAUSE_FIX, WORKAROUND, or MITIGATION",
-                );
-              }
-
-              return authorization.repairKind;
-            })(),
-          }),
-
           evidenceRefs: (() => {
             if (!Array.isArray(authorization.evidenceRefs)) {
               return invalid(

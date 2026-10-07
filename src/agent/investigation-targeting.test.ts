@@ -7,23 +7,6 @@ import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 const diagnosis = {
   rootCause: "Shared test cleanup is missing.",
 
-  rootCauseAnalysis: {
-    failureMechanism:
-      "Rendered DOM remains mounted because the shared test lifecycle does not clean it between tests.",
-    primaryCause: {
-      layer: "TEST_INFRASTRUCTURE",
-      hypothesis:
-        "The shared test lifecycle infrastructure does not register the cleanup behavior required by the affected tests.",
-      evidenceRefs: [
-        {
-          kind: "FILE",
-          source: "vitest.setup.ts",
-        },
-      ],
-    },
-    alternatives: [],
-  },
-
   scopeAnalysis: {
     scope: "SHARED",
     reason:
@@ -94,8 +77,6 @@ const diagnosis = {
 
       objective:
         "Ensure the shared test lifecycle cleans rendered DOM between tests.",
-
-      repairKind: "ROOT_CAUSE_FIX",
 
       evidenceRefs: [
         {
@@ -301,48 +282,6 @@ describe("assertPatchTargetAnalysis", () => {
         {
           rootCause: "The defect is isolated to this test's custom lifecycle.",
 
-          rootCauseAnalysis: {
-            failureMechanism:
-              "The direct test fixture leaves lifecycle state behind between its own cases.",
-
-            primaryCause: {
-              layer: "TEST_FILE",
-
-              hypothesis:
-                "The direct test owns a custom lifecycle that requires local teardown.",
-
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-
-                  source: "src/components/DarkMode.test.tsx",
-                },
-              ],
-            },
-
-            alternatives: [
-              {
-                layer: "TEST_INFRASTRUCTURE",
-
-                hypothesis:
-                  "The shared setup may own the missing lifecycle behavior.",
-
-                status: "REJECTED",
-
-                reason:
-                  "The fixture explicitly observes that shared setup is already configured correctly.",
-
-                evidenceRefs: [
-                  {
-                    kind: "FILE",
-
-                    source: "vitest.setup.ts",
-                  },
-                ],
-              },
-            ],
-          },
-
           scopeAnalysis: {
             scope: "LOCAL",
 
@@ -420,8 +359,6 @@ describe("assertPatchTargetAnalysis", () => {
 
               objective:
                 "Add local teardown for this test-specific lifecycle.",
-
-              repairKind: "WORKAROUND",
 
               evidenceRefs: [
                 {
