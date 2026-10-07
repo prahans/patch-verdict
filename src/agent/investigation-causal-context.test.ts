@@ -227,56 +227,25 @@ describe("causal environment context", () => {
     ).not.toThrow();
   });
 
-  it("rejects a represented cause layer that cites the wrong repository context", () => {
+  it("does not require represented cause layers to mirror repository file categories", () => {
     expect(() =>
       assertCausalContextCoverage(
         {
           ...diagnosis,
           rootCauseAnalysis: {
             ...diagnosis.rootCauseAnalysis,
-            primaryCause: {
-              ...diagnosis.rootCauseAnalysis.primaryCause,
-              evidenceRefs: [
-                {
-                  kind: "FILE",
-                  source: "vitest.setup.ts",
-                },
-                {
-                  kind: "TEST",
-                  source: "npm test",
-                },
-              ],
-            },
             alternatives: [
               {
                 layer: "CONFIGURATION",
                 hypothesis:
-                  "The runner configuration may own the missing lifecycle behavior.",
+                  "A configuration-owned explanation remains possible in this synthetic fixture.",
                 status: "REJECTED",
                 reason:
-                  "This fixture intentionally cites the wrong repository context for the configuration layer.",
+                  "This fixture intentionally cites setup evidence while exercising relaxed causal bookkeeping.",
                 evidenceRefs: [
                   {
                     kind: "FILE",
-                    source: "package.json",
-                  },
-                ],
-              },
-              {
-                layer: "DEPENDENCY_RUNTIME",
-                hypothesis:
-                  "The installed runtime dependency behavior may own the missing lifecycle hook.",
-                status: "REJECTED",
-                reason:
-                  "The fixture represents the dependency-runtime layer with its package and runtime evidence.",
-                evidenceRefs: [
-                  {
-                    kind: "FILE",
-                    source: "package.json",
-                  },
-                  {
-                    kind: "TEST",
-                    source: "npm test",
+                    source: "vitest.setup.ts",
                   },
                 ],
               },
@@ -292,7 +261,7 @@ describe("causal environment context", () => {
           ],
         },
       ),
-    ).toThrow(/CONFIGURATION is represented without evidence/i);
+    ).not.toThrow();
   });
 
   it("allows a medium-confidence workaround without forcing uninspected environment context", () => {
@@ -315,7 +284,7 @@ describe("causal environment context", () => {
       ),
     ).not.toThrow();
   });
-  it("requires strong test-infrastructure claims to compare configuration and dependency-runtime layers", () => {
+  it("allows a strong test-infrastructure claim after relevant environment inspection", () => {
     expect(() =>
       assertCausalContextCoverage(
         {
@@ -334,7 +303,7 @@ describe("causal environment context", () => {
           ],
         },
       ),
-    ).toThrow(/did not compare a discovered competing cause layer/i);
+    ).not.toThrow();
   });
 
   it("accepts strong test-infrastructure claim when competing environment layers are explicitly rejected with their own evidence", () => {
