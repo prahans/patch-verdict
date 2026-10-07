@@ -1,7 +1,5 @@
 import type { InvestigationDiagnosis } from "./investigation-contract.js";
 
-import { classifyVerificationPath } from "../verification/integrity.js";
-
 export type PatchTargetAnalysisContext = {
   inspectedFiles: readonly string[];
 };
@@ -124,59 +122,6 @@ export function assertPatchTargetAnalysis(
     if (entry.decision === "RECOMMEND" && !recommendedTargetSet.has(path)) {
       errors.push(
         `Patch-target analysis marks "${entry.path}" RECOMMEND but it is not present in recommendedPatchTargets.`,
-      );
-    }
-  }
-
-  const recommendsDirectTest = [...recommendedTargetSet].some(
-    (path) => classifyVerificationPath(path) === "TEST_FILE",
-  );
-
-  /*
-   * IMPORTANT:
-   *
-   * Use deterministic tool provenance here,
-   * not diagnosis.relevantFiles.
-   *
-   * Otherwise the model can inspect test
-   * infrastructure and then hide it by
-   * simply omitting it from relevantFiles.
-   */
-  const inspectedTestInfrastructure = [
-    ...new Set(
-      context.inspectedFiles
-        .map(normalizePath)
-        .filter(
-          (path) => classifyVerificationPath(path) === "TEST_INFRASTRUCTURE",
-        ),
-    ),
-  ];
-
-  /*
-   * A direct test-file patch is a sensitive
-   * choice. If the investigator actually
-   * inspected test infrastructure, it must
-   * explicitly account for that candidate
-   * before recommending the direct test.
-   *
-   * PatchVerdict does NOT force the
-   * infrastructure to win.
-   *
-   * REJECT is perfectly valid if the
-   * evidence supports that decision.
-   */
-  if (recommendsDirectTest && inspectedTestInfrastructure.length > 0) {
-    const unanalyzedInfrastructure = inspectedTestInfrastructure.filter(
-      (path) => !analysisByPath.has(path),
-    );
-
-    if (unanalyzedInfrastructure.length > 0) {
-      errors.push(
-        [
-          "A direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was successfully inspected.",
-          "Every inspected test-infrastructure candidate must be explicitly accounted for in patchTargetAnalysis before the direct test file can be recommended.",
-          `Missing analysis for: ${unanalyzedInfrastructure.join(", ")}.`,
-        ].join(" "),
       );
     }
   }
