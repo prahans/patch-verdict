@@ -11,6 +11,7 @@ import {
 } from "./reconnaissance.js";
 import {
   HYPOTHESIS_BOARD_JSON_SCHEMA,
+  hypothesisBoardResponseJsonSchema,
   assertHypothesisBoardGrounding,
   parseHypothesisBoard,
   type HypothesisBoard,
@@ -96,6 +97,9 @@ Build the initial target-free causal hypothesis board.
 Important:
 - A repair location is not proof of causal ownership.
 - Prefer distinct explanations that could be separated by future evidence.
+- inventoryPreview is discovery only. A discovered path is not FILE evidence unless it also appears in preInspectedFiles.
+- If a useful discovered file was not pre-inspected, mention the need to inspect it in missingEvidence; do not cite it as observed FILE evidence.
+- TEST evidence source must be exactly the trusted baseline command, never the command plus a description.
 - If a claim about external library/runtime behavior is not directly observed here, express the missing evidence rather than treating model memory as proof.
 - Do not recommend any patch.
 `.trim(),
@@ -108,7 +112,7 @@ Important:
       messages,
       responseFormat: jsonSchemaResponseFormat(
         "patchverdict_hypothesis_board",
-        JSON.parse(HYPOTHESIS_BOARD_JSON_SCHEMA),
+        hypothesisBoardResponseJsonSchema(boardGroundingContext(input)),
       ),
       stream: false,
     },
@@ -166,7 +170,7 @@ ${HYPOTHESIS_BOARD_JSON_SCHEMA}
         messages,
         responseFormat: jsonSchemaResponseFormat(
           "patchverdict_hypothesis_board_repair",
-          JSON.parse(HYPOTHESIS_BOARD_JSON_SCHEMA),
+          hypothesisBoardResponseJsonSchema(boardGroundingContext(input)),
         ),
         stream: false,
       },

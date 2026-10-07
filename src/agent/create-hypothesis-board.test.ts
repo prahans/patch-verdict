@@ -55,6 +55,7 @@ const reconnaissance: ReconnaissanceContext = {
     "vite.config.ts",
     "vitest.setup.ts",
     "src/components/DarkMode.test.tsx",
+    "src/utils/test-utils.tsx",
   ],
   inventoryDepth: 5,
   inventoryPreview: [
@@ -62,6 +63,7 @@ const reconnaissance: ReconnaissanceContext = {
     "vite.config.ts",
     "vitest.setup.ts",
     "src/components/DarkMode.test.tsx",
+    "src/utils/test-utils.tsx",
   ],
   inventoryTruncated: false,
   failingPaths: ["src/components/DarkMode.test.tsx"],
@@ -139,6 +141,15 @@ describe("createInitialHypothesisBoard", () => {
       },
     });
     expect(request.responseFormat.jsonSchema.schema).toBeTruthy();
+
+    const responseSchema = JSON.stringify(
+      request.responseFormat.jsonSchema.schema,
+    );
+
+    expect(responseSchema).toContain('"npm test"');
+    expect(responseSchema).toContain('"vite.config.ts"');
+    expect(responseSchema).toContain('"vitest.setup.ts"');
+    expect(responseSchema).not.toContain('"src/utils/test-utils.tsx"');
     expect(request).not.toHaveProperty("tools");
   });
 
