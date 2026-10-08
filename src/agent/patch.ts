@@ -19,17 +19,27 @@ import {
   type PatchAuthorizationEvidence,
 } from "./patch-authorization.js";
 
-const MAX_PATCH_ITERATIONS = 4;
+const MAX_PATCH_ITERATIONS = 5;
 const PATCH_ALLOWED_TOOLS = new Set<string>([
   "list_files",
   "read_file",
   "apply_patch",
 ]);
 
+type PatchIssueOptions = {
+  verificationFeedback?: string;
+  requiredAuthorization?: PatchAuthorizationEvidence;
+};
+
+function normalizePath(value: string) {
+  return value.replace(/\\/g, "/").replace(/^\.\//, "").trim();
+}
+
 export async function patchIssue(
   sandbox: Sandbox,
   issue: string,
   investigation: PatchInvestigationContext,
+  options: PatchIssueOptions = {},
 ) {
   const patchContext = buildPatchAgentContext(investigation);
   const messages: ChatMessages[] = [
@@ -54,6 +64,25 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
 `.trim(),
     },
   ];
+
+  if (options.verificationFeedback) {
+    messages.push({
+      role: "user",
+      content: [
+        "CORRECTION ATTEMPT",
+        "",
+        "The previous authorized candidate changed the repository but failed deterministic reproduction.",
+        "The previous edit is still present in the repository.",
+        options.requiredAuthorization
+          ? `You may revise only intent "${options.requiredAuthorization.intentId}" on "${options.requiredAuthorization.authorizedPath}".`
+          : "Stay within the previously authorized patch contract.",
+        "Use the verification failure below as feedback.",
+        "Make a real behavioral correction, not merely an import, formatting change, or refactor.",
+        "",
+        options.verificationFeedback,
+      ].join("\n"),
+    });
+  }
 
   let patchApplied = false;
   let authorizationEvidence: PatchAuthorizationEvidence | undefined;
@@ -158,6 +187,29 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
           continue;
         }
 
+        if (
+          options.requiredAuthorization &&
+          (authorization.authorization.intentId !==
+            options.requiredAuthorization.intentId ||
+            normalizePath(authorization.authorization.authorizedPath) !==
+              normalizePath(options.requiredAuthorization.authorizedPath))
+        ) {
+          const blockedResult = {
+            ok: false as const,
+            error: `Correction attempt is restricted to intent "${options.requiredAuthorization.intentId}" on "${options.requiredAuthorization.authorizedPath}".`,
+          };
+
+          console.log(`← ${toolName} BLOCKED: ${blockedResult.error}`);
+
+          messages.push({
+            role: "tool",
+            toolCallId: toolCall.id,
+            content: JSON.stringify(blockedResult),
+          });
+
+          continue;
+        }
+
         authorizationEvidence = authorization.authorization;
 
         console.log(
@@ -180,20 +232,34 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
         };
       }
 
-      if (result.ok) {
+      let applyPatchChanged = false;
+      let applyPatchNoChange = false;
+
+      if (toolName === "apply_patch" && result.ok) {
+        const data: unknown = result.data;
+
+        if (
+          typeof data === "object" &&
+          data !== null &&
+          "changed" in data &&
+          typeof data.changed === "boolean"
+        ) {
+          applyPatchChanged = data.changed;
+          applyPatchNoChange = !data.changed;
+        }
+      }
+
+      if (applyPatchChanged) {
+        console.log("← apply_patch OK — repository changed");
+        patchApplied = true;
+      } else if (applyPatchNoChange) {
+        console.log(
+          "← apply_patch NO CHANGE — replacement matched the existing file",
+        );
+      } else if (result.ok) {
         console.log(`← ${toolName} OK`);
       } else {
         console.log(`← ${toolName} ERROR: ${result.error}`);
-      }
-
-      if (
-        toolName === "apply_patch" &&
-        result.ok &&
-        "data" in result &&
-        "changed" in result.data &&
-        result.data.changed
-      ) {
-        patchApplied = true;
       }
 
       messages.push({
@@ -203,6 +269,19 @@ Apply the smallest reasonable candidate patch that addresses the diagnosed root 
 
         content: JSON.stringify(result),
       });
+
+      if (applyPatchNoChange) {
+        messages.push({
+          role: "user",
+          content: [
+            "The authorized apply_patch was a no-op: the replacement content exactly matched the existing file.",
+            "No candidate patch has been produced yet.",
+            "Use the file content already returned by apply_patch and make the smallest real change required by the authorized patch intent.",
+            "Do not call apply_patch again with unchanged content.",
+            "Do not claim success until apply_patch reports changed: true.",
+          ].join("\n"),
+        });
+      }
     }
 
     /*
