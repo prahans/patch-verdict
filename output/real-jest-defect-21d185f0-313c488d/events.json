@@ -1,76 +1,76 @@
 [
   {
-    "timestamp": "2026-10-08T02:48:44.275Z",
+    "timestamp": "2026-10-08T03:12:37.599Z",
     "state": "BASELINE",
     "message": "Running reproduction test before patch"
   },
   {
-    "timestamp": "2026-10-08T02:48:47.213Z",
+    "timestamp": "2026-10-08T03:12:39.113Z",
     "state": "BASELINE",
     "message": "Reported bug reproduced"
   },
   {
-    "timestamp": "2026-10-08T02:48:47.213Z",
+    "timestamp": "2026-10-08T03:12:39.113Z",
     "state": "INVESTIGATING",
     "message": "AI investigation started"
   },
   {
-    "timestamp": "2026-10-08T02:49:22.695Z",
+    "timestamp": "2026-10-08T03:13:06.574Z",
     "state": "INVESTIGATING",
     "message": "AI investigation completed"
   },
   {
-    "timestamp": "2026-10-08T02:49:22.695Z",
+    "timestamp": "2026-10-08T03:13:06.574Z",
     "state": "PATCHING",
     "message": "AI patch phase started"
   },
   {
-    "timestamp": "2026-10-08T02:49:33.599Z",
+    "timestamp": "2026-10-08T03:13:14.149Z",
     "state": "PATCHING",
     "message": "Candidate patch applied"
   },
   {
-    "timestamp": "2026-10-08T02:49:35.174Z",
+    "timestamp": "2026-10-08T03:13:15.772Z",
     "state": "PATCHING",
     "message": "Git captured 1 changed file(s)"
   },
   {
-    "timestamp": "2026-10-08T02:49:35.174Z",
+    "timestamp": "2026-10-08T03:13:15.772Z",
     "state": "PATCHING",
     "message": "Git diff captured"
   },
   {
-    "timestamp": "2026-10-08T02:49:35.175Z",
+    "timestamp": "2026-10-08T03:13:15.772Z",
     "state": "PATCHING",
-    "message": "Verification requires human review: Candidate modified protected test file(s): src/components/DarkMode.test.tsx"
+    "message": "Verification requires human review: Candidate modified test infrastructure: jest.setup.js"
   },
   {
-    "timestamp": "2026-10-08T02:49:35.175Z",
+    "timestamp": "2026-10-08T03:13:15.772Z",
     "state": "VERIFYING",
     "message": "Running reproduction test after patch"
   },
   {
-    "timestamp": "2026-10-08T02:49:38.157Z",
+    "timestamp": "2026-10-08T03:13:17.220Z",
     "state": "VERIFYING",
     "message": "Reproduction test passes after patch"
   },
   {
-    "timestamp": "2026-10-08T02:49:38.157Z",
+    "timestamp": "2026-10-08T03:13:17.220Z",
     "state": "VERIFYING",
     "message": "Running full test suite"
   },
   {
-    "timestamp": "2026-10-08T02:49:41.682Z",
+    "timestamp": "2026-10-08T03:13:18.572Z",
     "state": "VERIFYING",
     "message": "Full test suite passes"
   },
   {
-    "timestamp": "2026-10-08T02:49:41.682Z",
+    "timestamp": "2026-10-08T03:13:18.572Z",
     "state": "VERDICT",
     "message": "Calculating deterministic verdict"
   },
   {
-    "timestamp": "2026-10-08T02:49:41.683Z",
+    "timestamp": "2026-10-08T03:13:18.572Z",
     "state": "COMPLETED",
     "message": "Mission completed with verdict REVIEW_REQUIRED"
   }

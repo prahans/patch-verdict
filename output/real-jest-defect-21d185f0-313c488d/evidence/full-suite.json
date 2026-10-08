@@ -1,0 +1,7 @@
+{
+  "command": "npm test",
+  "exitCode": 0,
+  "stdout": "\n> jest-defect@1.0.0 test\n> jest\n\n",
+  "stderr": "PASS ./test.test.js\n  ✓ should pass (2 ms)\n\nTest Suites: 1 passed, 1 total\nTests:       1 passed, 1 total\nSnapshots:   0 total\nTime:        0.51 s, estimated 1 s\nRan all test suites.\n",
+  "durationMs": 1352
+}

@@ -1,0 +1,7 @@
+{
+  "command": "npx vitest run",
+  "exitCode": 1,
+  "stdout": "\n RUN  v0.29.7 /tmp/patchverdict\n\n ❯ test/Lock.test.ts  (0 test)\n\n Test Files  1 failed (1)\n      Tests  no tests\n   Start at  02:59:33\n   Duration  612ms (transform 96ms, setup 0ms, collect 0ms, tests 0ms)\n\n",
+  "stderr": "⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  test/Lock.test.ts [ test/Lock.test.ts ]\nSyntaxError: Cannot use import statement outside a module\n ❯ importCsjOrEsModule node_modules/hardhat/src/internal/core/config/config-loading.ts:30:22\n ❯ loadConfigAndTasks node_modules/hardhat/src/internal/core/config/config-loading.ts:94:18\n\nModule /tmp/patchverdict/hardhat.config.ts:1 seems to be an ES Module but shipped in a CommonJS package. You might want to create an issue to the package \"\" asking them to ship the file in .mjs extension or add \"type\": \"module\" in their package.json.\n\nAs a temporary workaround you can try to inline the package by updating your config:\n\n// vitest.config.js\nexport default {\n  test: {\n    deps: {\n      inline: [\n        \"\"\n      ]\n    }\n  }\n}\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n",
+  "durationMs": 2122
+}

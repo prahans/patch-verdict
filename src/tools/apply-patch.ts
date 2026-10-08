@@ -10,7 +10,7 @@ const PROJECT_ROOT = "/tmp/patchverdict";
 const ApplyPatchInputSchema = z.object({
   path: z.string().min(1).max(500),
 
-  content: z.string().min(1).max(50_000),
+  content: z.string().max(50_000),
 });
 
 type ApplyPatchOutput = {

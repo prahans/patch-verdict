@@ -1,0 +1,97 @@
+[
+  {
+    "timestamp": "2026-10-08T02:59:32.579Z",
+    "state": "BASELINE",
+    "message": "Running reproduction test before patch"
+  },
+  {
+    "timestamp": "2026-10-08T02:59:34.701Z",
+    "state": "BASELINE",
+    "message": "Reported bug reproduced"
+  },
+  {
+    "timestamp": "2026-10-08T02:59:34.701Z",
+    "state": "INVESTIGATING",
+    "message": "AI investigation started"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:04.438Z",
+    "state": "INVESTIGATING",
+    "message": "AI investigation completed"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:04.438Z",
+    "state": "PATCHING",
+    "message": "AI patch phase started"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:10.046Z",
+    "state": "PATCHING",
+    "message": "Candidate patch applied"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:10.981Z",
+    "state": "PATCHING",
+    "message": "Git captured 1 changed file(s)"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:10.981Z",
+    "state": "PATCHING",
+    "message": "Git diff captured"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:10.981Z",
+    "state": "PATCHING",
+    "message": "Verification integrity preserved"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:10.981Z",
+    "state": "VERIFYING",
+    "message": "Running reproduction test after patch"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:12.557Z",
+    "state": "VERIFYING",
+    "message": "Reproduction test still fails"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:12.557Z",
+    "state": "PATCHING",
+    "message": "Reproduction failed; starting the single correction attempt"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:23.768Z",
+    "state": "PATCHING",
+    "message": "Git captured 2 changed file(s)"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:23.769Z",
+    "state": "PATCHING",
+    "message": "Git diff captured"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:23.769Z",
+    "state": "PATCHING",
+    "message": "Verification integrity preserved"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:23.769Z",
+    "state": "VERIFYING",
+    "message": "Running reproduction test after correction"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:25.262Z",
+    "state": "VERIFYING",
+    "message": "Reproduction test still fails after correction; no correction attempts remain"
+  },
+  {
+    "timestamp": "2026-10-08T03:00:25.262Z",
+    "state": "VERIFYING",
+    "message": "Running full test suite"
+  },
+  {
+    "timestamp": "2026-10-08T03:02:25.271Z",
+    "state": "FAILED",
+    "message": "[deadline_exceeded] the operation timed out: This error is likely due to exceeding 'timeoutMs' — the total time a long running request (like command execution or directory watch) can be active. It can be modified by passing 'timeoutMs' when making the request. Use '0' to disable the timeout."
+  }
+]

@@ -1,0 +1,6 @@
+diff --git a/jest.setup.js b/jest.setup.js
+index e6e5143..e69de29 100644
+--- a/jest.setup.js
++++ b/jest.setup.js
+@@ -1 +0,0 @@
+-require('node:stream/web')

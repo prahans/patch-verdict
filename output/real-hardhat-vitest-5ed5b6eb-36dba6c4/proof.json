@@ -1,0 +1,103 @@
+{
+  "version": 2,
+  "mission": {
+    "id": "real-hardhat-vitest-5ed5b6eb-36dba6c4",
+    "issue": "Hardhat tests cannot run under Vitest because the TypeScript Hardhat configuration is loaded with incompatible module semantics. The test suite should start and execute normally.",
+    "source": {
+      "repositoryUrl": "https://github.com/bug-reproduction/hardhat-vitest.git",
+      "baseCommit": "5ed5b6eb3b4f1a5e5c4312eec4091be5191eb747"
+    },
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npx vitest run"
+    },
+    "verificationIntegrity": {
+      "status": "PRESERVED",
+      "preserved": true,
+      "violations": [],
+      "reviewFlags": [],
+      "protectedChangedFiles": []
+    },
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
+  },
+  "status": "FAILED",
+  "verdict": null,
+  "checks": {
+    "bugReproducedBeforePatch": true,
+    "verificationIntegrityPreserved": true,
+    "reproductionPassesAfterPatch": false
+  },
+  "reproduction": {
+    "reproduced": true,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [],
+      "presentForbiddenOutput": []
+    }
+  },
+  "investigation": {
+    "iterations": 8,
+    "diagnosis": {
+      "rootCause": "The hardhat.config.ts file uses ES Module import/export syntax, but the project is configured as CommonJS (no \"type\": \"module\" in package.json, \"module\": \"commonjs\" in tsconfig.json), causing Hardhat's config loader to incorrectly parse ES Module syntax and fail.",
+      "evidence": [
+        {
+          "kind": "FILE",
+          "source": "hardhat.config.ts",
+          "observation": "Uses ES Module syntax: import { HardhatUserConfig } from \"hardhat/config\"; and export default config; without any CommonJS interop."
+        },
+        {
+          "kind": "FILE",
+          "source": "package.json",
+          "observation": "Missing \"type\": \"module\", so the project is treated as CommonJS by Node.js, creating a mismatch with the ES Module syntax in hardhat.config.ts."
+        },
+        {
+          "kind": "FILE",
+          "source": "tsconfig.json",
+          "observation": "Specifies \"module\": \"commonjs\", reinforcing CommonJS module expectations in the build output and runtime behavior."
+        },
+        {
+          "kind": "TEST",
+          "source": "npx vitest run",
+          "observation": "Trusted baseline reproduction confirms failure: 'Cannot use import statement outside a module' occurs in Hardhat's config-loading.ts when loading hardhat.config.ts."
+        }
+      ],
+      "relevantFiles": [
+        "hardhat.config.ts",
+        "package.json",
+        "tsconfig.json"
+      ],
+      "recommendedPatchTargets": [
+        "package.json"
+      ],
+      "patchTargetAnalysis": [
+        {
+          "path": "package.json",
+          "decision": "RECOMMEND",
+          "reason": "Adding \"type\": \"module\" to package.json aligns the package metadata with the ES Module syntax used in hardhat.config.ts, resolving the module semantic mismatch at the root cause level."
+        }
+      ],
+      "confidence": "HIGH"
+    }
+  },
+  "patch": {
+    "applied": true,
+    "baseCommit": "5ed5b6eb3b4f1a5e5c4312eec4091be5191eb747",
+    "changedFiles": [
+      "package.json",
+      "tsconfig.json"
+    ]
+  },
+  "artifacts": {
+    "patch": "patch.diff",
+    "investigation": "investigation.md",
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": "evidence/post-patch-test.json",
+      "fullSuite": null
+    }
+  }
+}
