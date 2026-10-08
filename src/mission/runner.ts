@@ -23,6 +23,10 @@ import type {
   MissionState,
 } from "./types.js";
 
+function tail(value: string, max = 5000) {
+  return value.length <= max ? value : value.slice(-max);
+}
+
 export async function runMission(
   sandbox: Sandbox,
   input: MissionInput,
@@ -152,7 +156,7 @@ export async function runMission(
 
     record("PATCHING", "AI patch phase started");
 
-    const patch = await patchIssue(sandbox, input.issue, {
+    let patch = await patchIssue(sandbox, input.issue, {
       report: investigationReport,
 
       diagnosis: investigation.diagnosis,
@@ -254,7 +258,7 @@ export async function runMission(
 
     record("VERIFYING", "Running reproduction test after patch");
 
-    const postPatchEvidence = await runVerificationCommand(
+    let postPatchEvidence = await runVerificationCommand(
       sandbox,
       input.projectRoot,
       input.verificationPlan.reproduction,
@@ -262,7 +266,7 @@ export async function runMission(
 
     evidence.postPatchTest = postPatchEvidence;
 
-    const reproductionPassesAfterPatch = postPatchEvidence.exitCode === 0;
+    let reproductionPassesAfterPatch = postPatchEvidence.exitCode === 0;
 
     checks.reproductionPassesAfterPatch = reproductionPassesAfterPatch;
 
@@ -272,6 +276,133 @@ export async function runMission(
         ? "Reproduction test passes after patch"
         : "Reproduction test still fails",
     );
+
+    /*
+     * Give a failed candidate exactly one bounded correction attempt.
+     * Verification feedback is evidence from the trusted runner, and the
+     * correction stays on the same authorized intent/file.
+     */
+    if (!reproductionPassesAfterPatch && patch.authorization) {
+      record(
+        "PATCHING",
+        "Candidate failed reproduction; attempting one bounded correction",
+      );
+
+      const correction = await patchIssue(
+        sandbox,
+        input.issue,
+        {
+          report: investigationReport,
+          diagnosis: investigation.diagnosis,
+        },
+        {
+          requiredAuthorization: patch.authorization,
+          verificationFeedback: [
+            `Command: ${postPatchEvidence.command}`,
+            `Exit code: ${postPatchEvidence.exitCode}`,
+            "",
+            "STDOUT:",
+            tail(postPatchEvidence.stdout),
+            "",
+            "STDERR:",
+            tail(postPatchEvidence.stderr),
+          ].join("\n"),
+        },
+      );
+
+      if (correction.patchApplied && correction.authorization) {
+        patch = correction;
+
+        record("PATCHING", "Corrected candidate patch applied");
+
+        const correctedGitEvidence = await getGitEvidence(sandbox);
+
+        if (!correctedGitEvidence.ok) {
+          throw new Error(
+            `Could not capture corrected Git evidence: ${correctedGitEvidence.error}`,
+          );
+        }
+
+        if (!correctedGitEvidence.data.changed) {
+          throw new Error(
+            "Correction reported a patch, but Git detected no repository changes.",
+          );
+        }
+
+        assertPatchAuthorizationMatchesChangedFiles(
+          correction.authorization,
+          correctedGitEvidence.data.changedFiles,
+        );
+
+        checks.patchMatchesAuthorization = true;
+
+        patchResult = {
+          applied: true,
+          authorization: correction.authorization,
+          baseCommit: correctedGitEvidence.data.baseCommit,
+          changedFiles: correctedGitEvidence.data.changedFiles,
+          diff: correctedGitEvidence.data.diff,
+        };
+
+        verificationIntegrityResult = analyzeVerificationIntegrity({
+          changedFiles: correctedGitEvidence.data.changedFiles,
+          diff: correctedGitEvidence.data.diff,
+        });
+
+        checks.verificationIntegrityPreserved =
+          verificationIntegrityResult.preserved;
+
+        record(
+          "PATCHING",
+          `Corrected Git diff matches authorized intent ${correction.authorization.intentId}`,
+        );
+
+        if (verificationIntegrityResult.status === "COMPROMISED") {
+          record(
+            "PATCHING",
+            `Verification integrity compromised: ${verificationIntegrityResult.violations.join(" ")}`,
+          );
+        } else if (
+          verificationIntegrityResult.status === "REVIEW_REQUIRED"
+        ) {
+          record(
+            "PATCHING",
+            `Verification requires human review: ${verificationIntegrityResult.reviewFlags.join(" ")}`,
+          );
+        } else {
+          record("PATCHING", "Verification integrity preserved");
+        }
+
+        record(
+          "VERIFYING",
+          "Re-running reproduction test after corrected patch",
+        );
+
+        postPatchEvidence = await runVerificationCommand(
+          sandbox,
+          input.projectRoot,
+          input.verificationPlan.reproduction,
+        );
+
+        evidence.postPatchTest = postPatchEvidence;
+
+        reproductionPassesAfterPatch = postPatchEvidence.exitCode === 0;
+
+        checks.reproductionPassesAfterPatch = reproductionPassesAfterPatch;
+
+        record(
+          "VERIFYING",
+          reproductionPassesAfterPatch
+            ? "Reproduction test passes after corrected patch"
+            : "Reproduction test still fails after corrected patch",
+        );
+      } else {
+        record(
+          "PATCHING",
+          "Correction attempt did not produce a new candidate patch",
+        );
+      }
+    }
 
     // -------------------------
     // VERIFY FULL SUITE
