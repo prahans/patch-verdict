@@ -15,6 +15,9 @@ type ProofMetadata = {
   id: string;
   issue: string;
 
+  patchTarget?: string;
+  testEvidence?: string;
+
   source?: {
     repositoryUrl: string;
     baseCommit: string;
@@ -355,48 +358,28 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
     }
 
     if (!Array.isArray(integrity.violations)) {
-      invalid(
-        `${integrityLabel}.violations`,
-        "an array of strings",
-      );
+      invalid(`${integrityLabel}.violations`, "an array of strings");
     }
 
     if (!Array.isArray(integrity.reviewFlags)) {
-      invalid(
-        `${integrityLabel}.reviewFlags`,
-        "an array of strings",
-      );
+      invalid(`${integrityLabel}.reviewFlags`, "an array of strings");
     }
 
     if (!Array.isArray(integrity.protectedChangedFiles)) {
-      invalid(
-        `${integrityLabel}.protectedChangedFiles`,
-        "an array of strings",
-      );
+      invalid(`${integrityLabel}.protectedChangedFiles`, "an array of strings");
     }
 
     metadata.verificationIntegrity = {
       status: integrityStatus,
 
-      preserved: boolean(
-        integrity.preserved,
-        `${integrityLabel}.preserved`,
-      ),
+      preserved: boolean(integrity.preserved, `${integrityLabel}.preserved`),
 
       violations: integrity.violations.map((value, index) =>
-        string(
-          value,
-          `${integrityLabel}.violations[${index}]`,
-          true,
-        ),
+        string(value, `${integrityLabel}.violations[${index}]`, true),
       ),
 
       reviewFlags: integrity.reviewFlags.map((value, index) =>
-        string(
-          value,
-          `${integrityLabel}.reviewFlags[${index}]`,
-          true,
-        ),
+        string(value, `${integrityLabel}.reviewFlags[${index}]`, true),
       ),
 
       protectedChangedFiles: integrity.protectedChangedFiles.map(
@@ -427,13 +410,49 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       proof.investigation,
       "proof.json investigation",
     );
+
     metadata.iterations = number(
       investigation.iterations,
       "proof.json investigation.iterations",
       true,
     );
-    if (metadata.iterations < 0)
+
+    if (metadata.iterations < 0) {
       invalid("proof.json investigation.iterations", "a nonnegative integer");
+    }
+
+    if (investigation.diagnosis != null) {
+      const diagnosis = object(
+        investigation.diagnosis,
+        "proof.json investigation.diagnosis",
+      );
+
+      if (Array.isArray(diagnosis.recommendedPatchTargets)) {
+        const firstTarget = diagnosis.recommendedPatchTargets[0];
+
+        if (typeof firstTarget === "string" && firstTarget.trim()) {
+          metadata.patchTarget = firstTarget;
+        }
+      }
+
+      if (Array.isArray(diagnosis.evidence)) {
+        const testEvidence = diagnosis.evidence.find((item) => {
+          if (!item || typeof item !== "object" || Array.isArray(item)) {
+            return false;
+          }
+
+          return (item as Record<string, unknown>).kind === "TEST";
+        });
+
+        if (testEvidence) {
+          const source = (testEvidence as Record<string, unknown>).source;
+
+          if (typeof source === "string" && source.trim()) {
+            metadata.testEvidence = source;
+          }
+        }
+      }
+    }
   }
   if (proof.error != null)
     metadata.error = string(proof.error, "proof.json error");
@@ -651,6 +670,10 @@ export async function loadProofBundle(
       reproduction: proof.reproduction,
 
       fullSuite: proof.fullSuite,
+
+      sourcePath: proof.patchTarget,
+
+      testPath: proof.testEvidence ?? proof.reproduction.command,
 
       ...(proof.source && {
         source: proof.source,
