@@ -163,58 +163,64 @@ export async function runMission(
 
     record("PATCHING", "Candidate patch applied");
 
-    const gitEvidence = await getGitEvidence(sandbox);
+    async function capturePatchEvidence() {
+      const gitEvidence = await getGitEvidence(sandbox);
 
-    if (!gitEvidence.ok) {
-      throw new Error(`Could not capture Git evidence: ${gitEvidence.error}`);
-    }
+      if (!gitEvidence.ok) {
+        throw new Error(`Could not capture Git evidence: ${gitEvidence.error}`);
+      }
 
-    if (!gitEvidence.data.changed) {
-      throw new Error(
-        "AI reported a patch, but Git detected no repository changes.",
-      );
-    }
-
-    record(
-      "PATCHING",
-      `Git captured ${gitEvidence.data.changedFiles.length} changed file(s)`,
-    );
-
-    patchResult = {
-      applied: patch.patchApplied,
-      baseCommit: gitEvidence.data.baseCommit,
-      changedFiles: gitEvidence.data.changedFiles,
-      diff: gitEvidence.data.diff,
-    };
-
-    record("PATCHING", "Git diff captured");
-
-    verificationIntegrityResult = analyzeVerificationIntegrity({
-      changedFiles: gitEvidence.data.changedFiles,
-
-      diff: gitEvidence.data.diff,
-    });
-
-    checks.verificationIntegrityPreserved =
-      verificationIntegrityResult.preserved;
-
-    if (verificationIntegrityResult.status === "COMPROMISED") {
       record(
         "PATCHING",
-        `Verification integrity compromised: ${verificationIntegrityResult.violations.join(
-          " ",
-        )}`,
+        `Git captured ${gitEvidence.data.changedFiles.length} changed file(s)`,
       );
-    } else if (verificationIntegrityResult.status === "REVIEW_REQUIRED") {
-      record(
-        "PATCHING",
-        `Verification requires human review: ${verificationIntegrityResult.reviewFlags.join(
-          " ",
-        )}`,
-      );
-    } else {
-      record("PATCHING", "Verification integrity preserved");
+
+      patchResult = {
+        applied: gitEvidence.data.changed,
+        baseCommit: gitEvidence.data.baseCommit,
+        changedFiles: gitEvidence.data.changedFiles,
+        diff: gitEvidence.data.diff,
+      };
+
+      record("PATCHING", "Git diff captured");
+
+      verificationIntegrityResult = analyzeVerificationIntegrity({
+        changedFiles: gitEvidence.data.changedFiles,
+
+        diff: gitEvidence.data.diff,
+      });
+
+      checks.verificationIntegrityPreserved =
+        verificationIntegrityResult.preserved;
+
+      if (verificationIntegrityResult.status === "COMPROMISED") {
+        record(
+          "PATCHING",
+          `Verification integrity compromised: ${verificationIntegrityResult.violations.join(
+            " ",
+          )}`,
+        );
+      } else if (verificationIntegrityResult.status === "REVIEW_REQUIRED") {
+        record(
+          "PATCHING",
+          `Verification requires human review: ${verificationIntegrityResult.reviewFlags.join(
+            " ",
+          )}`,
+        );
+      } else {
+        record("PATCHING", "Verification integrity preserved");
+      }
+
+      if (!gitEvidence.data.changed) {
+        throw new Error(
+          "AI reported a patch, but Git detected no repository changes.",
+        );
+      }
+
+      return gitEvidence.data;
     }
+
+    const candidateEvidence = await capturePatchEvidence();
 
     // -------------------------
     // VERIFY TARGETED TEST
@@ -222,7 +228,7 @@ export async function runMission(
 
     record("VERIFYING", "Running reproduction test after patch");
 
-    const postPatchEvidence = await runVerificationCommand(
+    let postPatchEvidence = await runVerificationCommand(
       sandbox,
       input.projectRoot,
       input.verificationPlan.reproduction,
@@ -230,7 +236,7 @@ export async function runMission(
 
     evidence.postPatchTest = postPatchEvidence;
 
-    const reproductionPassesAfterPatch = postPatchEvidence.exitCode === 0;
+    let reproductionPassesAfterPatch = postPatchEvidence.exitCode === 0;
 
     checks.reproductionPassesAfterPatch = reproductionPassesAfterPatch;
 
@@ -240,6 +246,55 @@ export async function runMission(
         ? "Reproduction test passes after patch"
         : "Reproduction test still fails",
     );
+
+    // Allow one correction of the existing candidate using trusted test output.
+    if (!reproductionPassesAfterPatch) {
+      record(
+        "PATCHING",
+        "Reproduction failed; starting the single correction attempt",
+      );
+
+      const correction = await patchIssue(
+        sandbox,
+        input.issue,
+        {
+          report: investigationReport,
+          diagnosis: investigation.diagnosis,
+        },
+        {
+          command: postPatchEvidence.command,
+          exitCode: postPatchEvidence.exitCode,
+          stdout: postPatchEvidence.stdout,
+          stderr: postPatchEvidence.stderr,
+          candidateDiff: candidateEvidence.diff,
+        },
+      );
+
+      await capturePatchEvidence();
+
+      if (!correction.patchApplied) {
+        throw new Error("AI did not produce a real correction patch");
+      }
+
+      record("VERIFYING", "Running reproduction test after correction");
+
+      postPatchEvidence = await runVerificationCommand(
+        sandbox,
+        input.projectRoot,
+        input.verificationPlan.reproduction,
+      );
+
+      evidence.postPatchTest = postPatchEvidence;
+      reproductionPassesAfterPatch = postPatchEvidence.exitCode === 0;
+      checks.reproductionPassesAfterPatch = reproductionPassesAfterPatch;
+
+      record(
+        "VERIFYING",
+        reproductionPassesAfterPatch
+          ? "Reproduction test passes after correction"
+          : "Reproduction test still fails after correction; no correction attempts remain",
+      );
+    }
 
     // -------------------------
     // VERIFY FULL SUITE

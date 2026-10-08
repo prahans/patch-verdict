@@ -1,7 +1,7 @@
 {
   "command": "npm test",
-  "exitCode": 1,
-  "stdout": "\n> vite-test@0.0.0 test\n> vitest run\n\n\n RUN  v0.13.1 /tmp/patchverdict\n\n √ src/components/Counter.test.tsx  (2 tests) 166ms\n ❯ src/components/DarkMode.test.tsx  (3 tests | 1 failed) 17ms\n   ❯ src/components/DarkMode.test.tsx > toggles dark mode\n     → Cannot destructure property 'state' of 'useDarkModeContext(...)' as it is undefined.\n\n ❯ DarkMode src/components/DarkMode.tsx:5:17\n      3| \n      4| export const DarkMode: React.FC = () => {\n      5|   const { state: darkModeContext, dispatch: setDarkModeContext } =\n       |                 ^\n      6|     useDarkModeContext();\n      7|   const msg = darkModeContext.dark ? \"🌙 It's dark\" : \"🔆 It's light\";\n ❯ renderWithHooks node_modules/react-dom/cjs/react-dom.development.js:16175:18\n ❯ mountIndeterminateComponent node_modules/react-dom/cjs/react-dom.development.js:20913:13\n ❯ beginWork node_modules/react-dom/cjs/react-dom.development.js:22416:16\n ❯ beginWork$1 node_modules/react-dom/cjs/react-dom.development.js:27381:14\n ❯ performUnitOfWork node_modules/react-dom/cjs/react-dom.development.js:26516:12\n ❯ workLoopSync node_modules/react-dom/cjs/react-dom.development.js:26422:5\n ❯ renderRootSync node_modules/react-dom/cjs/react-dom.development.js:26390:7\n ❯ recoverFromConcurrentError node_modules/react-dom/cjs/react-dom.development.js:25806:20\n ❯ performSyncWorkOnRoot node_modules/react-dom/cjs/react-dom.development.js:26052:20\n\nTest Files  1 failed | 1 passed (2)\n     Tests  1 failed | 4 passed (5)\n      Time  1.80s (in thread 183ms, 984.23%)\n\n",
-  "stderr": "⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  src/components/DarkMode.test.tsx > toggles dark mode\nTypeError: Cannot destructure property 'state' of 'useDarkModeContext(...)' as it is undefined.\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯\n\n",
-  "durationMs": 2560
+  "exitCode": 0,
+  "stdout": "\n> vite-test@0.0.0 test\n> vitest run\n\n\n RUN  v0.13.1 /tmp/patchverdict\n\n √ src/components/Counter.test.tsx  (2 tests) 167ms\n √ src/components/DarkMode.test.tsx  (3 tests) 21ms\n\nTest Files  2 passed (2)\n     Tests  5 passed (5)\n      Time  1.97s (in thread 188ms, 1045.87%)\n\n",
+  "stderr": "",
+  "durationMs": 3730
 }

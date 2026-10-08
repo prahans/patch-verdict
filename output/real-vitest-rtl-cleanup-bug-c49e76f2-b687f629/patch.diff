@@ -1,22 +1,11 @@
-diff --git a/src/components/DarkMode.test.tsx b/src/components/DarkMode.test.tsx
-index c62f423..b9b6820 100644
---- a/src/components/DarkMode.test.tsx
-+++ b/src/components/DarkMode.test.tsx
-@@ -4,6 +4,7 @@ import { renderWithContext } from "../utils/test-utils";
- import { useDarkModeContext } from "../context/DarkModeContext";
- import { MockedFunction } from "vitest";
- import userEvent from "@testing-library/user-event";
-+import { afterEach } from "vitest";
+diff --git a/vitest.setup.ts b/vitest.setup.ts
+index b8500db..f6e1313 100644
+--- a/vitest.setup.ts
++++ b/vitest.setup.ts
+@@ -6,3 +6,6 @@ declare global {
  
- vi.mock("../context/DarkModeContext", async () => {
-   const actual = await vi.importActual<
-@@ -19,6 +20,9 @@ const mockedUseDarkModeContext = useDarkModeContext as MockedFunction<
-   typeof useDarkModeContext
- >;
+ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
  
-+afterEach(cleanup);
-+afterEach(() => vi.resetAllMocks());
++import { cleanup } from "@testing-library/react";
 +
- describe("displays current dark mode", () => {
-   test("light", () => {
-     mockedUseDarkModeContext.mockReturnValueOnce({
++afterEach(cleanup);
