@@ -1,12 +1,11 @@
 diff --git a/src/average.js b/src/average.js
-index 4e195e0..d6cf89e 100644
+index 4e195e0..1302924 100644
 --- a/src/average.js
 +++ b/src/average.js
-@@ -5,6 +5,5 @@ export function average(numbers) {
- 
+@@ -6,5 +6,5 @@ export function average(numbers) {
    const sum = numbers.reduce((total, number) => total + number, 0);
  
--  // BUG
+   // BUG
 -  return sum + numbers.length;
 +  return sum / numbers.length;
  }

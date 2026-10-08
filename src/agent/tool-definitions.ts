@@ -157,7 +157,6 @@ export const patchToolDefinitions = [
       },
     },
   },
-
   {
     type: "function" as const,
 
@@ -165,7 +164,7 @@ export const patchToolDefinitions = [
       name: "apply_patch",
 
       description:
-        "Replace the contents of one repository file with a candidate fixed version.",
+        "Replace exactly one existing text region in a repository file with new text. Use the smallest exact replacement needed for the repair.",
 
       parameters: {
         type: "object",
@@ -173,14 +172,24 @@ export const patchToolDefinitions = [
         properties: {
           path: {
             type: "string",
+            description: "Repository-relative path of the file to modify.",
           },
 
-          content: {
+          oldText: {
             type: "string",
+            minLength: 1,
+            description:
+              "Exact existing text to replace. It must occur exactly once in the file.",
+          },
+
+          newText: {
+            type: "string",
+            description:
+              "Replacement text. May be empty when intentionally deleting the matched text.",
           },
         },
 
-        required: ["path", "content"],
+        required: ["path", "oldText", "newText"],
 
         additionalProperties: false,
       },

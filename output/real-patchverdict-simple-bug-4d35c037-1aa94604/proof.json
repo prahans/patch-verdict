@@ -40,14 +40,19 @@
     }
   },
   "investigation": {
-    "iterations": 4,
+    "iterations": 6,
     "diagnosis": {
-      "rootCause": "The average function incorrectly computes sum + numbers.length instead of sum / numbers.length.",
+      "rootCause": "The average function incorrectly adds the array length to the sum instead of dividing the sum by the array length.",
       "evidence": [
         {
           "kind": "FILE",
           "source": "src/average.js",
-          "observation": "The function returns sum + numbers.length instead of dividing the sum by the array length. The comment 'BUG' confirms this is a known issue."
+          "observation": "The return statement is 'return sum + numbers.length;' which adds length instead of dividing by length."
+        },
+        {
+          "kind": "TEST",
+          "source": "npm test",
+          "observation": "Test failures show outputs that equal sum + length: 63 for [10,20,30], 101 for [100], 3 for [-10,0,10]."
         }
       ],
       "relevantFiles": [
@@ -60,7 +65,7 @@
         {
           "path": "src/average.js",
           "decision": "RECOMMEND",
-          "reason": "This location directly implements the average calculation, and changing the arithmetic operator from '+' to '/' addresses the exact root cause."
+          "reason": "This file contains the buggy implementation where sum + numbers.length should be sum / numbers.length."
         }
       ],
       "confidence": "HIGH"

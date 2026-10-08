@@ -10,7 +10,9 @@ const PROJECT_ROOT = "/tmp/patchverdict";
 const ApplyPatchInputSchema = z.object({
   path: z.string().min(1).max(500),
 
-  content: z.string().max(50_000),
+  oldText: z.string().min(1).max(50_000),
+
+  newText: z.string().max(50_000),
 });
 
 type ApplyPatchOutput = {
@@ -45,25 +47,43 @@ export async function applyPatchTool(
 
     const before = await readSandboxFile(sandbox, safePath);
 
-    if (before === parsed.content) {
+    const lineEnding = before.includes("\r\n") ? "\r\n" : "\n";
+
+    const oldText = parsed.oldText.replace(/\r?\n/g, lineEnding);
+    const newText = parsed.newText.replace(/\r?\n/g, lineEnding);
+
+    const occurrences = before.split(oldText).length - 1;
+
+    if (occurrences === 0) {
+      return {
+        ok: false,
+        error:
+          "oldText was not found exactly in the target file. Read the file again and copy the smallest exact existing code region.",
+      };
+    }
+
+    if (occurrences > 1) {
+      return {
+        ok: false,
+        error: `Expected oldText to match exactly once, but found ${occurrences} matches. Use a slightly larger unique code region.`,
+      };
+    }
+
+    if (oldText === newText) {
       return {
         ok: true,
         data: {
           path: parsed.path,
           changed: false,
           before,
-          after: parsed.content,
+          after: before,
         },
       };
     }
 
-    const usesCrlf = before.includes("\r\n");
+    const updatedContent = before.replace(oldText, newText);
 
-    const normalizedContent = usesCrlf
-      ? parsed.content.replace(/\r?\n/g, "\r\n")
-      : parsed.content.replace(/\r\n/g, "\n");
-
-    await writeSandboxFile(sandbox, safePath, normalizedContent);
+    await writeSandboxFile(sandbox, safePath, updatedContent);
 
     const after = await readSandboxFile(sandbox, safePath);
 
