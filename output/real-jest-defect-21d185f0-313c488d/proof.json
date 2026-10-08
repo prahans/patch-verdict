@@ -42,19 +42,19 @@
     }
   },
   "investigation": {
-    "iterations": 6,
+    "iterations": 8,
     "diagnosis": {
-      "rootCause": "Importing node:stream/web in jest.setup.js is incompatible with the jsdom test environment, triggering a bug in Jest 30's protectProperties logic that results in ERR_INVALID_THIS during core module loading.",
+      "rootCause": "The jest-environment-jsdom does not properly support Node.js core module 'node:stream/web' during initialization. When jest.setup.js imports this module, it triggers internal Node.js stream implementation that fails due to an invalid 'this' context in the JSDOM environment, causing the test environment to crash before tests can run.",
       "evidence": [
         {
           "kind": "FILE",
           "source": "jest.setup.js",
-          "observation": "Contains require('node:stream/web'), which attempts to load a Node.js core module in a Jest setup file."
+          "observation": "Contains require('node:stream/web'), which directly triggers the crash during Jest initialization as shown in the baseline error."
         },
         {
           "kind": "FILE",
           "source": "jest.config.js",
-          "observation": "Sets testEnvironment to 'jest-environment-jsdom', a browser-like environment that lacks full support for Node.js core modules such as node:stream/web."
+          "observation": "Specifies testEnvironment: \"jest-environment-jsdom\", which lacks proper support for Node.js core stream/web APIs, leading to the invalid 'this' error during module initialization."
         }
       ],
       "relevantFiles": [
@@ -68,11 +68,17 @@
         {
           "path": "jest.setup.js",
           "decision": "RECOMMEND",
-          "reason": "Removing or conditionally excluding the node:stream/web import in jest.setup.js directly addresses the root cause by preventing the incompatible module load under jsdom."
+          "reason": "This location directly contains the import that triggers the crash. Removing or conditionally excluding the 'node:stream/web' import would prevent the environment initialization failure."
         }
       ],
       "confidence": "HIGH"
-    }
+    },
+    "inspectedFiles": [
+      "jest.config.js",
+      "jest.setup.js",
+      "package.json",
+      "test.test.js"
+    ]
   },
   "patch": {
     "applied": true,

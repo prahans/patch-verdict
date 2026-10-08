@@ -146,6 +146,22 @@ ${JSON.stringify(verificationFeedback, null, 2)}`
 
       console.log(`→ ${toolName}`);
 
+      if (
+        toolName === "apply_patch" &&
+        typeof input === "object" &&
+        input !== null
+      ) {
+        const patchInput = input as {
+          path?: unknown;
+          oldText?: unknown;
+          newText?: unknown;
+        };
+
+        console.log("  path:", patchInput.path);
+        console.log("  oldText:", JSON.stringify(patchInput.oldText));
+        console.log("  newText:", JSON.stringify(patchInput.newText));
+      }
+
       let result;
 
       try {

@@ -179,6 +179,33 @@ describe("assertInvestigationProvenance", () => {
     ).not.toThrow();
   });
 
+  it("accepts TEST evidence from an actually executed targeted command", () => {
+    const testEvidenceDiagnosis = {
+      ...diagnosis,
+
+      evidence: [
+        ...diagnosis.evidence,
+
+        {
+          kind: "TEST" as const,
+          source: 'npx vitest run -t "DarkMode"',
+          observation:
+            "The targeted test command reproduced the observed failure.",
+        },
+      ],
+    };
+
+    expect(() =>
+      assertInvestigationProvenance(testEvidenceDiagnosis, {
+        inspectedFiles: ["vitest.setup.ts"],
+
+        executedTests: ["DarkMode", 'npx vitest run -t "DarkMode"'],
+
+        searchQueries: [],
+      }),
+    ).not.toThrow();
+  });
+
   it("rejects relevant files without FILE evidence", () => {
     const missingFileEvidenceDiagnosis = {
       rootCause: "Shared cleanup is missing.",

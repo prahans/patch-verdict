@@ -37,6 +37,22 @@ function getInputString(input: unknown, key: string) {
   return typeof value === "string" ? value.trim() : undefined;
 }
 
+function getResultDataString(result: unknown, key: string) {
+  if (typeof result !== "object" || result === null || !("data" in result)) {
+    return undefined;
+  }
+
+  const data = (result as { data?: unknown }).data;
+
+  if (typeof data !== "object" || data === null) {
+    return undefined;
+  }
+
+  const value = (data as Record<string, unknown>)[key];
+
+  return typeof value === "string" ? value.trim() : undefined;
+}
+
 async function parseFinalInvestigation(
   messages: ChatMessages[],
   content: unknown,
@@ -322,6 +338,8 @@ Do not invent paths or evidence.
         iterations: iteration,
         report: structured.report,
         diagnosis: structured.diagnosis,
+
+        inspectedFiles: [...inspectedFiles].sort(),
       };
     }
 
@@ -489,6 +507,12 @@ Do not invent paths or evidence.
           if (testName) {
             executedTests.add(testName);
           }
+
+          const executedCommand = getResultDataString(result, "command");
+
+          if (executedCommand) {
+            executedTests.add(executedCommand);
+          }
         }
 
         if (toolName === "search_code") {
@@ -573,5 +597,7 @@ Do not invent paths or evidence.
     report: structured.report,
 
     diagnosis: structured.diagnosis,
+
+    inspectedFiles: [...inspectedFiles].sort(),
   };
 }

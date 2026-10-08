@@ -398,7 +398,10 @@ summary,
 }
 .mission-facts {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 2fr) repeat(2, minmax(0, 0.8fr));
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 2fr) repeat(
+      2,
+      minmax(0, 0.8fr)
+    );
   padding: 19px 0;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
@@ -913,11 +916,12 @@ summary,
 }
 .report-references > div {
   display: grid;
-  grid-template-columns: 47px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 12px;
 }
 .report-references dt {
   color: var(--muted);
+  white-space: nowrap;
 }
 .report-references dd {
   display: flex;

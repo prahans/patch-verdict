@@ -117,6 +117,8 @@ export async function writeProofBundle({
           iterations: result.investigation.iterations,
 
           diagnosis: result.investigation.diagnosis,
+
+          inspectedFiles: result.investigation.inspectedFiles,
         }
       : null,
 

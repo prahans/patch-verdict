@@ -50,6 +50,8 @@ export type MissionResult = {
     iterations: number;
 
     diagnosis: InvestigationDiagnosis;
+
+    inspectedFiles: string[];
   };
 
   patch?: {

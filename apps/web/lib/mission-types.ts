@@ -76,6 +76,7 @@ export type MissionDetails = {
   repository?: string;
   sourcePath?: string;
   testPath?: string;
+  testCommand?: string;
 };
 
 export type MissionViewModel = {

@@ -17,6 +17,7 @@ type ProofMetadata = {
 
   patchTarget?: string;
   testEvidence?: string;
+  inspectedFiles?: string[];
 
   source?: {
     repositoryUrl: string;
@@ -421,6 +422,24 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       invalid("proof.json investigation.iterations", "a nonnegative integer");
     }
 
+    if (investigation.inspectedFiles !== undefined) {
+      if (!Array.isArray(investigation.inspectedFiles)) {
+        invalid(
+          "proof.json investigation.inspectedFiles",
+          "an array of repository-relative file paths",
+        );
+      }
+
+      metadata.inspectedFiles = investigation.inspectedFiles.map(
+        (value, index) =>
+          string(
+            value,
+            `proof.json investigation.inspectedFiles[${index}]`,
+            true,
+          ),
+      );
+    }
+
     if (investigation.diagnosis != null) {
       const diagnosis = object(
         investigation.diagnosis,
@@ -558,6 +577,15 @@ async function readOptional<T>(
   }
 }
 
+function isTestFile(filePath: string) {
+  const normalized = filePath.replace(/\\/g, "/");
+
+  return (
+    /(^|\/)(__tests__|tests?|specs?)(\/|$)/i.test(normalized) ||
+    /\.(test|spec)\.[^/]+$/i.test(normalized)
+  );
+}
+
 export async function loadProofBundle(
   missionId: string,
 ): Promise<MissionViewModel> {
@@ -658,6 +686,8 @@ export async function loadProofBundle(
     (proof.status === "FAILED" ? lastFailure?.message : undefined);
   if (error !== undefined) mission.error = error;
 
+  const testFile = proof.inspectedFiles?.find(isTestFile);
+
   return {
     mission,
     details: {
@@ -673,7 +703,9 @@ export async function loadProofBundle(
 
       sourcePath: proof.patchTarget,
 
-      testPath: proof.testEvidence ?? proof.reproduction.command,
+      testPath: testFile,
+
+      testCommand: proof.reproduction.command,
 
       ...(proof.source && {
         source: proof.source,

@@ -141,6 +141,8 @@ export async function runMission(
       iterations: investigation.iterations,
 
       diagnosis: investigation.diagnosis,
+
+      inspectedFiles: investigation.inspectedFiles,
     };
 
     record("INVESTIGATING", "AI investigation completed");

@@ -85,7 +85,7 @@ export function InvestigationReport({
   details,
 }: {
   investigation: MissionResult["investigation"];
-  details: Pick<MissionDetails, "sourcePath" | "testPath">;
+  details: Pick<MissionDetails, "sourcePath" | "testPath" | "testCommand">;
 }) {
   return (
     <section
@@ -111,16 +111,31 @@ export function InvestigationReport({
         <dl className="report-references">
           <div>
             <dt>Source</dt>
+
             <dd>
               <Icon name="file" width="14" height="14" />
+
               <code>{details.sourcePath ?? "Not recorded"}</code>
             </dd>
           </div>
+
           <div>
-            <dt>Test</dt>
+            <dt>Test file</dt>
+
             <dd>
               <Icon name="file" width="14" height="14" />
+
               <code>{details.testPath ?? "Not recorded"}</code>
+            </dd>
+          </div>
+
+          <div>
+            <dt>Test command</dt>
+
+            <dd>
+              <Icon name="terminal" width="14" height="14" />
+
+              <code>{details.testCommand ?? "Not recorded"}</code>
             </dd>
           </div>
         </dl>
