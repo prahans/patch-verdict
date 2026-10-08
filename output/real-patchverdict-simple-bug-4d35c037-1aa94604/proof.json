@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "mission": {
+    "id": "real-patchverdict-simple-bug-4d35c037-1aa94604",
+    "issue": "The average function returns incorrect results. average([10, 20, 30]) should return 20, average([100]) should return 100, and the implementation should correctly compute the arithmetic mean while preserving the empty-array behavior.",
+    "source": {
+      "repositoryUrl": "https://github.com/prahans/patchverdict-simple-bug.git",
+      "baseCommit": "4d35c037b298c9b7469645c318c38fb641fd1a27"
+    },
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npm test"
+    },
+    "verificationIntegrity": {
+      "status": "PRESERVED",
+      "preserved": true,
+      "violations": [],
+      "reviewFlags": [],
+      "protectedChangedFiles": []
+    },
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
+  },
+  "status": "COMPLETED",
+  "verdict": "VERIFIED",
+  "checks": {
+    "bugReproducedBeforePatch": true,
+    "verificationIntegrityPreserved": true,
+    "reproductionPassesAfterPatch": true,
+    "fullSuitePassesAfterPatch": true
+  },
+  "reproduction": {
+    "reproduced": true,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [],
+      "presentForbiddenOutput": []
+    }
+  },
+  "investigation": {
+    "iterations": 4,
+    "diagnosis": {
+      "rootCause": "The average function incorrectly computes sum + numbers.length instead of sum / numbers.length.",
+      "evidence": [
+        {
+          "kind": "FILE",
+          "source": "src/average.js",
+          "observation": "The function returns sum + numbers.length instead of dividing the sum by the array length. The comment 'BUG' confirms this is a known issue."
+        }
+      ],
+      "relevantFiles": [
+        "src/average.js"
+      ],
+      "recommendedPatchTargets": [
+        "src/average.js"
+      ],
+      "patchTargetAnalysis": [
+        {
+          "path": "src/average.js",
+          "decision": "RECOMMEND",
+          "reason": "This location directly implements the average calculation, and changing the arithmetic operator from '+' to '/' addresses the exact root cause."
+        }
+      ],
+      "confidence": "HIGH"
+    }
+  },
+  "patch": {
+    "applied": true,
+    "baseCommit": "4d35c037b298c9b7469645c318c38fb641fd1a27",
+    "changedFiles": [
+      "src/average.js"
+    ]
+  },
+  "artifacts": {
+    "patch": "patch.diff",
+    "investigation": "investigation.md",
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": "evidence/post-patch-test.json",
+      "fullSuite": "evidence/full-suite.json"
+    }
+  }
+}

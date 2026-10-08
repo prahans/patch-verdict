@@ -1,0 +1,49 @@
+{
+  "version": 2,
+  "mission": {
+    "id": "real-patchverdict-simple-bug-2e650ea7-1aa94604",
+    "issue": "The average function returns incorrect results. average([10, 20, 30]) should return 20, average([100]) should return 100, and the implementation should correctly compute the arithmetic mean while preserving the empty-array behavior.",
+    "source": {
+      "repositoryUrl": "https://github.com/prahans/patchverdict-simple-bug.git",
+      "baseCommit": "2e650ea7838bfa6b62a46780c5887fc82580fcba"
+    },
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npm test"
+    },
+    "verificationIntegrity": null,
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
+  },
+  "status": "FAILED",
+  "verdict": null,
+  "checks": {
+    "bugReproducedBeforePatch": false
+  },
+  "reproduction": {
+    "reproduced": false,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [
+        "expected"
+      ],
+      "presentForbiddenOutput": [
+        "Startup Error"
+      ]
+    }
+  },
+  "investigation": null,
+  "patch": null,
+  "artifacts": {
+    "patch": null,
+    "investigation": null,
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": null,
+      "fullSuite": null
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "command": "npm test",
+  "exitCode": 1,
+  "stdout": "\n> patchverdict-simple-bug@1.0.0 test\n> vitest run\n\n",
+  "stderr": "\n\u001b[31m⎯⎯⎯⎯⎯⎯⎯\u001b[39m\u001b[1m\u001b[41m Startup Error \u001b[49m\u001b[22m\u001b[31m⎯⎯⎯⎯⎯⎯⎯⎯\u001b[39m\nfile:///tmp/patchverdict/node_modules/rolldown/dist/shared/create-bundler-option-2b9QJDoZ.mjs:8\nimport { formatWithOptions, styleText } from \"node:util\";\n                            ^^^^^^^^^\nSyntaxError: The requested module 'node:util' does not provide an export named 'styleText'\n    at ModuleJob._instantiate (node:internal/modules/esm/module_job:131:21)\n    at async ModuleJob.run (node:internal/modules/esm/module_job:213:5)\n    at async ModuleLoader.import (node:internal/modules/esm/loader:316:24)\n    at async start (file:///tmp/patchverdict/node_modules/vitest/dist/chunks/cac.DfDGTQ9W.js:2369:27)\n    at async CAC.run (file:///tmp/patchverdict/node_modules/vitest/dist/chunks/cac.DfDGTQ9W.js:2346:2)\n\n\n\n",
+  "durationMs": 711
+}

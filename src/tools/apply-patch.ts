@@ -57,7 +57,13 @@ export async function applyPatchTool(
       };
     }
 
-    await writeSandboxFile(sandbox, safePath, parsed.content);
+    const usesCrlf = before.includes("\r\n");
+
+    const normalizedContent = usesCrlf
+      ? parsed.content.replace(/\r?\n/g, "\r\n")
+      : parsed.content.replace(/\r\n/g, "\n");
+
+    await writeSandboxFile(sandbox, safePath, normalizedContent);
 
     const after = await readSandboxFile(sandbox, safePath);
 
