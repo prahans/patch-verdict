@@ -17,6 +17,7 @@ import {
 import { messageContentToText } from "./message-content.js";
 import { assertInvestigationProvenance } from "./investigation-provenance.js";
 import type { InvestigationBaselineContext } from "./investigation-context.js";
+import { ensureTrustedBaselineEvidence } from "./investigation-baseline-evidence.js";
 import { assertPatchTargetAnalysis } from "./investigation-targeting.js";
 import { assertPatchIntentContract } from "./investigation-intents.js";
 import { assertFailureScopeAnalysis } from "./investigation-scope.js";
@@ -354,9 +355,14 @@ Use list_files or search_code when necessary, then read_file the files that supp
         continue;
       }
 
-      const structured = await parseFinalInvestigation(
+      const parsedStructured = await parseFinalInvestigation(
         messages,
         message.content,
+      );
+
+      const structured = ensureTrustedBaselineEvidence(
+        parsedStructured,
+        baseline,
       );
 
       try {
@@ -743,9 +749,9 @@ Return only the final structured JSON.
 
   messages.push(finalMessage);
 
-  let structured = await parseFinalInvestigation(
-    messages,
-    finalMessage.content,
+  let structured = ensureTrustedBaselineEvidence(
+    await parseFinalInvestigation(messages, finalMessage.content),
+    baseline,
   );
 
   const finalizationContext = {
@@ -820,9 +826,9 @@ Return only corrected structured JSON.
 
     messages.push(repairMessage);
 
-    structured = await parseFinalInvestigation(
-      messages,
-      repairMessage.content,
+    structured = ensureTrustedBaselineEvidence(
+      await parseFinalInvestigation(messages, repairMessage.content),
+      baseline,
     );
 
     /*
