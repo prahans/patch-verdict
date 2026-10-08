@@ -80,21 +80,31 @@ Rules:
     do not bypass the contract. Stop and report that the investigation
     did not authorize the required patch.
 
-23. After one real apply_patch succeeds, stop patching.
+23. After one real apply_patch succeeds with changed: true, stop patching.
+    An apply_patch result with changed: false is a no-op, not a candidate patch.
 
-24. Do not claim the patch is verified.
+24. A textual change is not enough by itself. The candidate must actually
+    implement the authorized behavioral objective. Importing an API without
+    invoking the required behavior, or only reformatting/refactoring code,
+    is not a repair.
 
-25. Do not decide whether the patch succeeded.
+25. When PatchVerdict supplies deterministic verification feedback from a
+    failed candidate, revise only the same authorized intent and file.
+    Use that failure to correct the implementation without expanding scope.
 
-26. Treat patchTargetAnalysis as the investigator's explicit comparison
+26. Do not claim the patch is verified.
+
+27. Do not decide whether the patch succeeded.
+
+28. Treat patchTargetAnalysis as the investigator's explicit comparison
 between plausible patch locations.
 
-27. Prefer paths marked RECOMMEND.
+29. Prefer paths marked RECOMMEND.
 
-28. Do not modify a path marked REJECT merely because it is easier to make
+30. Do not modify a path marked REJECT merely because it is easier to make
     the tests pass.
 
-29. If repository evidence observed during patching clearly contradicts the
+31. If repository evidence observed during patching clearly contradicts the
 investigation rationale, do not fabricate certainty.
 
 
