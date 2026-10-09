@@ -32,12 +32,12 @@ export function MissionHeader({ verdict }: { verdict: MissionResult["verdict"] }
         </div>
         <div className="mission-header-actions">
           <Link href="/#verify" className="new-mission-link">New mission <span aria-hidden="true">↗</span></Link>
-        <span
-          className={`verdict-badge ${verdictClass}`}
-          aria-label={`Verdict: ${verdict === "REVIEW_REQUIRED" ? "Human review required" : verdict ?? "Unavailable"}`}
-        >
-          <Icon name={verdictIcon} width="15" height="15" />{verdict ?? "UNAVAILABLE"}
-        </span>
+          <span
+            className={`verdict-badge ${verdictClass}`}
+            aria-label={`Verdict: ${verdict === "REVIEW_REQUIRED" ? "Human review required" : verdict ?? "Unavailable"}`}
+          >
+            <Icon name={verdictIcon} width="15" height="15" />{verdict ?? "UNAVAILABLE"}
+          </span>
         </div>
       </div>
     </header>

@@ -15,7 +15,8 @@ import { resolveRepositoryRoot } from "@/lib/repository-root";
 
 export const metadata: Metadata = {
   title: "PatchVerdict — Every patch earns its verdict.",
-  description: "Reproduce the bug, investigate a bounded repair, and verify the evidence. Every AI patch earns a deterministic verdict backed by a saved proof bundle.",
+  description:
+    "Reproduce the bug, investigate a bounded repair, and verify the evidence. Every AI patch earns a deterministic verdict backed by a saved proof bundle.",
 };
 
 // Only offer a real, readable mission on this installation. Never link a fixture
@@ -23,9 +24,14 @@ export const metadata: Metadata = {
 async function findProofExample(): Promise<string | null> {
   try {
     const root = await resolveRepositoryRoot();
-    const entries = await readdir(path.join(root, "output"), { withFileTypes: true });
+    const entries = await readdir(path.join(root, "output"), {
+      withFileTypes: true,
+    });
     const candidates = entries
-      .filter((entry) => entry.isDirectory() && /^real-[A-Za-z0-9_-]+$/.test(entry.name))
+      .filter(
+        (entry) =>
+          entry.isDirectory() && /^real-[A-Za-z0-9_-]+$/.test(entry.name),
+      )
       .map((entry) => entry.name)
       .sort();
     let fallback: string | null = null;
@@ -51,7 +57,9 @@ export default async function Home() {
 
   return (
     <div id="top" className="landing-page">
-      <a className="skip-link" href="#verify">Skip to verification form</a>
+      <a className="skip-link" href="#verify">
+        Skip to verification form
+      </a>
       <LandingHeader />
       <main className="landing-shell">
         <div className="landing-intro">
@@ -59,9 +67,18 @@ export default async function Home() {
           <MissionLauncher />
         </div>
         <div className="landing-pipeline" aria-label="Verification process">
-          {["REPRODUCE", "INVESTIGATE", "PATCH", "VERIFY", "VERDICT"].map((phase, index) => (
-            <span key={phase}>{index > 0 && <span className="pipeline-arrow" aria-hidden="true">→</span>}{phase}</span>
-          ))}
+          {["REPRODUCE", "INVESTIGATE", "PATCH", "VERIFY", "VERDICT"].map(
+            (phase, index) => (
+              <span key={phase}>
+                {index > 0 && (
+                  <span className="pipeline-arrow" aria-hidden="true">
+                    →
+                  </span>
+                )}
+                {phase}
+              </span>
+            ),
+          )}
         </div>
         <Workflow />
         <VerdictCards />

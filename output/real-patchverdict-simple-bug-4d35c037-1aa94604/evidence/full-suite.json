@@ -1,7 +1,7 @@
 {
   "command": "npm test",
   "exitCode": 0,
-  "stdout": "\n> patchverdict-simple-bug@1.0.0 test\n> vitest run\n\n\n RUN  v3.2.4 /tmp/patchverdict\n\n ✓ src/average.test.js (4 tests) 2ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  01:05:06\n   Duration  238ms (transform 25ms, setup 0ms, collect 27ms, tests 2ms, environment 0ms, prepare 79ms)\n\n",
+  "stdout": "\n> patchverdict-simple-bug@1.0.0 test\n> vitest run\n\n\n RUN  v3.2.4 /tmp/patchverdict\n\n ✓ src/average.test.js (4 tests) 3ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  06:09:30\n   Duration  321ms (transform 52ms, setup 0ms, collect 35ms, tests 3ms, environment 0ms, prepare 121ms)\n\n",
   "stderr": "",
-  "durationMs": 1209
+  "durationMs": 2087
 }

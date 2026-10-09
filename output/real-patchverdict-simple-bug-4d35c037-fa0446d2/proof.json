@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "mission": {
+    "id": "real-patchverdict-simple-bug-4d35c037-fa0446d2",
+    "issue": "it is not printing expected output",
+    "source": {
+      "repositoryUrl": "https://github.com/prahans/patchverdict-simple-bug.git",
+      "baseCommit": "4d35c037b298c9b7469645c318c38fb641fd1a27"
+    },
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npm test"
+    },
+    "verificationIntegrity": null,
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
+  },
+  "status": "FAILED",
+  "verdict": null,
+  "checks": {
+    "bugReproducedBeforePatch": false
+  },
+  "reproduction": {
+    "reproduced": false,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [
+        "wrong output"
+      ],
+      "presentForbiddenOutput": []
+    }
+  },
+  "investigation": null,
+  "patch": null,
+  "artifacts": {
+    "patch": null,
+    "investigation": null,
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": null,
+      "fullSuite": null
+    }
+  }
+}

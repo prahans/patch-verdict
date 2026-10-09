@@ -40,14 +40,14 @@
     }
   },
   "investigation": {
-    "iterations": 3,
+    "iterations": 7,
     "diagnosis": {
-      "rootCause": "The average function returns sum + numbers.length instead of sum / numbers.length, causing it to add the array length to the sum instead of dividing the sum by the array length.",
+      "rootCause": "The average function incorrectly returns sum + numbers.length instead of sum / numbers.length, causing all non-empty-array cases to compute incorrect results.",
       "evidence": [
         {
           "kind": "FILE",
           "source": "src/average.js",
-          "observation": "Line 9 contains 'return sum + numbers.length;' which uses addition instead of division, directly causing all observed test failures."
+          "observation": "The return statement is 'return sum + numbers.length;', which adds array length instead of dividing sum by length to compute the arithmetic mean."
         }
       ],
       "relevantFiles": [
@@ -60,7 +60,7 @@
         {
           "path": "src/average.js",
           "decision": "RECOMMEND",
-          "reason": "This location directly addresses the diagnosed root cause by changing the incorrect arithmetic operation (addition) to the correct one (division)."
+          "reason": "This location contains the buggy return statement that needs to be changed from sum + numbers.length to sum / numbers.length to correctly compute the average."
         }
       ],
       "confidence": "HIGH"
