@@ -2,6 +2,7 @@ import "server-only";
 
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
+import { resolveRepositoryRoot } from "./repository-root";
 import type {
   CommandEvidence,
   MissionEvent,
@@ -594,8 +595,7 @@ export async function loadProofBundle(
       "Invalid mission ID. Use only letters, digits, underscores, and hyphens.",
     );
   }
-  // Next is launched from apps/web. Keep this portable across development machines.
-  const repositoryRoot = await realpath(path.resolve(process.cwd(), "../.."));
+  const repositoryRoot = await resolveRepositoryRoot();
   let directory: string;
   try {
     const outputDirectory = await realpath(path.join(repositoryRoot, "output"));

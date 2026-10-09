@@ -10,7 +10,7 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     return specifier === "server-only"
       ? { url: "data:text/javascript,export {};", shortCircuit: true }
-      : nextResolve(specifier, context);
+      : nextResolve(specifier.startsWith(".") && !path.extname(specifier) ? specifier + ".ts" : specifier, context);
   },
 });
 const { loadProofBundle } = await import("../lib/load-proof-bundle.ts");
@@ -66,7 +66,11 @@ beforeEach(async () => {
   fixtureRoot = await mkdtemp(path.join(testsDirectory, ".proof-loader-"));
   const appDirectory = path.join(fixtureRoot, "apps", "web");
   bundleDirectory = path.join(fixtureRoot, "output", missionId);
-  await Promise.all([mkdir(appDirectory, { recursive: true }), mkdir(bundleDirectory, { recursive: true })]);
+  await Promise.all([mkdir(appDirectory, { recursive: true }), mkdir(bundleDirectory, { recursive: true }), mkdir(path.join(fixtureRoot, "src"))]);
+  await Promise.all([
+    writeFile(path.join(fixtureRoot, "package.json"), JSON.stringify({ name: "patch-verdict" })),
+    writeFile(path.join(fixtureRoot, "src", "real-mission-demo.ts"), "// repository marker"),
+  ]);
   process.chdir(appDirectory);
   await Promise.all([writeArtifact("proof.json", proof()), writeArtifact("events.json", events)]);
 });
@@ -97,6 +101,9 @@ test("normalizes real fields and preserves artifact contents and raw durations",
     description: "Expected behavior:\nThrow an error.",
     reproduction: proof().mission.reproduction,
     fullSuite: proof().mission.fullSuite,
+    sourcePath: undefined,
+    testPath: undefined,
+    testCommand: proof().mission.reproduction.command,
   });
   assert.equal(result.mission.status, "COMPLETED");
   assert.equal(result.mission.verdict, "VERIFIED");
