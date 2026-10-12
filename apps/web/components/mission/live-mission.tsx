@@ -76,6 +76,7 @@ export function LiveMission({
   const router = useRouter();
   const [status, setStatus] = useState(initialStatus);
   const [pollError, setPollError] = useState<string | null>(null);
+  const [timingNoticeDismissed, setTimingNoticeDismissed] = useState(false);
   const missionId = initialStatus.missionId;
 
   useEffect(() => {
@@ -143,7 +144,8 @@ export function LiveMission({
   }, [initialStatus.proofReady, initialStatus.status, missionId, router]);
 
   const failed = status.status === "FAILED" && !status.proofReady;
-  const active = !failed && !status.proofReady;
+  const active = (status.status === "QUEUED" || status.status === "RUNNING") &&
+    !status.proofReady && status.phase !== "COMPLETED" && status.phase !== "FAILED";
   const chain = buildLiveProofChain(status);
 
   return (
@@ -228,10 +230,28 @@ export function LiveMission({
                   : status.proofReady
                     ? "Proof bundle recorded. Loading its evidence…"
                     : phaseCopy[status.phase]}
+                {active && <span className="live-terminal-cursor" aria-hidden="true" />}
               </p>
             </div>
           </div>
         </section>
+        {active && !timingNoticeDismissed && (
+          <aside className="panel live-mission-notice" role="status">
+            <Icon name="activity" />
+            <div>
+              <p className="live-mission-notice-title">Real verification is running</p>
+              <p>Repository setup, AI investigation and tests may take a few minutes. Live evidence will appear as it is saved.</p>
+            </div>
+            <button
+              className="live-mission-notice-close"
+              type="button"
+              aria-label="Dismiss mission timing notice"
+              onClick={() => setTimingNoticeDismissed(true)}
+            >
+              <Icon name="x" width="16" height="16" />
+            </button>
+          </aside>
+        )}
         {pollError && (
           <aside className="panel live-poll-notice" role="status">
             <Icon name="warning" />
@@ -252,25 +272,7 @@ export function LiveMission({
         </div>
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
           <div className="live-flight">
-            {status.events.length > 0 ? (
-              <FlightRecorder events={status.events} />
-            ) : (
-              <section
-                className="panel flight-panel"
-                aria-labelledby="flight-title"
-              >
-                <div className="panel-header">
-                  <div className="panel-heading">
-                    <Icon name="activity" />
-                    <h2 id="flight-title">Flight Recorder</h2>
-                  </div>
-                  <span className="panel-meta">0 events / UTC</span>
-                </div>
-                <p className="artifact-unavailable">
-                  Waiting for the first recorded backend event.
-                </p>
-              </section>
-            )}
+            <FlightRecorder events={status.events} live activePhase={active ? status.phase : undefined} />
           </div>
           <section
             className="panel live-proof-panel"
