@@ -3,7 +3,11 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/mission/icon";
-import { MISSION_INPUT_LIMITS, parseMissionInput, MissionInputError } from "@/lib/mission-input";
+import {
+  MISSION_INPUT_LIMITS,
+  parseMissionInput,
+  MissionInputError,
+} from "@/lib/mission-input";
 
 export function MissionLauncher() {
   const router = useRouter();
@@ -21,7 +25,11 @@ export function MissionLauncher() {
     try {
       input = parseMissionInput(Object.fromEntries(fields));
     } catch (error) {
-      setError(error instanceof MissionInputError ? error.message : "Check the mission fields and try again.");
+      setError(
+        error instanceof MissionInputError
+          ? error.message
+          : "Check the mission fields and try again.",
+      );
       return;
     }
 
@@ -36,69 +44,162 @@ export function MissionLauncher() {
       });
       const result: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        const message = result && typeof result === "object" && "error" in result && typeof result.error === "string"
-          ? result.error
-          : "Verification could not start. Please try again.";
+        const message =
+          result &&
+          typeof result === "object" &&
+          "error" in result &&
+          typeof result.error === "string"
+            ? result.error
+            : "Verification could not start. Please try again.";
         setError(message);
       } else if (
-        result && typeof result === "object" && "missionId" in result &&
-        typeof result.missionId === "string" && /^[A-Za-z0-9_-]+$/.test(result.missionId)
+        result &&
+        typeof result === "object" &&
+        "missionId" in result &&
+        typeof result.missionId === "string" &&
+        /^[A-Za-z0-9_-]+$/.test(result.missionId)
       ) {
         router.push("/missions/" + result.missionId);
         // Keep the form locked until live Mission Control replaces it.
         return;
       } else {
-        setError("The server did not return a valid mission ID. Please try again.");
+        setError(
+          "The server did not return a valid mission ID. Please try again.",
+        );
       }
     } catch {
-      setError("The connection to PatchVerdict was interrupted. Your inputs are saved here; check the connection and try again.");
+      setError(
+        "The connection to PatchVerdict was interrupted. Your inputs are saved here; check the connection and try again.",
+      );
     }
     inFlight.current = false;
     setRunning(false);
   }
 
   return (
-    <section id="verify" className="launch-panel" aria-labelledby="launch-title" tabIndex={-1}>
+    <section
+      id="verify"
+      className="launch-panel"
+      aria-labelledby="launch-title"
+      tabIndex={-1}
+    >
       <div className="launch-panel-header">
-        <p className="eyebrow amber"><Icon name="terminal" width="14" height="14" /> MISSION INPUT</p>
+        <p className="eyebrow amber">
+          <Icon name="terminal" width="14" height="14" /> MISSION INPUT
+        </p>
         <h2 id="launch-title">Start verification mission</h2>
         <p>A repository. A reported bug. A verdict backed by evidence.</p>
       </div>
-      <form className="launch-form" onSubmit={submitMission} aria-busy={running}>
+      <form
+        className="launch-form"
+        onSubmit={submitMission}
+        aria-busy={running}
+      >
         <fieldset disabled={running} className="launch-fields">
           <div className="launch-field">
             <label htmlFor="repository-url">GitHub repository URL</label>
-            <input id="repository-url" name="repositoryUrl" className="launch-input" type="url" required maxLength={MISSION_INPUT_LIMITS.repositoryUrl} placeholder="https://github.com/owner/repository" autoComplete="url" spellCheck={false} />
+            <input
+              id="repository-url"
+              name="repositoryUrl"
+              className="launch-input"
+              type="url"
+              required
+              maxLength={MISSION_INPUT_LIMITS.repositoryUrl}
+              placeholder="https://github.com/owner/repository"
+              autoComplete="url"
+              spellCheck={false}
+            />
           </div>
           <div className="launch-field">
             <label htmlFor="issue">Bug description</label>
-            <textarea id="issue" name="issue" className="launch-input launch-textarea" required maxLength={MISSION_INPUT_LIMITS.issue} placeholder="Describe what is broken and what should happen instead..." rows={3} />
+
+            <textarea
+              id="issue"
+              name="issue"
+              className="launch-input launch-textarea"
+              required
+              minLength={20}
+              maxLength={MISSION_INPUT_LIMITS.issue}
+              placeholder="Describe what is broken and what should happen instead..."
+              rows={3}
+              aria-describedby="issue-hint"
+            />
+
+            <p id="issue-hint" className="launch-hint">
+              Describe the observed problem and the expected behavior. Minimum
+              20 characters.
+            </p>
           </div>
           <details className="launch-advanced">
             <summary>Advanced verification settings</summary>
             <div className="launch-advanced-fields">
               <div className="launch-field">
-                <label htmlFor="reproduction-command">Reproduction command <span className="text-muted">(optional)</span></label>
-                <input id="reproduction-command" name="reproductionCommand" className="launch-input" maxLength={MISSION_INPUT_LIMITS.reproductionCommand} placeholder="npm test" autoComplete="off" spellCheck={false} aria-describedby="command-hint" />
-                <p id="command-hint" className="launch-hint">Auto-detected from the repository when omitted.</p>
+                <label htmlFor="reproduction-command">
+                  Reproduction command{" "}
+                  <span className="text-muted">(optional)</span>
+                </label>
+                <input
+                  id="reproduction-command"
+                  name="reproductionCommand"
+                  className="launch-input"
+                  maxLength={MISSION_INPUT_LIMITS.reproductionCommand}
+                  placeholder="npm test"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-describedby="command-hint"
+                />
+                <p id="command-hint" className="launch-hint">
+                  Auto-detected from the repository when omitted.
+                </p>
               </div>
               <div className="launch-field">
-                <label htmlFor="required-output">Required failure marker <span className="text-muted">(optional)</span></label>
-                <input id="required-output" name="requiredOutput" className="launch-input" maxLength={MISSION_INPUT_LIMITS.requiredOutput} placeholder="Found multiple elements" autoComplete="off" spellCheck={false} aria-describedby="marker-hint" />
-                <p id="marker-hint" className="launch-hint">Optional text expected in the baseline failure. Useful for confirming a specific reported symptom.</p>
+                <label htmlFor="required-output">
+                  Required failure marker{" "}
+                  <span className="text-muted">(optional)</span>
+                </label>
+                <input
+                  id="required-output"
+                  name="requiredOutput"
+                  className="launch-input"
+                  maxLength={MISSION_INPUT_LIMITS.requiredOutput}
+                  placeholder="Found multiple elements"
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-describedby="marker-hint"
+                />
+                <p id="marker-hint" className="launch-hint">
+                  Optional text expected in the baseline failure. Useful for
+                  confirming a specific reported symptom.
+                </p>
               </div>
             </div>
           </details>
-          <button className="launch-submit landing-button" type="submit" disabled={running}>
-            <Icon name={running ? "activity" : "shield"} width="16" height="16" />
+          <button
+            className="launch-submit landing-button"
+            type="submit"
+            disabled={running}
+          >
+            <Icon
+              name={running ? "activity" : "shield"}
+              width="16"
+              height="16"
+            />
             {running ? "Starting mission..." : "Run verification"}
           </button>
         </fieldset>
-        {error && <p className="launch-error" role="alert">{error}</p>}
+        {error && (
+          <p className="launch-error" role="alert">
+            {error}
+          </p>
+        )}
         <p className="launch-status" role="status" aria-live="polite">
-          {running ? "Starting your mission. Opening live Mission Control..." : ""}
+          {running
+            ? "Starting your mission. Opening live Mission Control..."
+            : ""}
         </p>
-        <p className="launch-footnote">AI proposes. Tools execute. Tests verify. Humans approve.</p>
+        <p className="launch-footnote">
+          AI proposes. Tools execute. Tests verify. Humans approve.
+        </p>
       </form>
     </section>
   );
