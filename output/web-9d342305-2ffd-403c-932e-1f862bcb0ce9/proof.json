@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "mission": {
+    "id": "web-9d342305-2ffd-403c-932e-1f862bcb0ce9",
+    "issue": "test",
+    "source": {
+      "repositoryUrl": "https://github.com/prahans/patchverdict-simple-bug.git",
+      "baseCommit": "4d35c037b298c9b7469645c318c38fb641fd1a27"
+    },
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npm test"
+    },
+    "verificationIntegrity": null,
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
+  },
+  "status": "FAILED",
+  "verdict": null,
+  "checks": {
+    "bugReproducedBeforePatch": true
+  },
+  "reproduction": {
+    "reproduced": true,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [],
+      "presentForbiddenOutput": []
+    }
+  },
+  "investigation": null,
+  "patch": null,
+  "artifacts": {
+    "patch": null,
+    "investigation": null,
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": null,
+      "fullSuite": null
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "version": 2,
+  "mission": {
+    "id": "web-290565c6-7dde-4307-817d-6e074117984f",
+    "issue": "asdf",
+    "source": {
+      "repositoryUrl": "https://github.com/prahans/patchverdict-simple-bug.git",
+      "baseCommit": "4d35c037b298c9b7469645c318c38fb641fd1a27"
+    },
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npm test"
+    },
+    "verificationIntegrity": {
+      "status": "PRESERVED",
+      "preserved": true,
+      "violations": [],
+      "reviewFlags": [],
+      "protectedChangedFiles": []
+    },
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
+  },
+  "status": "COMPLETED",
+  "verdict": "VERIFIED",
+  "checks": {
+    "bugReproducedBeforePatch": true,
+    "verificationIntegrityPreserved": true,
+    "reproductionPassesAfterPatch": true,
+    "fullSuitePassesAfterPatch": true
+  },
+  "reproduction": {
+    "reproduced": true,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [],
+      "presentForbiddenOutput": []
+    }
+  },
+  "investigation": {
+    "iterations": 5,
+    "diagnosis": {
+      "rootCause": "The average function incorrectly computes sum + numbers.length instead of sum / numbers.length, causing it to return the sum plus array length rather than the true average.",
+      "evidence": [
+        {
+          "kind": "FILE",
+          "source": "src/average.js",
+          "observation": "The function returns sum + numbers.length instead of sum / numbers.length, which directly causes all observed test failures. For [10,20,30] it returns 60+3=63 instead of 20, for [100] it returns 100+1=101 instead of 100, and for [-10,0,10] it returns 0+3=3 instead of 0."
+        },
+        {
+          "kind": "FILE",
+          "source": "src/average.test.js",
+          "observation": "The test file confirms the expected behavior: average([10,20,30]) should be 20, average([100]) should be 100, and average([-10,0,10]) should be 0. These expectations are violated by the incorrect implementation."
+        }
+      ],
+      "relevantFiles": [
+        "src/average.js",
+        "src/average.test.js"
+      ],
+      "recommendedPatchTargets": [
+        "src/average.js"
+      ],
+      "patchTargetAnalysis": [
+        {
+          "path": "src/average.js",
+          "decision": "RECOMMEND",
+          "reason": "This location directly addresses the diagnosed root cause by changing addition to division in the average calculation."
+        }
+      ],
+      "confidence": "HIGH"
+    },
+    "inspectedFiles": [
+      "src/average.js",
+      "src/average.test.js"
+    ]
+  },
+  "patch": {
+    "applied": true,
+    "baseCommit": "4d35c037b298c9b7469645c318c38fb641fd1a27",
+    "changedFiles": [
+      "src/average.js"
+    ]
+  },
+  "artifacts": {
+    "patch": "patch.diff",
+    "investigation": "investigation.md",
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": "evidence/post-patch-test.json",
+      "fullSuite": "evidence/full-suite.json"
+    }
+  }
+}

@@ -2,7 +2,10 @@ import Link from "next/link";
 import type { MissionResult } from "@/lib/mission-types";
 import { Icon } from "./icon";
 
-export function MissionHeader({ verdict }: { verdict: MissionResult["verdict"] }) {
+export function MissionHeader({ verdict, executionStatus }: {
+  verdict: MissionResult["verdict"];
+  executionStatus?: "RUNNING" | "FAILED" | "RECORDED";
+}) {
   const verdictClass =
     verdict === "VERIFIED"
       ? "is-verified"
@@ -32,12 +35,18 @@ export function MissionHeader({ verdict }: { verdict: MissionResult["verdict"] }
         </div>
         <div className="mission-header-actions">
           <Link href="/#verify" className="new-mission-link">New mission <span aria-hidden="true">↗</span></Link>
-          <span
+          {executionStatus ? <span
+            className={`verdict-badge ${executionStatus === "RUNNING" ? "is-review" : executionStatus === "FAILED" ? "is-failed" : "is-verified"}`}
+            aria-label={`Execution: ${executionStatus}`}
+          >
+            {executionStatus === "RUNNING" ? <span className="status-dot live-pulse" /> : <Icon name={executionStatus === "FAILED" ? "x" : "check"} width="15" height="15" />}
+            {executionStatus === "FAILED" ? "EXECUTION FAILED" : executionStatus}
+          </span> : <span
             className={`verdict-badge ${verdictClass}`}
             aria-label={`Verdict: ${verdict === "REVIEW_REQUIRED" ? "Human review required" : verdict ?? "Unavailable"}`}
           >
             <Icon name={verdictIcon} width="15" height="15" />{verdict ?? "UNAVAILABLE"}
-          </span>
+          </span>}
         </div>
       </div>
     </header>

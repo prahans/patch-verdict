@@ -1487,7 +1487,57 @@ summary,
 .launch-error { border: 1px solid #603333; border-radius: 3px; background: #2c1b1b; color: var(--red); padding: 12px; margin-top: 15px; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
 .launch-status { color: var(--amber); font-size: 11px; line-height: 1.7; margin-top: 12px; }
 .launch-status:empty { display: none; }
+.launch-advanced { border-top: 1px solid var(--border); padding-top: 14px; }
+.launch-advanced summary { color: var(--muted); font-size: 11px; line-height: 1.6; }
+.launch-advanced summary:hover, .launch-advanced[open] summary { color: var(--foreground); }
+.launch-advanced summary::marker { color: var(--amber); }
+.launch-advanced-fields { display: grid; gap: 16px; margin-top: 18px; }
 .launch-footnote { margin-top: 13px; color: var(--muted); font-size: 9px; line-height: 1.7; text-align: center; }
+
+/* Persisted live mission evidence, using the final dashboard's palette. */
+.live-summary { padding: 32px 0 8px; }
+.live-summary h1 { margin: 11px 0; font-size: clamp(23px, 2.6vw, 34px); font-weight: 530; letter-spacing: -1px; line-height: 1.25; }
+.live-summary-copy { color: var(--muted); font-size: 13px; line-height: 1.8; }
+.live-mission-facts { display: grid; gap: 17px; margin-top: 25px; max-width: 920px; }
+.live-mission-facts > div { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 14px; }
+.live-mission-facts dt { color: var(--muted); font-size: 11px; line-height: 1.8; }
+.live-mission-facts dd { font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+.live-repository { display: flex; align-items: flex-start; gap: 8px; font-family: var(--font-geist-mono), monospace; }
+.live-repository svg { margin-top: 4px; color: var(--muted); }
+.live-reported-issue { white-space: pre-wrap; color: #bfc3c8; }
+.live-phase { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px; margin-top: 25px; border: 1px solid #675033; border-radius: 5px; background: #211d17; }
+.live-phase > .status-dot { margin-top: 6px; }
+.live-phase.is-failed { border-color: #603333; background: #2c1b1b; }
+.live-phase-label, .live-proof-state { font-family: var(--font-geist-mono), monospace; font-size: 9px; letter-spacing: 0.8px; }
+.live-phase p { font-size: 12px; line-height: 1.7; margin-top: 5px; overflow-wrap: anywhere; }
+.live-poll-notice { display: flex; align-items: center; gap: 14px; margin-top: 22px; padding: 18px 20px; color: var(--amber); }
+.live-poll-notice p { flex: 1; font-size: 12px; line-height: 1.7; }
+.live-flight, .live-proof-panel { min-width: 0; align-self: start; }
+.live-flight .event-message { overflow-wrap: anywhere; }
+.live-proof-list { padding: 9px 20px; }
+.live-proof-step { display: flex; align-items: center; gap: 13px; min-height: 67px; padding: 13px 0; border-bottom: 1px solid var(--border); color: var(--muted); }
+.live-proof-step:last-child { border-bottom: 0; }
+.live-proof-step > div { flex: 1; min-width: 0; }
+.live-proof-icon { display: grid; place-items: center; width: 25px; height: 25px; flex-shrink: 0; border: 1px solid currentColor; border-radius: 50%; background: #1a1d20; }
+.live-proof-label { display: block; color: #bfc3c8; font-size: 12px; line-height: 1.6; }
+.live-proof-state { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+.live-check-running, .live-check-review { color: var(--amber); }
+.live-check-passed { color: var(--green); }
+.live-check-failed { color: var(--red); }
+.live-check-running .live-proof-icon, .live-check-review .live-proof-icon { background: #2b2319; }
+.live-check-passed .live-proof-icon { background: #1b2a21; }
+.live-check-failed .live-proof-icon { background: #2c1b1b; }
+.live-check-running .live-proof-label { color: var(--foreground); }
+.live-pulse { animation: live-pulse 1.8s ease-in-out infinite; }
+@keyframes live-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (max-width: 767px) {
+  .live-summary { padding-top: 24px; }
+  .live-mission-facts > div { grid-template-columns: 1fr; gap: 4px; }
+  .live-poll-notice { flex-wrap: wrap; }
+  .live-poll-notice p { flex-basis: calc(100% - 35px); }
+  .live-phase, .live-proof-list { padding-left: 16px; padding-right: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .live-pulse { animation: none; } }
 .landing-pipeline {
   display: flex;
   flex-wrap: wrap;

@@ -1,0 +1,22 @@
+[
+  {
+    "timestamp": "2026-10-11T05:03:45.385Z",
+    "state": "BASELINE",
+    "message": "Running reproduction test before patch"
+  },
+  {
+    "timestamp": "2026-10-11T05:03:48.365Z",
+    "state": "BASELINE",
+    "message": "Reported bug reproduced"
+  },
+  {
+    "timestamp": "2026-10-11T05:03:48.365Z",
+    "state": "INVESTIGATING",
+    "message": "AI investigation started"
+  },
+  {
+    "timestamp": "2026-10-11T05:04:28.563Z",
+    "state": "FAILED",
+    "message": "Investigation patch-target analysis is inconsistent.\n- Recommended patch target \"src/components/DarkMode.test.tsx\" is not marked RECOMMEND in patch-target analysis.\n- A direct TEST_FILE is recommended after TEST_INFRASTRUCTURE was successfully inspected. Every inspected test-infrastructure candidate must be explicitly accounted for in patchTargetAnalysis before the direct test file can be recommended. Missing analysis for: vitest.setup.ts."
+  }
+]

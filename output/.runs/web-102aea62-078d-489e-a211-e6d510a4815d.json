@@ -1,0 +1,54 @@
+{
+  "missionId": "web-102aea62-078d-489e-a211-e6d510a4815d",
+  "status": "COMPLETED",
+  "phase": "COMPLETED",
+  "message": "Proof bundle recorded.",
+  "repositoryUrl": "https://github.com/prahans/patchverdict-simple-bug",
+  "issue": "test",
+  "startedAt": "2026-10-11T14:10:43.341Z",
+  "updatedAt": "2026-10-11T14:11:28.831Z",
+  "deadlineAt": "2026-10-11T14:15:18.341Z",
+  "proofReady": true,
+  "events": [
+    {
+      "state": "PREPARING",
+      "message": "Backend process started.",
+      "timestamp": "2026-10-11T14:10:43.350Z"
+    },
+    {
+      "state": "PREPARING",
+      "message": "Preparing repository...",
+      "timestamp": "2026-10-11T14:10:46.005Z"
+    },
+    {
+      "state": "BASELINE",
+      "message": "Running reproduction test before patch",
+      "timestamp": "2026-10-11T14:10:53.496Z"
+    },
+    {
+      "state": "BASELINE",
+      "message": "Reported bug reproduced",
+      "timestamp": "2026-10-11T14:10:54.925Z"
+    },
+    {
+      "state": "INVESTIGATING",
+      "message": "AI investigation started",
+      "timestamp": "2026-10-11T14:10:54.928Z"
+    },
+    {
+      "state": "INVESTIGATING",
+      "message": "AI investigation completed",
+      "timestamp": "2026-10-11T14:11:26.364Z"
+    },
+    {
+      "state": "PATCHING",
+      "message": "AI patch phase started",
+      "timestamp": "2026-10-11T14:11:26.366Z"
+    },
+    {
+      "state": "FAILED",
+      "message": "The backend reported a failure. Recording available proof.",
+      "timestamp": "2026-10-11T14:11:28.388Z"
+    }
+  ]
+}

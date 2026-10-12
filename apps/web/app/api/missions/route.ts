@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { MissionInputError, parseMissionInput } from "../../../lib/mission-input";
 import { BackendMissionError, runBackendMission } from "../../../lib/run-backend-mission";
 
@@ -51,8 +52,13 @@ async function readJson(request: Request): Promise<unknown> {
 export async function POST(request: Request) {
   try {
     const input = parseMissionInput(await readJson(request));
-    const result = await runBackendMission(input);
-    return Response.json(result, { headers: { "Cache-Control": "no-store" } });
+    const { missionId, completion } = await runBackendMission(input);
+    after(() => completion);
+    return Response.json({
+      missionId,
+      missionUrl: `/missions/${missionId}`,
+      statusUrl: `/api/missions/${missionId}/status`,
+    }, { status: 202, headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     // Only known, fixed public messages leave the server. Never return child
     // output, raw exception text, credentials, or filesystem paths.

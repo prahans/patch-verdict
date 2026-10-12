@@ -8,9 +8,11 @@ export const MISSION_INPUT_LIMITS = {
 export type MissionInput = {
   repositoryUrl: string;
   issue: string;
-  reproductionCommand: string;
-  requiredOutput: string;
+  reproductionCommand?: string;
+  requiredOutput?: string;
 };
+
+export type ParsedMissionInput = Required<MissionInput>;
 
 export class MissionInputError extends Error {
   constructor(message: string) {
@@ -43,7 +45,7 @@ function field(
   return normalized;
 }
 
-export function parseMissionInput(value: unknown): MissionInput {
+export function parseMissionInput(value: unknown): ParsedMissionInput {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new MissionInputError("Send a JSON object with the mission fields.");
   }
@@ -67,7 +69,7 @@ export function parseMissionInput(value: unknown): MissionInput {
   return {
     repositoryUrl: repository.href.replace(/\/$/, ""),
     issue: field(data.issue, "Bug description", MISSION_INPUT_LIMITS.issue),
-    reproductionCommand: field(data.reproductionCommand, "Reproduction command", MISSION_INPUT_LIMITS.reproductionCommand),
+    reproductionCommand: field(data.reproductionCommand, "Reproduction command", MISSION_INPUT_LIMITS.reproductionCommand, true),
     requiredOutput: field(data.requiredOutput, "Required failure marker", MISSION_INPUT_LIMITS.requiredOutput, true),
   };
 }

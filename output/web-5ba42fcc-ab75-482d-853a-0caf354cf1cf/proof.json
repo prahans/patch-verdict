@@ -1,0 +1,95 @@
+{
+  "version": 2,
+  "mission": {
+    "id": "web-5ba42fcc-ab75-482d-853a-0caf354cf1cf",
+    "issue": "The average function returns incorrect results. average([10, 20, 30]) should return 20, average([100]) should return 100, and the implementation should correctly compute the arithmetic mean while preserving the empty-array behavior.",
+    "source": {
+      "repositoryUrl": "https://github.com/prahans/patchverdict-simple-bug.git",
+      "baseCommit": "4d35c037b298c9b7469645c318c38fb641fd1a27"
+    },
+    "reproduction": {
+      "label": "Reported bug reproduction",
+      "command": "npm test"
+    },
+    "verificationIntegrity": {
+      "status": "PRESERVED",
+      "preserved": true,
+      "violations": [],
+      "reviewFlags": [],
+      "protectedChangedFiles": []
+    },
+    "fullSuite": {
+      "label": "Repository full test suite",
+      "command": "npm test"
+    }
+  },
+  "status": "COMPLETED",
+  "verdict": "VERIFIED",
+  "checks": {
+    "bugReproducedBeforePatch": true,
+    "verificationIntegrityPreserved": true,
+    "reproductionPassesAfterPatch": true,
+    "fullSuitePassesAfterPatch": true
+  },
+  "reproduction": {
+    "reproduced": true,
+    "checks": {
+      "exitCodeMatched": true,
+      "missingRequiredOutput": [],
+      "presentForbiddenOutput": []
+    }
+  },
+  "investigation": {
+    "iterations": 7,
+    "diagnosis": {
+      "rootCause": "The average function incorrectly uses addition (sum + numbers.length) instead of division (sum / numbers.length) to compute the arithmetic mean.",
+      "evidence": [
+        {
+          "kind": "FILE",
+          "source": "src/average.js",
+          "observation": "The implementation returns sum + numbers.length instead of sum / numbers.length, causing all average computations to be incorrect by adding the array length rather than dividing by it."
+        },
+        {
+          "kind": "TEST",
+          "source": "npm test",
+          "observation": "Tests fail with received values 63, 101, and 3 instead of expected 20, 100, and 0 respectively, all consistent with the formula sum + length."
+        }
+      ],
+      "relevantFiles": [
+        "src/average.js"
+      ],
+      "recommendedPatchTargets": [
+        "src/average.js"
+      ],
+      "patchTargetAnalysis": [
+        {
+          "path": "src/average.js",
+          "decision": "RECOMMEND",
+          "reason": "This location directly contains the incorrect arithmetic expression that causes all observed failures; changing sum + numbers.length to sum / numbers.length fixes the root cause."
+        }
+      ],
+      "confidence": "HIGH"
+    },
+    "inspectedFiles": [
+      "src/average.js",
+      "src/average.test.js"
+    ]
+  },
+  "patch": {
+    "applied": true,
+    "baseCommit": "4d35c037b298c9b7469645c318c38fb641fd1a27",
+    "changedFiles": [
+      "src/average.js"
+    ]
+  },
+  "artifacts": {
+    "patch": "patch.diff",
+    "investigation": "investigation.md",
+    "events": "events.json",
+    "evidence": {
+      "baseline": "evidence/baseline-test.json",
+      "postPatch": "evidence/post-patch-test.json",
+      "fullSuite": "evidence/full-suite.json"
+    }
+  }
+}

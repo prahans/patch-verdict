@@ -8,10 +8,13 @@ import { DiffViewer } from "@/components/mission/diff-viewer";
 import { InvestigationReport } from "@/components/mission/investigation-report";
 import { VerificationEvidence } from "@/components/mission/verification-evidence";
 import { Icon } from "@/components/mission/icon";
+import { LiveMission } from "@/components/mission/live-mission";
 
 import { loadProofBundle } from "@/lib/load-proof-bundle";
+import { proofBundleExists, readMissionLiveStatus } from "@/lib/mission-live-status";
 
 import type { MissionViewModel } from "@/lib/mission-types";
+import type { MissionLiveStatus } from "@/lib/mission-live-types";
 
 type MissionPageProps = {
   params: Promise<{
@@ -29,6 +32,19 @@ export default async function MissionPage({ params }: MissionPageProps) {
   try {
     bundle = await loadProofBundle(missionId);
   } catch (error) {
+    let liveStatus: MissionLiveStatus | null = null;
+    try {
+      // A present but invalid proof is an artifact error, never a running job.
+      // Only a genuinely absent proof can fall back to persisted live state.
+      if (!(await proofBundleExists(missionId))) {
+        liveStatus = await readMissionLiveStatus(missionId);
+      }
+    } catch {
+      // Invalid IDs, corrupt status and unsafe paths retain the artifact error.
+    }
+    if (liveStatus && liveStatus.status !== "COMPLETED") {
+      return <LiveMission key={`${missionId}:${liveStatus.updatedAt}`} initialStatus={liveStatus} />;
+    }
     return (
       <>
         <MissionHeader verdict={null} />
