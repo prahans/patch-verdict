@@ -1,0 +1,99 @@
+{
+  "missionId": "web-84c93cb5-0fb1-4f28-a00d-b6cd43091ab6",
+  "status": "COMPLETED",
+  "phase": "COMPLETED",
+  "message": "Proof bundle recorded.",
+  "repositoryUrl": "https://github.com/prahans/patchverdict-simple-bug",
+  "issue": "The average function returns the wrong result for multiple numbers.",
+  "startedAt": "2026-10-12T15:33:05.164Z",
+  "updatedAt": "2026-10-12T15:33:49.532Z",
+  "deadlineAt": "2026-10-12T15:37:40.164Z",
+  "proofReady": true,
+  "events": [
+    {
+      "state": "PREPARING",
+      "message": "Backend process started.",
+      "timestamp": "2026-10-12T15:33:05.172Z"
+    },
+    {
+      "state": "PREPARING",
+      "message": "Preparing repository...",
+      "timestamp": "2026-10-12T15:33:07.697Z"
+    },
+    {
+      "state": "BASELINE",
+      "message": "Running reproduction test before patch",
+      "timestamp": "2026-10-12T15:33:13.994Z"
+    },
+    {
+      "state": "BASELINE",
+      "message": "Reported bug reproduced",
+      "timestamp": "2026-10-12T15:33:15.270Z"
+    },
+    {
+      "state": "INVESTIGATING",
+      "message": "AI investigation started",
+      "timestamp": "2026-10-12T15:33:15.273Z"
+    },
+    {
+      "state": "INVESTIGATING",
+      "message": "AI investigation completed",
+      "timestamp": "2026-10-12T15:33:38.071Z"
+    },
+    {
+      "state": "PATCHING",
+      "message": "AI patch phase started",
+      "timestamp": "2026-10-12T15:33:38.074Z"
+    },
+    {
+      "state": "PATCHING",
+      "message": "Candidate patch applied",
+      "timestamp": "2026-10-12T15:33:42.603Z"
+    },
+    {
+      "state": "PATCHING",
+      "message": "Git captured 1 changed file(s)",
+      "timestamp": "2026-10-12T15:33:45.058Z"
+    },
+    {
+      "state": "PATCHING",
+      "message": "Git diff captured",
+      "timestamp": "2026-10-12T15:33:45.060Z"
+    },
+    {
+      "state": "PATCHING",
+      "message": "Verification integrity preserved",
+      "timestamp": "2026-10-12T15:33:45.062Z"
+    },
+    {
+      "state": "VERIFYING",
+      "message": "Running reproduction test after patch",
+      "timestamp": "2026-10-12T15:33:45.065Z"
+    },
+    {
+      "state": "VERIFYING",
+      "message": "Reproduction test passes after patch",
+      "timestamp": "2026-10-12T15:33:47.044Z"
+    },
+    {
+      "state": "VERIFYING",
+      "message": "Running full test suite",
+      "timestamp": "2026-10-12T15:33:47.046Z"
+    },
+    {
+      "state": "VERIFYING",
+      "message": "Full test suite passes",
+      "timestamp": "2026-10-12T15:33:48.309Z"
+    },
+    {
+      "state": "VERDICT",
+      "message": "Calculating deterministic verdict",
+      "timestamp": "2026-10-12T15:33:48.312Z"
+    },
+    {
+      "state": "COMPLETED",
+      "message": "Mission completed with verdict VERIFIED",
+      "timestamp": "2026-10-12T15:33:48.315Z"
+    }
+  ]
+}

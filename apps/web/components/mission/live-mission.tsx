@@ -144,8 +144,11 @@ export function LiveMission({
   }, [initialStatus.proofReady, initialStatus.status, missionId, router]);
 
   const failed = status.status === "FAILED" && !status.proofReady;
-  const active = (status.status === "QUEUED" || status.status === "RUNNING") &&
-    !status.proofReady && status.phase !== "COMPLETED" && status.phase !== "FAILED";
+  const active =
+    (status.status === "QUEUED" || status.status === "RUNNING") &&
+    !status.proofReady &&
+    status.phase !== "COMPLETED" &&
+    status.phase !== "FAILED";
   const chain = buildLiveProofChain(status);
 
   return (
@@ -230,7 +233,9 @@ export function LiveMission({
                   : status.proofReady
                     ? "Proof bundle recorded. Loading its evidence…"
                     : phaseCopy[status.phase]}
-                {active && <span className="live-terminal-cursor" aria-hidden="true" />}
+                {active && (
+                  <span className="live-terminal-cursor" aria-hidden="true" />
+                )}
               </p>
             </div>
           </div>
@@ -239,8 +244,15 @@ export function LiveMission({
           <aside className="panel live-mission-notice" role="status">
             <Icon name="activity" />
             <div>
-              <p className="live-mission-notice-title">Real verification is running</p>
-              <p>Repository setup, AI investigation and tests may take a few minutes. Live evidence will appear as it is saved.</p>
+              <p className="live-mission-notice-title">
+                Verification mission is running
+              </p>
+
+              <p>
+                PatchVerdict is reproducing the bug, investigating evidence,
+                applying a candidate repair, and rerunning trusted tests. This
+                may take a few minutes.
+              </p>
             </div>
             <button
               className="live-mission-notice-close"
@@ -272,7 +284,11 @@ export function LiveMission({
         </div>
         <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
           <div className="live-flight">
-            <FlightRecorder events={status.events} live activePhase={active ? status.phase : undefined} />
+            <FlightRecorder
+              events={status.events}
+              live
+              activePhase={active ? status.phase : undefined}
+            />
           </div>
           <section
             className="panel live-proof-panel"
