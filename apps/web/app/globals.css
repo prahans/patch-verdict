@@ -1512,22 +1512,26 @@ summary,
 .live-phase p { font-size: 12px; line-height: 1.7; margin-top: 5px; overflow-wrap: anywhere; }
 .live-poll-notice { display: flex; align-items: center; gap: 14px; margin-top: 22px; padding: 18px 20px; color: var(--amber); }
 .live-poll-notice p { flex: 1; font-size: 12px; line-height: 1.7; }
-.live-flight, .live-proof-panel { min-width: 0; align-self: start; }
+.live-flight, .live-proof-panel { min-width: 0; }
+.live-flight .panel-header, .live-flight .panel-footer { flex-shrink: 0; }
 .live-flight .event-message { overflow-wrap: anywhere; }
 .live-flight .live-flight-scroll {
-  height: 380px;
+  height: 320px;
   flex: none;
+  min-height: 0;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: #454b51 var(--panel);
+  scrollbar-width: none;
 }
 .live-flight-scroll:focus-visible { outline-offset: -3px; }
-.live-flight-scroll::-webkit-scrollbar { width: 8px; }
-.live-flight-scroll::-webkit-scrollbar-track { background: var(--panel); }
-.live-flight-scroll::-webkit-scrollbar-thumb { background: #454b51; border: 2px solid var(--panel); border-radius: 4px; }
-.live-flight-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+.live-flight-scroll::-webkit-scrollbar { display: none; }
+/* Match the grid's lg breakpoint. Only Proof Chain contributes intrinsic row
+   height; incoming events stay inside the stretched recorder from first paint. */
+@media (min-width: 64rem) {
+  .live-flight { contain: size; min-height: 0; }
+  .live-flight .flight-panel { height: 100%; min-height: 0; }
+  .live-flight .live-flight-scroll { height: auto; flex: 1; }
+}
 .live-flight .event-row { --state-color: var(--amber); }
 .live-flight .live-event-passed { --state-color: var(--green); }
 .live-flight .live-event-failed { --state-color: var(--red); }
@@ -1572,7 +1576,6 @@ summary,
   .live-poll-notice { flex-wrap: wrap; }
   .live-poll-notice p { flex-basis: calc(100% - 35px); }
   .live-phase, .live-proof-list { padding-left: 16px; padding-right: 16px; }
-  .live-flight .live-flight-scroll { height: 320px; }
   .live-flight .event-row { grid-template-columns: 12px 62px minmax(0, 1fr); column-gap: 9px; padding: 7px 0; }
   .live-flight .event-node { grid-column: 1; grid-row: 1 / 3; }
   .live-flight .event-row time { grid-column: 2; grid-row: 1; }

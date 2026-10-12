@@ -1,3 +1,0 @@
-# Investigation Report
-
-Investigation of the average function revealed a calculation bug in src/average.js. The correct average formula should be sum divided by count (numbers.length), but the current implementation incorrectly returns sum + numbers.length. This explains all observed test failures: for [10,20,30] the sum is 60 and length is 3, so 60+3=63 (expected 20); for [100] sum is 100 and length is 1, so 100+1=101 (expected 100); for [-10,0,10] sum is 0 and length is 3, so 0+3=3 (expected 0). The only file requiring modification is src/average.js, where the arithmetic operator '+' must be replaced with '/' to implement correct division.
