@@ -9,6 +9,7 @@ import { InvestigationReport } from "@/components/mission/investigation-report";
 import { VerificationEvidence } from "@/components/mission/verification-evidence";
 import { Icon } from "@/components/mission/icon";
 import { LiveMission } from "@/components/mission/live-mission";
+import { VerdictSound } from "@/components/mission/verdict-sound";
 
 import { loadProofBundle } from "@/lib/load-proof-bundle";
 import { proofBundleExists, readMissionLiveStatus } from "@/lib/mission-live-status";
