@@ -150,7 +150,12 @@ afterEach(async () => {
   // Verify the resolved target before recursively deleting this disposable fixture.
   assert.equal(path.dirname(path.resolve(fixtureRoot)), testsDirectory);
   assert.ok(path.basename(fixtureRoot).startsWith(".mission-bridge-"));
-  await rm(fixtureRoot, { recursive: true, force: true });
+  await rm(fixtureRoot, {
+    recursive: true,
+    force: true,
+    maxRetries: 10,
+    retryDelay: 100,
+  });
 });
 
 async function launch(input = validInput, options) {
