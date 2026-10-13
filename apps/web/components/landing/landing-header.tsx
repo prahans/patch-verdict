@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/mission/icon";
+import { SoundControl } from "@/components/mission/sound-control";
 
 export function LandingHeader() {
   return (
@@ -18,6 +19,7 @@ export function LandingHeader() {
             <a href="#verdicts">Verdicts</a>
             <a href="#evidence">Evidence</a>
           </nav>
+          <SoundControl />
           <a className="landing-button landing-button-small" href="#verify">Verify a patch <span aria-hidden="true">↗</span></a>
         </div>
       </div>
