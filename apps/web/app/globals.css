@@ -2873,3 +2873,74 @@ summary,
     flex-direction: row-reverse;
   }
 }
+
+
+/* Optional mission audio feedback. Sound is user-enabled and never affects verification. */
+.sound-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.45px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color 140ms ease,
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.sound-toggle:hover:not(:disabled) {
+  color: var(--foreground);
+  border-color: #3a3e42;
+  background: #151719;
+}
+
+.sound-toggle:focus-visible {
+  outline: 1px solid var(--amber);
+  outline-offset: 3px;
+}
+
+.sound-toggle:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.sound-toggle.is-enabled {
+  color: var(--foreground);
+  border-color: #4b4030;
+  background: #191711;
+}
+
+.sound-toggle.is-enabled > svg,
+.sound-toggle.is-enabled .sound-toggle-state {
+  color: var(--amber);
+}
+
+.sound-toggle-state {
+  color: #747a80;
+  font-size: 8px;
+  letter-spacing: 0.7px;
+}
+
+@media (max-width: 767px) {
+  .sound-toggle-label {
+    display: none;
+  }
+
+  .sound-toggle {
+    padding-inline: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sound-toggle-state {
+    display: none;
+  }
+}
