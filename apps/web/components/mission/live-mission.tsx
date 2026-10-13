@@ -10,6 +10,7 @@ import {
 import { MissionHeader } from "./mission-header";
 import { FlightRecorder } from "./flight-recorder";
 import { Icon } from "./icon";
+import { playMissionSoundOnce } from "@/lib/mission-sound";
 
 const phaseCopy = {
   PREPARING: "Preparing isolated repository…",
@@ -150,6 +151,11 @@ export function LiveMission({
     status.phase !== "COMPLETED" &&
     status.phase !== "FAILED";
   const chain = buildLiveProofChain(status);
+
+  useEffect(() => {
+    if (!failed) return;
+    void playMissionSoundOnce(`${missionId}:execution-failed`, "failed");
+  }, [failed, missionId]);
 
   return (
     <>
