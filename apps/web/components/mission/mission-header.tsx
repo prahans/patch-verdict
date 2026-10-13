@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MissionResult } from "@/lib/mission-types";
 import { Icon } from "./icon";
+import { SoundControl } from "./sound-control";
 
 export function MissionHeader({ verdict, executionStatus }: {
   verdict: MissionResult["verdict"];
@@ -34,6 +35,7 @@ export function MissionHeader({ verdict, executionStatus }: {
           <span className="brand-tagline">Every patch earns its verdict.</span>
         </div>
         <div className="mission-header-actions">
+          <SoundControl />
           <Link href="/#verify" className="new-mission-link">New mission <span aria-hidden="true">↗</span></Link>
           {executionStatus ? <span
             className={`verdict-badge ${executionStatus === "RUNNING" ? "is-review" : executionStatus === "FAILED" ? "is-failed" : "is-verified"}`}
