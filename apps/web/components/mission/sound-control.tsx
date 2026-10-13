@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Icon } from "./icon";
 import {
   isMissionSoundEnabled,
@@ -9,20 +9,20 @@ import {
   subscribeMissionSoundPreference,
 } from "@/lib/mission-sound";
 
-export function SoundControl() {
-  const [enabled, setEnabled] = useState(false);
-  const [ready, setReady] = useState(false);
+function subscribe(onStoreChange: () => void) {
+  return subscribeMissionSoundPreference(() => onStoreChange());
+}
 
-  useEffect(() => {
-    setEnabled(isMissionSoundEnabled());
-    setReady(true);
-    return subscribeMissionSoundPreference(setEnabled);
-  }, []);
+export function SoundControl() {
+  const enabled = useSyncExternalStore(
+    subscribe,
+    isMissionSoundEnabled,
+    () => false,
+  );
 
   async function toggle() {
     const next = !enabled;
     setMissionSoundEnabled(next);
-    setEnabled(next);
 
     if (next) {
       await playMissionSound("start");
@@ -37,7 +37,6 @@ export function SoundControl() {
       aria-label={enabled ? "Mute mission sounds" : "Enable mission sounds"}
       title={enabled ? "Mission sounds on" : "Mission sounds off"}
       onClick={toggle}
-      disabled={!ready}
     >
       <Icon
         name={enabled ? "volume" : "volume-off"}
