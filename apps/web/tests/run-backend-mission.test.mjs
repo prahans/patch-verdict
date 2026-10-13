@@ -213,11 +213,11 @@ test("validation requires only repository and issue; omitted advanced fields nor
   assert.deepEqual(
     parseMissionInput({
       repositoryUrl: " HTTPS://GITHUB.COM/owner/repository/ ",
-      issue: " bug ",
+      issue: " average calculation returns an incorrect result ",
     }),
     {
       repositoryUrl: validInput.repositoryUrl,
-      issue: "bug",
+      issue: "average calculation returns an incorrect result",
       reproductionCommand: "",
       requiredOutput: "",
     },
@@ -274,7 +274,10 @@ test("resolves the checkout from root, apps/web and nested app directories", asy
 });
 
 test("launch returns before completion, with initial durable status and unique IDs", async () => {
-  const first = await launch({ ...validInput, issue: "gate" });
+  const first = await launch({
+    ...validInput,
+    issue: "gate: keep the backend running until the test releases it",
+  });
   assert.match(first.missionId, /^web-[0-9a-f-]{36}$/);
   let completed = false;
   first.completion.then(() => {
@@ -283,7 +286,10 @@ test("launch returns before completion, with initial durable status and unique I
   const initial = await readMissionLiveStatus(first.missionId);
   assert.ok(["QUEUED", "RUNNING"].includes(initial.status));
   assert.equal(initial.proofReady, false);
-  assert.equal(initial.issue, "gate");
+  assert.equal(
+    initial.issue,
+    "gate: keep the backend running until the test releases it",
+  );
   await until(async () => {
     try {
       return await readFile(path.join(fixtureRoot, "ready"), "utf8");
@@ -368,7 +374,10 @@ test("only allowlisted events bearing the server mission ID are persisted in std
 });
 
 test("crash and missing proof persist a safe execution failure after successful launch", async () => {
-  for (const issue of ["crash", "missing-bundle"]) {
+  for (const issue of [
+    "crash: simulate the backend crashing after mission startup",
+    "missing-bundle: simulate completion without a saved proof bundle",
+  ]) {
     const run = await launch({ ...validInput, issue });
     await run.completion;
     const status = await readMissionLiveStatus(run.missionId);
@@ -383,7 +392,11 @@ test("crash and missing proof persist a safe execution failure after successful 
 });
 
 test("malformed or unrelated proof cannot mark execution completed; proof presence permits canonical artifact handling", async () => {
-  for (const issue of ["bad-bundle", "foreign-proof", "different-issue"]) {
+  for (const issue of [
+    "bad-bundle: simulate malformed proof bundle metadata",
+    "foreign-proof: simulate proof belonging to another repository",
+    "different-issue: simulate proof belonging to another bug report",
+  ]) {
     const run = await launch({ ...validInput, issue });
     await run.completion;
     const status = await readMissionLiveStatus(run.missionId);
@@ -395,7 +408,10 @@ test("malformed or unrelated proof cannot mark execution completed; proof presen
 
 test("timeout kills the CLI and descendant, then persists a safe failure", async () => {
   const run = await launch(
-    { ...validInput, issue: "timeout" },
+    {
+      ...validInput,
+      issue: "timeout: simulate a backend process exceeding the time limit",
+    },
     { timeoutMs: 1000 },
   );
   await run.completion;
@@ -445,7 +461,10 @@ test("API enforces JSON, bounded bodies, validation and Node runtime", async () 
 
 test("API returns 202 plus mission/status URLs before completion and retains completion with after", async () => {
   const response = await POST(
-    request({ repositoryUrl: validInput.repositoryUrl, issue: "gate" }),
+    request({
+      repositoryUrl: validInput.repositoryUrl,
+      issue: "gate: keep the backend running until the test releases it",
+    }),
   );
   assert.equal(response.status, 202);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
@@ -470,7 +489,12 @@ test("API returns 202 plus mission/status URLs before completion and retains com
 });
 
 test("API accepts a launch that later crashes, then exposes only safe persisted failure", async () => {
-  const response = await POST(request({ ...validInput, issue: "crash" }));
+  const response = await POST(
+    request({
+      ...validInput,
+      issue: "crash: simulate the backend crashing after mission startup",
+    }),
+  );
   assert.equal(response.status, 202);
   const body = await response.json();
   await globalThis.missionAfterCallbacks[0]();
