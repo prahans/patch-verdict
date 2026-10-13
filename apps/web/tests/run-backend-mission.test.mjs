@@ -1,29 +1,52 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { registerHooks } from "node:module";
-import { mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 globalThis.missionAfterCallbacks = [];
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: "data:text/javascript,export {};", shortCircuit: true };
+    if (specifier === "server-only")
+      return { url: "data:text/javascript,export {};", shortCircuit: true };
     if (specifier === "next/server") {
-      return { url: "data:text/javascript,export function after(callback) { globalThis.missionAfterCallbacks.push(callback); }", shortCircuit: true };
+      return {
+        url: "data:text/javascript,export function after(callback) { globalThis.missionAfterCallbacks.push(callback); }",
+        shortCircuit: true,
+      };
     }
-    return nextResolve(specifier.startsWith(".") && !path.extname(specifier) ? specifier + ".ts" : specifier, context);
+    return nextResolve(
+      specifier.startsWith(".") && !path.extname(specifier)
+        ? specifier + ".ts"
+        : specifier,
+      context,
+    );
   },
 });
 
 const { runBackendMission } = await import("../lib/run-backend-mission.ts");
-const { parseMissionInput, MISSION_INPUT_LIMITS } = await import("../lib/mission-input.ts");
+const { parseMissionInput, MISSION_INPUT_LIMITS } =
+  await import("../lib/mission-input.ts");
 const { resolveRepositoryRoot } = await import("../lib/repository-root.ts");
 const {
-  createMissionLiveStatus, readMissionLiveStatus, recordMissionLiveEvent,
-  failMissionLiveStatus, completeMissionLiveStatus, proofBundleExists,
+  createMissionLiveStatus,
+  readMissionLiveStatus,
+  recordMissionLiveEvent,
+  failMissionLiveStatus,
+  completeMissionLiveStatus,
+  proofBundleExists,
 } = await import("../lib/mission-live-status.ts");
-const { POST, runtime, maxDuration } = await import("../app/api/missions/route.ts");
+const { POST, runtime, maxDuration } =
+  await import("../app/api/missions/route.ts");
 const { GET } = await import("../app/api/missions/[missionId]/status/route.ts");
 const testsDirectory = path.dirname(fileURLToPath(import.meta.url));
 const originalCwd = process.cwd();
@@ -31,8 +54,10 @@ let fixtureRoot;
 let completions;
 
 const validInput = {
-  repositoryUrl: "https://github.com/owner/repository", issue: "Bug report",
-  reproductionCommand: "npm test", requiredOutput: "expected",
+  repositoryUrl: "https://github.com/owner/repository",
+  issue: "The average calculation returns an incorrect result.",
+  reproductionCommand: "npm test",
+  requiredOutput: "expected",
 };
 
 // Disposable process contract fixture: no network, provider, shell, or AI mocks
@@ -45,8 +70,8 @@ const [script, repositoryUrl, issue, suppliedCommand, requiredOutput] = process.
 const id = process.env.PATCHVERDICT_MISSION_ID;
 const command = suppliedCommand || "npm test";
 await writeFile("received.json", JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), id, inherited: process.env.PATCHVERDICT_BRIDGE_TEST_VALUE }));
-if (issue === "crash") { console.error("SECRET_CREDENTIAL_DO_NOT_RETURN /private/server/path"); process.exit(7); }
-if (issue === "timeout") {
+if (issue.startsWith("crash:")) { console.error("SECRET_CREDENTIAL_DO_NOT_RETURN /private/server/path"); process.exit(7); }
+if (issue.startsWith("timeout:")) {
   const descendant = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "inherit" });
   await writeFile("pids.json", JSON.stringify([process.pid, descendant.pid]));
   setInterval(() => {}, 1000);
@@ -62,7 +87,7 @@ if (issue === "timeout") {
   console.log("PATCHVERDICT EVENT " + id + ": [VERIFYING] SECRET_CREDENTIAL_DO_NOT_RETURN");
   console.log("x".repeat(100000) + "[COMPLETED] Mission completed with verdict VERIFIED");
   process.stderr.write("e".repeat(100000));
-  if (issue === "gate") {
+  if (issue.startsWith("gate:"))  {
     await writeFile("ready", "yes");
     while (true) {
       try { await access("release"); break; } catch {}
@@ -73,13 +98,13 @@ if (issue === "timeout") {
   console.log("[COMPLETED] Mission completed with verdict VERIFIED");
   console.log("PATCHVERDICT RUN START: " + id);
   process.stdout.write("[INVESTIGATING] AI investigation completed");
-  if (issue !== "missing-bundle") {
+  if (!issue.startsWith("missing-bundle:")) {
     const directory = path.join("output", id);
     await mkdir(directory, { recursive: true });
     const proof = { version: 2, mission: { id, issue, source: { repositoryUrl, baseCommit: "a".repeat(40) }, reproduction: { label: "Reproduction", command }, fullSuite: { label: "Suite", command } }, status: "FAILED", verdict: "FAILED", artifacts: null };
-    if (issue === "foreign-proof") proof.mission.source.repositoryUrl = "https://github.com/other/repository";
-    if (issue === "different-issue") proof.mission.issue = "unrelated bug";
-    await writeFile(path.join(directory, "proof.json"), issue === "bad-bundle" ? "{broken" : JSON.stringify(proof));
+    if (issue.startsWith("foreign-proof:")) proof.mission.source.repositoryUrl = "https://github.com/other/repository";
+    if (issue.startsWith("different-issue:")) proof.mission.issue = "unrelated bug";
+    await writeFile(path.join(directory, "proof.json"), issue.startsWith("bad-bundle:") ? "{broken" : JSON.stringify(proof));
     await writeFile(path.join(directory, "events.json"), "[]");
   }
   process.exitCode = 9;
@@ -93,19 +118,33 @@ beforeEach(async () => {
   await Promise.all([
     mkdir(path.join(fixtureRoot, "apps", "web"), { recursive: true }),
     mkdir(path.join(fixtureRoot, "src")),
-    mkdir(path.join(fixtureRoot, "node_modules", "tsx", "dist"), { recursive: true }),
+    mkdir(path.join(fixtureRoot, "node_modules", "tsx", "dist"), {
+      recursive: true,
+    }),
   ]);
   await Promise.all([
-    writeFile(path.join(fixtureRoot, "package.json"), JSON.stringify({ name: "patch-verdict" })),
-    writeFile(path.join(fixtureRoot, "src", "real-mission-demo.ts"), "// fixed entry point"),
-    writeFile(path.join(fixtureRoot, "node_modules", "tsx", "dist", "cli.mjs"), cli),
+    writeFile(
+      path.join(fixtureRoot, "package.json"),
+      JSON.stringify({ name: "patch-verdict" }),
+    ),
+    writeFile(
+      path.join(fixtureRoot, "src", "real-mission-demo.ts"),
+      "// fixed entry point",
+    ),
+    writeFile(
+      path.join(fixtureRoot, "node_modules", "tsx", "dist", "cli.mjs"),
+      cli,
+    ),
   ]);
   process.chdir(path.join(fixtureRoot, "apps", "web"));
 });
 
 afterEach(async () => {
   await writeFile(path.join(fixtureRoot, "release"), "yes");
-  await Promise.all([...completions, ...globalThis.missionAfterCallbacks.map((callback) => callback())]);
+  await Promise.all([
+    ...completions,
+    ...globalThis.missionAfterCallbacks.map((callback) => callback()),
+  ]);
   process.chdir(originalCwd);
   delete process.env.PATCHVERDICT_BRIDGE_TEST_VALUE;
   // Verify the resolved target before recursively deleting this disposable fixture.
@@ -122,12 +161,16 @@ async function launch(input = validInput, options) {
 
 function request(body, headers = { "Content-Type": "application/json" }) {
   return new Request("http://localhost/api/missions", {
-    method: "POST", headers, body: typeof body === "string" ? body : JSON.stringify(body),
+    method: "POST",
+    headers,
+    body: typeof body === "string" ? body : JSON.stringify(body),
   });
 }
 
 function statusRequest(missionId) {
-  return GET(new Request("http://localhost/api/missions/status"), { params: Promise.resolve({ missionId }) });
+  return GET(new Request("http://localhost/api/missions/status"), {
+    params: Promise.resolve({ missionId }),
+  });
 }
 
 async function until(check) {
@@ -144,37 +187,81 @@ async function saveProof(id, input = validInput, contents) {
   const directory = path.join(fixtureRoot, "output", id);
   await mkdir(directory, { recursive: true });
   const proof = {
-    version: 2, mission: {
-      id, issue: input.issue, source: { repositoryUrl: input.repositoryUrl, baseCommit: "a".repeat(40) },
-      reproduction: { label: "Reproduction", command: "npm test" }, fullSuite: { label: "Suite", command: "npm test" },
-    }, status: "FAILED", verdict: "FAILED", artifacts: null,
+    version: 2,
+    mission: {
+      id,
+      issue: input.issue,
+      source: {
+        repositoryUrl: input.repositoryUrl,
+        baseCommit: "a".repeat(40),
+      },
+      reproduction: { label: "Reproduction", command: "npm test" },
+      fullSuite: { label: "Suite", command: "npm test" },
+    },
+    status: "FAILED",
+    verdict: "FAILED",
+    artifacts: null,
   };
-  await writeFile(path.join(directory, "proof.json"), contents ?? JSON.stringify(proof));
+  await writeFile(
+    path.join(directory, "proof.json"),
+    contents ?? JSON.stringify(proof),
+  );
   await writeFile(path.join(directory, "events.json"), "[]");
 }
 
 test("validation requires only repository and issue; omitted advanced fields normalize to empty strings", () => {
-  assert.deepEqual(parseMissionInput({ repositoryUrl: " HTTPS://GITHUB.COM/owner/repository/ ", issue: " bug " }), {
-    repositoryUrl: validInput.repositoryUrl, issue: "bug", reproductionCommand: "", requiredOutput: "",
-  });
-  assert.deepEqual(parseMissionInput({ ...validInput, reproductionCommand: "  ", requiredOutput: " marker " }), {
-    ...validInput, reproductionCommand: "", requiredOutput: "marker",
-  });
+  assert.deepEqual(
+    parseMissionInput({
+      repositoryUrl: " HTTPS://GITHUB.COM/owner/repository/ ",
+      issue: " bug ",
+    }),
+    {
+      repositoryUrl: validInput.repositoryUrl,
+      issue: "bug",
+      reproductionCommand: "",
+      requiredOutput: "",
+    },
+  );
+  assert.deepEqual(
+    parseMissionInput({
+      ...validInput,
+      reproductionCommand: "  ",
+      requiredOutput: " marker ",
+    }),
+    {
+      ...validInput,
+      reproductionCommand: "",
+      requiredOutput: "marker",
+    },
+  );
 });
 
 test("validation rejects unsafe repositories, types, required fields, NUL and oversized fields", () => {
   for (const repositoryUrl of [
-    "https://example.com/owner/repo", "http://github.com/owner/repo", "https://github.com.evil/owner/repo",
-    "https://user:token@github.com/owner/repo", "https://github.com:444/owner/repo",
-    "https://github.com/owner/repo?token=secret", "https://github.com/owner/repo#fragment",
-    "https://github.com/owner/repo/tree/main", "https://github.com", "not a URL",
-  ]) assert.throws(() => parseMissionInput({ ...validInput, repositoryUrl }));
-  for (const invalid of [null, [], 42, "text"]) assert.throws(() => parseMissionInput(invalid));
+    "https://example.com/owner/repo",
+    "http://github.com/owner/repo",
+    "https://github.com.evil/owner/repo",
+    "https://user:token@github.com/owner/repo",
+    "https://github.com:444/owner/repo",
+    "https://github.com/owner/repo?token=secret",
+    "https://github.com/owner/repo#fragment",
+    "https://github.com/owner/repo/tree/main",
+    "https://github.com",
+    "not a URL",
+  ])
+    assert.throws(() => parseMissionInput({ ...validInput, repositoryUrl }));
+  for (const invalid of [null, [], 42, "text"])
+    assert.throws(() => parseMissionInput(invalid));
   for (const [field, limit] of Object.entries(MISSION_INPUT_LIMITS)) {
-    assert.throws(() => parseMissionInput({ ...validInput, [field]: "x".repeat(limit + 1) }));
+    assert.throws(() =>
+      parseMissionInput({ ...validInput, [field]: "x".repeat(limit + 1) }),
+    );
     assert.throws(() => parseMissionInput({ ...validInput, [field]: 42 }));
-    assert.throws(() => parseMissionInput({ ...validInput, [field]: "has\0nul" }));
-    if (["repositoryUrl", "issue"].includes(field)) assert.throws(() => parseMissionInput({ ...validInput, [field]: "  " }));
+    assert.throws(() =>
+      parseMissionInput({ ...validInput, [field]: "has\0nul" }),
+    );
+    if (["repositoryUrl", "issue"].includes(field))
+      assert.throws(() => parseMissionInput({ ...validInput, [field]: "  " }));
   }
 });
 
@@ -190,13 +277,19 @@ test("launch returns before completion, with initial durable status and unique I
   const first = await launch({ ...validInput, issue: "gate" });
   assert.match(first.missionId, /^web-[0-9a-f-]{36}$/);
   let completed = false;
-  first.completion.then(() => { completed = true; });
+  first.completion.then(() => {
+    completed = true;
+  });
   const initial = await readMissionLiveStatus(first.missionId);
   assert.ok(["QUEUED", "RUNNING"].includes(initial.status));
   assert.equal(initial.proofReady, false);
   assert.equal(initial.issue, "gate");
   await until(async () => {
-    try { return await readFile(path.join(fixtureRoot, "ready"), "utf8"); } catch { return false; }
+    try {
+      return await readFile(path.join(fixtureRoot, "ready"), "utf8");
+    } catch {
+      return false;
+    }
   });
   assert.equal(completed, false);
   const second = await launch();
@@ -210,13 +303,20 @@ test("launch returns before completion, with initial durable status and unique I
 test("fixed CLI arguments remain literal, environment is inherited, and server ID is authoritative", async () => {
   process.env.PATCHVERDICT_BRIDGE_TEST_VALUE = "inherited-test-value";
   const input = {
-    ...validInput, issue: 'quotes " and newline\nremain data',
-    reproductionCommand: 'npm test && echo $(whoami); & | "literal"', requiredOutput: 'expected "quotes"',
+    ...validInput,
+    issue: 'quotes " and newline\nremain data',
+    reproductionCommand: 'npm test && echo $(whoami); & | "literal"',
+    requiredOutput: 'expected "quotes"',
   };
   const run = await launch(input);
   await run.completion;
-  const received = JSON.parse(await readFile(path.join(fixtureRoot, "received.json"), "utf8"));
-  assert.deepEqual(received.args, [path.join(fixtureRoot, "src", "real-mission-demo.ts"), ...Object.values(input)]);
+  const received = JSON.parse(
+    await readFile(path.join(fixtureRoot, "received.json"), "utf8"),
+  );
+  assert.deepEqual(received.args, [
+    path.join(fixtureRoot, "src", "real-mission-demo.ts"),
+    ...Object.values(input),
+  ]);
   assert.equal(received.cwd, fixtureRoot);
   assert.equal(received.inherited, "inherited-test-value");
   assert.equal(received.id, run.missionId);
@@ -226,10 +326,21 @@ test("fixed CLI arguments remain literal, environment is inherited, and server I
 });
 
 test("omitted reproduction keeps its positional slot before the optional failure marker", async () => {
-  const run = await launch({ repositoryUrl: validInput.repositoryUrl, issue: validInput.issue, requiredOutput: "marker" });
+  const run = await launch({
+    repositoryUrl: validInput.repositoryUrl,
+    issue: validInput.issue,
+    requiredOutput: "marker",
+  });
   await run.completion;
-  const received = JSON.parse(await readFile(path.join(fixtureRoot, "received.json"), "utf8"));
-  assert.deepEqual(received.args.slice(1), [validInput.repositoryUrl, validInput.issue, "", "marker"]);
+  const received = JSON.parse(
+    await readFile(path.join(fixtureRoot, "received.json"), "utf8"),
+  );
+  assert.deepEqual(received.args.slice(1), [
+    validInput.repositoryUrl,
+    validInput.issue,
+    "",
+    "marker",
+  ]);
   assert.equal((await readMissionLiveStatus(run.missionId)).proofReady, true);
 });
 
@@ -237,14 +348,23 @@ test("only allowlisted events bearing the server mission ID are persisted in std
   const run = await launch();
   await run.completion;
   const status = await readMissionLiveStatus(run.missionId);
-  assert.deepEqual(status.events.map(({ state, message }) => ({ state, message })), [
-    { state: "PREPARING", message: "Backend process started." },
-    { state: "PREPARING", message: "Preparing repository..." },
-    { state: "BASELINE", message: "Running reproduction test before patch" },
-    { state: "BASELINE", message: "Reported bug reproduced" },
-    { state: "FAILED", message: "The backend reported a failure. Recording available proof." },
-  ]);
-  assert.doesNotMatch(JSON.stringify(status), /SECRET_CREDENTIAL|private|AI investigation completed|VERIFIED/);
+  assert.deepEqual(
+    status.events.map(({ state, message }) => ({ state, message })),
+    [
+      { state: "PREPARING", message: "Backend process started." },
+      { state: "PREPARING", message: "Preparing repository..." },
+      { state: "BASELINE", message: "Running reproduction test before patch" },
+      { state: "BASELINE", message: "Reported bug reproduced" },
+      {
+        state: "FAILED",
+        message: "The backend reported a failure. Recording available proof.",
+      },
+    ],
+  );
+  assert.doesNotMatch(
+    JSON.stringify(status),
+    /SECRET_CREDENTIAL|private|AI investigation completed|VERIFIED/,
+  );
 });
 
 test("crash and missing proof persist a safe execution failure after successful launch", async () => {
@@ -255,7 +375,10 @@ test("crash and missing proof persist a safe execution failure after successful 
     assert.equal(status.status, "FAILED");
     assert.equal(status.proofReady, false);
     assert.match(status.error, /readable proof bundle/);
-    assert.doesNotMatch(JSON.stringify(status), /SECRET_CREDENTIAL|private|cli.mjs/);
+    assert.doesNotMatch(
+      JSON.stringify(status),
+      /SECRET_CREDENTIAL|private|cli.mjs/,
+    );
   }
 });
 
@@ -271,16 +394,28 @@ test("malformed or unrelated proof cannot mark execution completed; proof presen
 });
 
 test("timeout kills the CLI and descendant, then persists a safe failure", async () => {
-  const run = await launch({ ...validInput, issue: "timeout" }, { timeoutMs: 1000 });
+  const run = await launch(
+    { ...validInput, issue: "timeout" },
+    { timeoutMs: 1000 },
+  );
   await run.completion;
   const status = await readMissionLiveStatus(run.missionId);
   assert.equal(status.status, "FAILED");
   assert.equal(status.proofReady, false);
   assert.match(status.error, /time limit/);
-  const pids = JSON.parse(await readFile(path.join(fixtureRoot, "pids.json"), "utf8"));
-  await until(() => pids.every((pid) => {
-    try { process.kill(pid, 0); return false; } catch (error) { return error.code === "ESRCH"; }
-  }));
+  const pids = JSON.parse(
+    await readFile(path.join(fixtureRoot, "pids.json"), "utf8"),
+  );
+  await until(() =>
+    pids.every((pid) => {
+      try {
+        process.kill(pid, 0);
+        return false;
+      } catch (error) {
+        return error.code === "ESRCH";
+      }
+    }),
+  );
 });
 
 test("API enforces JSON, bounded bodies, validation and Node runtime", async () => {
@@ -292,7 +427,13 @@ test("API enforces JSON, bounded bodies, validation and Node runtime", async () 
     [request({ ...validInput, repositoryUrl: "https://example.com/a/b" }), 400],
     [request({ ...validInput, issue: " " }), 400],
     [request("x".repeat(65537)), 413],
-    [request("{}", { "Content-Type": "application/json", "Content-Length": "65537" }), 413],
+    [
+      request("{}", {
+        "Content-Type": "application/json",
+        "Content-Length": "65537",
+      }),
+      413,
+    ],
   ]) {
     const response = await POST(req);
     assert.equal(response.status, status);
@@ -303,13 +444,17 @@ test("API enforces JSON, bounded bodies, validation and Node runtime", async () 
 });
 
 test("API returns 202 plus mission/status URLs before completion and retains completion with after", async () => {
-  const response = await POST(request({ repositoryUrl: validInput.repositoryUrl, issue: "gate" }));
+  const response = await POST(
+    request({ repositoryUrl: validInput.repositoryUrl, issue: "gate" }),
+  );
   assert.equal(response.status, 202);
   assert.equal(response.headers.get("Cache-Control"), "no-store");
   const body = await response.json();
   assert.match(body.missionId, /^web-[0-9a-f-]{36}$/);
   assert.deepEqual(body, {
-    missionId: body.missionId, missionUrl: `/missions/${body.missionId}`, statusUrl: `/api/missions/${body.missionId}/status`,
+    missionId: body.missionId,
+    missionUrl: `/missions/${body.missionId}`,
+    statusUrl: `/api/missions/${body.missionId}/status`,
   });
   assert.equal(globalThis.missionAfterCallbacks.length, 1);
   const runningResponse = await statusRequest(body.missionId);
@@ -318,7 +463,10 @@ test("API returns 202 plus mission/status URLs before completion and retains com
   assert.equal((await runningResponse.json()).proofReady, false);
   await writeFile(path.join(fixtureRoot, "release"), "yes");
   await globalThis.missionAfterCallbacks[0]();
-  assert.equal((await (await statusRequest(body.missionId)).json()).proofReady, true);
+  assert.equal(
+    (await (await statusRequest(body.missionId)).json()).proofReady,
+    true,
+  );
 });
 
 test("API accepts a launch that later crashes, then exposes only safe persisted failure", async () => {
@@ -328,14 +476,20 @@ test("API accepts a launch that later crashes, then exposes only safe persisted 
   await globalThis.missionAfterCallbacks[0]();
   const status = await (await statusRequest(body.missionId)).json();
   assert.equal(status.status, "FAILED");
-  assert.doesNotMatch(JSON.stringify(status), /SECRET_CREDENTIAL|private|cli.mjs/);
+  assert.doesNotMatch(
+    JSON.stringify(status),
+    /SECRET_CREDENTIAL|private|cli.mjs/,
+  );
 });
 
 test("missing backend dependencies return service unavailable before accepting a mission", async () => {
   await rm(path.join(fixtureRoot, "node_modules", "tsx", "dist", "cli.mjs"));
   const response = await POST(request(validInput));
   assert.equal(response.status, 503);
-  assert.match((await response.json()).error, /Install the backend dependencies/);
+  assert.match(
+    (await response.json()).error,
+    /Install the backend dependencies/,
+  );
   assert.equal(globalThis.missionAfterCallbacks.length, 0);
 });
 
@@ -345,16 +499,27 @@ test("persisted transitions survive fresh reads, terminal failure ignores late e
   const queued = await readMissionLiveStatus(id);
   assert.equal(queued.status, "QUEUED");
   assert.deepEqual(queued.events, []);
-  await recordMissionLiveEvent(id, { state: "BASELINE", message: "Running reproduction test before patch" });
-  await recordMissionLiveEvent(id, { state: "BASELINE", message: "Reported bug reproduced" });
+  await recordMissionLiveEvent(id, {
+    state: "BASELINE",
+    message: "Running reproduction test before patch",
+  });
+  await recordMissionLiveEvent(id, {
+    state: "BASELINE",
+    message: "Reported bug reproduced",
+  });
   const running = await readMissionLiveStatus(id);
   assert.equal(running.status, "RUNNING");
   assert.equal(running.phase, "BASELINE");
   assert.equal(running.events.length, 2);
   const failure = await failMissionLiveStatus(id, "Execution failed safely.");
-  await recordMissionLiveEvent(id, { state: "COMPLETED", message: "Mission completed with verdict VERIFIED" });
+  await recordMissionLiveEvent(id, {
+    state: "COMPLETED",
+    message: "Mission completed with verdict VERIFIED",
+  });
   assert.deepEqual(await readMissionLiveStatus(id), failure);
-  assert.deepEqual(await readdir(path.join(fixtureRoot, "output", ".runs")), [`${id}.json`]);
+  assert.deepEqual(await readdir(path.join(fixtureRoot, "output", ".runs")), [
+    `${id}.json`,
+  ]);
 });
 
 test("proof presence immediately triggers readiness without interrupting durable event recording", async () => {
@@ -366,8 +531,19 @@ test("proof presence immediately triggers readiness without interrupting durable
   const proofPresent = await readMissionLiveStatus(id);
   assert.equal(proofPresent.proofReady, true);
   assert.equal(proofPresent.status, "QUEUED");
-  assert.equal(JSON.parse(await readFile(path.join(fixtureRoot, "output", ".runs", `${id}.json`), "utf8")).proofReady, false);
-  await recordMissionLiveEvent(id, { state: "COMPLETED", message: "Mission completed with verdict FAILED" });
+  assert.equal(
+    JSON.parse(
+      await readFile(
+        path.join(fixtureRoot, "output", ".runs", `${id}.json`),
+        "utf8",
+      ),
+    ).proofReady,
+    false,
+  );
+  await recordMissionLiveEvent(id, {
+    state: "COMPLETED",
+    message: "Mission completed with verdict FAILED",
+  });
   assert.equal(await completeMissionLiveStatus(id), true);
   const status = await readMissionLiveStatus(id);
   assert.equal(status.proofReady, true);
@@ -410,7 +586,10 @@ test("disk remains authoritative and status API rejects malformed, unknown, and 
     const response = await statusRequest(id);
     assert.equal(response.status, 400);
     await assert.rejects(readMissionLiveStatus(id), /Invalid mission ID/);
-    await assert.rejects(createMissionLiveStatus(id, validInput, 10000), /Invalid mission ID/);
+    await assert.rejects(
+      createMissionLiveStatus(id, validInput, 10000),
+      /Invalid mission ID/,
+    );
     await assert.rejects(proofBundleExists(id), /Invalid mission ID/);
   }
   const id = "web-corrupt";
@@ -423,18 +602,29 @@ test("disk remains authoritative and status API rejects malformed, unknown, and 
   await writeFile(filename, "SECRET_CREDENTIAL_DO_NOT_RETURN");
   const response = await statusRequest(id);
   assert.equal(response.status, 500);
-  assert.deepEqual(await response.json(), { error: "Mission status could not be read." });
+  assert.deepEqual(await response.json(), {
+    error: "Mission status could not be read.",
+  });
 });
 
 test("status storage rejects a .runs junction that resolves outside output", async (context) => {
   const outside = path.join(fixtureRoot, "outside-runs");
   const output = path.join(fixtureRoot, "output");
   await Promise.all([mkdir(outside), mkdir(output)]);
-  try { await symlink(outside, path.join(output, ".runs"), process.platform === "win32" ? "junction" : "dir"); }
-  catch (error) {
-    if (["EPERM", "EACCES", "ENOTSUP"].includes(error.code)) return context.skip("Filesystem does not permit test symlinks");
+  try {
+    await symlink(
+      outside,
+      path.join(output, ".runs"),
+      process.platform === "win32" ? "junction" : "dir",
+    );
+  } catch (error) {
+    if (["EPERM", "EACCES", "ENOTSUP"].includes(error.code))
+      return context.skip("Filesystem does not permit test symlinks");
     throw error;
   }
-  await assert.rejects(createMissionLiveStatus("web-escape", validInput, 10000), /outside the allowed directory/);
+  await assert.rejects(
+    createMissionLiveStatus("web-escape", validInput, 10000),
+    /outside the allowed directory/,
+  );
   assert.deepEqual(await readdir(outside), []);
 });

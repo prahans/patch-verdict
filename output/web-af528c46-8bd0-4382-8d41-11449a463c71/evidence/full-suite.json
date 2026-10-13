@@ -1,7 +1,0 @@
-{
-  "command": "npm test",
-  "exitCode": 0,
-  "stdout": "\n> patchverdict-simple-bug@1.0.0 test\n> vitest run\n\n\n RUN  v3.2.4 /tmp/patchverdict\n\n ✓ src/average.test.js (4 tests) 2ms\n\n Test Files  1 passed (1)\n      Tests  4 passed (4)\n   Start at  15:15:47\n   Duration  226ms (transform 19ms, setup 0ms, collect 23ms, tests 2ms, environment 0ms, prepare 74ms)\n\n",
-  "stderr": "",
-  "durationMs": 1086
-}
