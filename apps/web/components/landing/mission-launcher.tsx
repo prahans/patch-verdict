@@ -3,6 +3,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/mission/icon";
+import { playMissionSound, prepareMissionSound } from "@/lib/mission-sound";
 import {
   MISSION_INPUT_LIMITS,
   parseMissionInput,
@@ -20,6 +21,7 @@ export function MissionLauncher() {
     if (inFlight.current) return;
     const fields = new FormData(event.currentTarget);
     setError(null);
+    void prepareMissionSound();
 
     let input;
     try {
@@ -59,6 +61,7 @@ export function MissionLauncher() {
         typeof result.missionId === "string" &&
         /^[A-Za-z0-9_-]+$/.test(result.missionId)
       ) {
+        void playMissionSound("start");
         router.push("/missions/" + result.missionId);
         // Keep the form locked until live Mission Control replaces it.
         return;
