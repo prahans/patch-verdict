@@ -25,6 +25,8 @@ When the command is omitted, the CLI uses `prepared.project.fullSuiteCommand` fr
 
 `GET /api/github/issue?url=<encoded-issue-url>` parses the URL locally and fetches only the fixed GitHub API origin. Issue URLs must have exactly the HTTPS `github.com/<owner>/<repo>/issues/<positive-integer>` shape, without credentials, queries, fragments, or extra segments. A GitHub pull request returned by the issues API is rejected. Preview text is bounded and rendered as text.
 
+Public issue reads are unauthenticated even when a publication token is configured. GitHub rate limits therefore apply. Combined canonical issue title/body must fit the existing 10,000-character mission limit; larger issues receive a controlled error instead of silently truncated verification context. An empty body is supported, and issue titles do not need to satisfy the manual description's 20-character minimum.
+
 `POST /api/missions` accepts `{ mode: "issue", issueUrl, reproductionCommand?, requiredOutput? }` or `{ mode: "manual", repositoryUrl, issue, reproductionCommand?, requiredOutput? }`. Issue submission resolves the issue again on the server and derives the repository and title/body there; browser preview values cannot replace them. Both modes become repository-oriented backend input. The route creates a unique server-generated mission ID, saves initial status, and starts the child process. It returns HTTP 202 with `missionId`, `missionUrl`, and `statusUrl` without awaiting the mission. Submitting the same inputs again creates a separate run.
 
 `runBackendMission()` launches `process.execPath` with the root-installed `tsx/dist/cli.mjs`, the fixed `src/real-mission-demo.ts` entry point, and separate input arguments using `shell:false`. It supplies `PATCHVERDICT_MISSION_ID` itself and keeps the GitHub write token out of the verification child. The browser cannot choose this ID. Normal CLI runs retain their original generated IDs when the variable is absent. The reproduction command is data for the existing sandbox backend.
@@ -53,7 +55,9 @@ Set `PATCHVERDICT_GITHUB_TOKEN` in the **web server environment** or `apps/web/.
 
 The publisher reads the exact base commit/tree through GitHub REST and applies the exact diff in an isolated Git index. Git does not check out or execute repository code. It validates the resulting changed-file set and modes, then creates GitHub blobs/tree and a commit whose parent is the recorded base commit. The PR targets the repository's current default branch; the patch is never rebased, regenerated, or reverified during publication. GitHub reports conflicts if that branch has advanced.
 
-Only supported bounded text patches can publish. Binary files, symlinks, submodules, unsafe paths, unsupported modes, or repositories exceeding publication limits produce controlled errors. Git must be available on the web server. The verification engine's E2B execution remains unchanged.
+Only supported bounded text patches can publish. Patches touching binary files, symlinks, submodules, unsafe paths, or unsupported modes, and repositories exceeding publication limits produce controlled errors. Git must be available on the web server. The verification engine's E2B execution remains unchanged.
+
+The publisher follows GitHub's REST contracts for [Git trees](https://docs.github.com/en/rest/git/trees), [Git commits](https://docs.github.com/en/rest/git/commits), and [pull requests](https://docs.github.com/en/rest/pulls/pulls).
 
 The deterministic branch is `patchverdict/<missionId>`. Validated PR metadata is saved atomically as `output/<missionId>/pull-request.json`, separate from `proof.json`, and the refreshed dashboard shows **View PR**. Repeated/concurrent requests reuse publication state. If GitHub succeeds before local persistence fails, retry checks the deterministic branch and existing PR against the exact expected repair before recovering it. Existing mission retention naturally retains or removes PR metadata with its mission directory.
 
@@ -78,11 +82,13 @@ pnpm build
 ## Manual browser test
 
 1. Start the app with `pnpm dev` in `apps/web`, then open http://localhost:3000.
-2. Enter `https://github.com/prahans/patchverdict-simple-bug`.
-3. Enter: The average function returns incorrect results. average([10, 20, 30]) should return 20, average([100]) should return 100, and the implementation should correctly compute the arithmetic mean while preserving the empty-array behavior.
-4. Leave Advanced settings collapsed; submit just these two fields.
+2. Paste `https://github.com/prahans/patchverdict-divide-by-zero/issues/1` and confirm the plain-text issue preview. Leave the GitHub token unset to check the public issue flow.
+3. Switch to manual mode and back, confirming Advanced settings are available in both modes. To exercise the original benchmark in manual mode, use `https://github.com/prahans/patchverdict-simple-bug` with: The average function returns incorrect results. average([10, 20, 30]) should return 20, average([100]) should return 100, and the implementation should correctly compute the arithmetic mean while preserving the empty-array behavior.
+4. Leave Advanced settings collapsed and submit the chosen workflow.
 5. Confirm an immediate HTTP 202 and navigation to `/missions/<actual-mission-id>`, showing RUNNING / PREPARING. The backend should detect npm and use `npm test`.
 6. Confirm real events appear as reproduction, investigation, patching, and verification run. Reload during execution and confirm the saved progress remains visible.
 7. Confirm the live view automatically becomes the existing final dashboard, with the actual repository, commit, investigation, diff, evidence, and recorded verdict. Reload once more to confirm the final proof persists.
 8. Use New mission to return to `/#verify`, and the brand to return to `/`. Submit an invalid repository URL to confirm an accessible error and preserved inputs.
 9. Repeat with the review benchmark `https://github.com/zrev2220/vitest-rtl-cleanup-bug` and issue: `DarkMode tests fail because rendered DOM from previous test suites remains mounted. Each test should run with a clean DOM.` Optionally set `npm test` and `Found multiple elements` in Advanced settings. Observe the actual recorded outcome; a sensitive verification change should appear as REVIEW and ultimately REVIEW_REQUIRED when verification passes.
+10. On an eligible completed mission, click the PR action with no token and confirm a safe inline configuration error with unchanged evidence/verdict. Configure a token restricted to your demo repository only when you intend to publish a real PR. Confirm VERIFIED creates a normal PR, REVIEW_REQUIRED creates a draft, and FAILED offers no creation action.
+11. After intentional publication, reload and confirm **View PR** persists. Confirm the GitHub commit parent equals the proof base commit and its changed files/content match the recorded patch. Repeated requests must return the same PR.

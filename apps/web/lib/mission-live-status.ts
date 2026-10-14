@@ -5,6 +5,7 @@ import { mkdir, readFile, realpath, rename, stat, unlink, writeFile } from "node
 import path from "node:path";
 import { loadProofBundle } from "./load-proof-bundle";
 import type { MissionInput } from "./mission-input";
+import { parsePersistedGitHubIssue } from "./github-issue-url";
 import { isSafeMissionId, type MissionLiveEvent, type MissionLiveStatus } from "./mission-live-types";
 import { resolveRepositoryRoot } from "./repository-root";
 
@@ -60,6 +61,11 @@ function parseStatus(text: string, missionId: string): MissionLiveStatus {
     (value.error !== undefined && typeof value.error !== "string")) {
     throw new Error("The persisted mission status is invalid.");
   }
+  if (value.githubIssue !== undefined) {
+    const githubIssue = parsePersistedGitHubIssue(value.githubIssue, value.repositoryUrl);
+    if (!githubIssue) throw new Error("The persisted GitHub issue source is invalid.");
+    value.githubIssue = githubIssue;
+  }
   return value;
 }
 
@@ -112,6 +118,7 @@ export async function createMissionLiveStatus(missionId: string, input: MissionI
     missionId, status: "QUEUED", phase: "PREPARING",
     message: "Mission accepted. Starting the backend.",
     repositoryUrl: input.repositoryUrl, issue: input.issue,
+    ...(input.githubIssue && { githubIssue: input.githubIssue }),
     startedAt: now, updatedAt: now,
     deadlineAt: new Date(Date.now() + timeoutMs + 5000).toISOString(),
     proofReady: false, events: [],
@@ -166,7 +173,8 @@ async function usableProof(current: MissionLiveStatus) {
     return bundle.details.title === title.trim() &&
       bundle.details.description === description.join("\n").trim() &&
       !!bundle.details.source &&
-      canonicalUrl(bundle.details.source.repositoryUrl) === canonicalUrl(current.repositoryUrl);
+      canonicalUrl(bundle.details.source.repositoryUrl) === canonicalUrl(current.repositoryUrl) &&
+      JSON.stringify(bundle.details.source.githubIssue) === JSON.stringify(current.githubIssue);
   } catch {
     return false;
   }

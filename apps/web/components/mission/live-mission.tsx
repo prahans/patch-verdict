@@ -10,6 +10,7 @@ import {
 import { MissionHeader } from "./mission-header";
 import { FlightRecorder } from "./flight-recorder";
 import { Icon } from "./icon";
+import { parsePersistedGitHubIssue } from "@/lib/github-issue-url";
 
 const phaseCopy = {
   PREPARING: "Preparing isolated repository…",
@@ -39,6 +40,11 @@ function isStatusResponse(
 ): value is MissionLiveStatus {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
+  if (candidate.githubIssue !== undefined) {
+    try {
+      if (!parsePersistedGitHubIssue(candidate.githubIssue, String(candidate.repositoryUrl))) return false;
+    } catch { return false; }
+  }
   return (
     candidate.missionId === missionId &&
     ["QUEUED", "RUNNING", "COMPLETED", "FAILED"].includes(
@@ -186,14 +192,14 @@ export function LiveMission({
                 : "REAL EXECUTION / LIVE EVIDENCE"}
           </p>
           <h1 id="live-title">
-            {failed
+            {status.githubIssue?.title ?? (failed
               ? "MISSION EXECUTION FAILED"
               : status.proofReady
                 ? "PROOF BUNDLE RECORDED"
-                : "MISSION IN PROGRESS"}
+                : "MISSION IN PROGRESS")}
           </h1>
-          <p className="live-summary-copy">
-            {failed
+          <p className={`live-summary-copy${status.githubIssue ? " issue-description" : ""}`}>
+            {status.githubIssue ? (status.githubIssue.body ?? status.issue.split(/\r?\n/).slice(1).join("\n").trim()) : failed
               ? "The backend stopped before it could record a usable proof bundle."
               : status.proofReady
                 ? "Opening the saved proof dashboard…"
@@ -204,12 +210,18 @@ export function LiveMission({
               <dt>Repository</dt>
               <dd className="live-repository">
                 <Icon name="branch" width="14" height="14" />
-                <span>{status.repositoryUrl}</span>
+                {status.githubIssue ? (
+                  <a href={status.repositoryUrl} target="_blank" rel="noopener noreferrer">{status.repositoryUrl} ↗</a>
+                ) : <span>{status.repositoryUrl}</span>}
               </dd>
             </div>
             <div>
-              <dt>Reported issue</dt>
-              <dd className="live-reported-issue">{status.issue}</dd>
+              <dt>{status.githubIssue ? "Issue" : "Reported issue"}</dt>
+              <dd className="live-reported-issue">
+                {status.githubIssue ? (
+                  <a href={status.githubIssue.url} target="_blank" rel="noopener noreferrer">#{status.githubIssue.number} · View original issue ↗</a>
+                ) : status.issue}
+              </dd>
             </div>
           </dl>
           <div

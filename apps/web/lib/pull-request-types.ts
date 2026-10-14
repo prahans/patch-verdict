@@ -25,5 +25,18 @@ export function getPullRequestEligibility(mission: MissionResult, details: Missi
   if (!mission.patch.sha256 || !/^[a-f0-9]{64}$/.test(mission.patch.sha256)) {
     return { allowed: false, draft, reason: "This proof has no verified patch digest. Run a new mission to enable pull request creation." };
   }
+  // Refuse contradictory persisted evidence without recomputing or changing the
+  // recorded verdict. Older bundles may omit these optional evidence fields.
+  const integrity = mission.verificationIntegrity;
+  if (mission.error || Object.entries(mission.checks ?? {}).some(([key, value]) => key !== "verificationIntegrityPreserved" && value === false) ||
+    mission.reproduction?.reproduced === false ||
+    (mission.evidence?.postPatchTest && mission.evidence.postPatchTest.exitCode !== 0) ||
+    (mission.evidence?.fullSuite && mission.evidence.fullSuite.exitCode !== 0) ||
+    integrity?.status === "COMPROMISED" || (integrity && integrity.violations.length > 0) ||
+    (!draft && (mission.checks?.verificationIntegrityPreserved === false ||
+      (integrity && (integrity.status !== "PRESERVED" || !integrity.preserved || integrity.reviewFlags.length > 0)))) ||
+    (draft && integrity && integrity.status !== "REVIEW_REQUIRED")) {
+    return { allowed: false, draft, reason: "The recorded verification evidence conflicts with the verdict. Pull request creation is unavailable." };
+  }
   return { allowed: true, draft };
 }

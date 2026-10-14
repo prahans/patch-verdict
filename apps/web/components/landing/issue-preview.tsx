@@ -13,7 +13,7 @@ export function readIssuePreview(value: unknown, requestedUrl: string): Resolved
   if (!value || typeof value !== "object") return null;
   const issue = value as Record<string, unknown>;
   if (typeof issue.issueUrl !== "string" || issue.issueUrl !== requestedUrl ||
-    typeof issue.title !== "string" || !issue.title.trim() || issue.title.length > 1000 ||
+    typeof issue.title !== "string" || !issue.title.trim() || issue.title.length > 1024 ||
     typeof issue.bodyPreview !== "string" || issue.bodyPreview.length > 2000) return null;
   try {
     const parsed = parseGitHubIssueUrl(issue.issueUrl);

@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import {
-  parseMissionInput,
+  parseBackendMissionInput,
   type MissionInput,
   type ParsedMissionInput,
 } from "./mission-input";
@@ -81,7 +81,14 @@ function execute(
         ],
         {
           cwd: repositoryRoot,
-          env: { ...process.env, PATCHVERDICT_MISSION_ID: missionId },
+          env: {
+            ...process.env,
+            // An explicit empty value also stops dotenv from restoring the
+            // server's write token inside the verification child process.
+            PATCHVERDICT_GITHUB_TOKEN: "",
+            PATCHVERDICT_MISSION_ID: missionId,
+            PATCHVERDICT_GITHUB_ISSUE: input.githubIssue ? JSON.stringify(input.githubIssue) : "",
+          },
           shell: false,
           windowsHide: true,
           detached: process.platform !== "win32",
@@ -178,7 +185,7 @@ export async function runBackendMission(
   values: MissionInput,
   options: { timeoutMs?: number } = {},
 ): Promise<{ missionId: string; completion: Promise<void> }> {
-  const input = parseMissionInput(values);
+  const input = parseBackendMissionInput(values);
   const timeoutMs = options.timeoutMs ?? MISSION_TIMEOUT_MS;
   let repositoryRoot: string;
   try {

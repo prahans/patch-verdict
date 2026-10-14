@@ -161,7 +161,7 @@ export function MissionLauncher() {
                   className="launch-input"
                   type="url"
                   required
-                  maxLength={MISSION_INPUT_LIMITS.issueUrl}
+                  maxLength={MISSION_INPUT_LIMITS.repositoryUrl}
                   placeholder="https://github.com/owner/repo/issues/12"
                   autoComplete="url"
                   spellCheck={false}

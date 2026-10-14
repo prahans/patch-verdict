@@ -3,6 +3,7 @@ import "server-only";
 import { readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { resolveRepositoryRoot } from "./repository-root";
+import { parseGitHubRepositoryUrl, parsePersistedGitHubIssue, type GitHubIssue } from "./github-issue-url";
 import type {
   CommandEvidence,
   MissionEvent,
@@ -23,6 +24,7 @@ type ProofMetadata = {
   source?: {
     repositoryUrl: string;
     baseCommit: string;
+    githubIssue?: GitHubIssue;
   };
 
   reproduction: {
@@ -214,22 +216,13 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       true,
     );
 
-    let parsedRepositoryUrl: URL;
-
     try {
-      parsedRepositoryUrl = new URL(repositoryUrl);
+      parseGitHubRepositoryUrl(repositoryUrl);
     } catch {
       return invalid(
         "proof.json mission.source.repositoryUrl",
         "a valid GitHub HTTPS URL",
       );
-    }
-
-    if (
-      parsedRepositoryUrl.protocol !== "https:" ||
-      parsedRepositoryUrl.hostname !== "github.com"
-    ) {
-      invalid("proof.json mission.source.repositoryUrl", "a GitHub HTTPS URL");
     }
 
     if (!/^[0-9a-f]{40}$/i.test(baseCommit)) {
@@ -243,6 +236,11 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       repositoryUrl,
       baseCommit,
     };
+    if (source.githubIssue !== undefined) {
+      const githubIssue = parsePersistedGitHubIssue(source.githubIssue, repositoryUrl);
+      if (!githubIssue) invalid("proof.json mission.source.githubIssue", "valid GitHub issue metadata matching the repository");
+      metadata.source.githubIssue = githubIssue;
+    }
   }
 
   if (proof.checks != null) {
@@ -406,6 +404,10 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
         string(file, `proof.json patch.changedFiles[${index}]`, true),
       ),
     };
+    if (patch.sha256 !== undefined) {
+      if (typeof patch.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(patch.sha256)) invalid("proof.json patch.sha256", "a SHA-256 digest");
+      metadata.patch.sha256 = patch.sha256;
+    }
   }
   if (proof.investigation != null) {
     const investigation = object(
@@ -693,9 +695,9 @@ export async function loadProofBundle(
     details: {
       id: proof.id,
 
-      title: issueLines[0].trim(),
+      title: proof.source?.githubIssue?.title ?? issueLines[0].trim(),
 
-      description: issueLines.slice(1).join("\n").trim(),
+      description: proof.source?.githubIssue?.body ?? issueLines.slice(1).join("\n").trim(),
 
       reproduction: proof.reproduction,
 

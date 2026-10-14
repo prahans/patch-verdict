@@ -1,6 +1,8 @@
 import type { MissionDetails, MissionResult } from "@/lib/mission-types";
 import { Icon } from "./icon";
 import { ExportEvidence } from "./export-evidence";
+import { PullRequestAction } from "./pull-request-action";
+import { getPullRequestEligibility, type PullRequestResult } from "@/lib/pull-request-types";
 
 function isGitHubRepositoryUrl(value: string): boolean {
   try {
@@ -19,11 +21,15 @@ function isGitHubRepositoryUrl(value: string): boolean {
 export function MissionSummary({
   mission,
   details,
+  pullRequest = null,
 }: {
   mission: MissionResult;
   details: MissionDetails;
+  pullRequest?: PullRequestResult | null;
 }) {
   const baseCommit = details.source?.baseCommit ?? mission.patch?.baseCommit;
+  const githubIssue = details.source?.githubIssue;
+  const eligibility = getPullRequestEligibility(mission, details);
 
   const repository =
     details.source?.repositoryUrl ??
@@ -34,10 +40,17 @@ export function MissionSummary({
       <div className="summary-heading">
         <div className="min-w-0">
           <p className="eyebrow amber">PATCH VERIFICATION MISSION</p>
-          <h1 id="mission-title">{details.title}</h1>
-          <p className="mission-description">{details.description}</p>
+          <h1 id="mission-title">{githubIssue?.title ?? details.title}</h1>
+          <p className={`mission-description${githubIssue ? " issue-description" : ""}`}>{githubIssue?.body ?? details.description}</p>
         </div>
-        <ExportEvidence mission={mission} missionId={details.id} />
+        <div className="mission-actions">
+          <ExportEvidence mission={mission} missionId={details.id} />
+          <PullRequestAction missionId={details.id} eligibility={eligibility} initialPullRequest={pullRequest} />
+          {!eligibility.allowed && mission.status === "COMPLETED" &&
+            (mission.verdict === "VERIFIED" || mission.verdict === "REVIEW_REQUIRED") && (
+            <p className="pull-request-note text-muted">{eligibility.reason}</p>
+          )}
+        </div>
       </div>
       <div className="repository-line">
         <Icon name="branch" />
@@ -55,6 +68,15 @@ export function MissionSummary({
           <span className="repository-value">{repository}</span>
         )}
       </div>
+      {githubIssue && (
+        <div className="repository-line issue-origin-line">
+          <Icon name="file" />
+          <span className="repository-label">Issue</span>
+          <a href={githubIssue.url} target="_blank" rel="noopener noreferrer">
+            #{githubIssue.number} · View original issue <span className="external-link-mark" aria-hidden="true">↗</span>
+          </a>
+        </div>
+      )}
       <dl className="mission-facts">
         <div>
           <dt>Mission status</dt>

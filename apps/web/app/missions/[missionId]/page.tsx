@@ -12,6 +12,7 @@ import { LiveMission } from "@/components/mission/live-mission";
 
 import { loadProofBundle } from "@/lib/load-proof-bundle";
 import { proofBundleExists, readMissionLiveStatus } from "@/lib/mission-live-status";
+import { readMissionPullRequest } from "@/lib/github-pull-request";
 
 import type { MissionViewModel } from "@/lib/mission-types";
 import type { MissionLiveStatus } from "@/lib/mission-live-types";
@@ -77,6 +78,9 @@ export default async function MissionPage({ params }: MissionPageProps) {
   }
 
   const { mission, details: missionDetails, warnings } = bundle;
+  // Publication metadata is separate from canonical evidence. A missing or
+  // unreadable publication record must not hide a completed proof dashboard.
+  const pullRequest = await readMissionPullRequest(missionId).catch(() => null);
 
   return (
     <>
@@ -106,7 +110,7 @@ export default async function MissionPage({ params }: MissionPageProps) {
           </span>
         </div>
 
-        <MissionSummary mission={mission} details={missionDetails} />
+        <MissionSummary mission={mission} details={missionDetails} pullRequest={pullRequest} />
 
         {mission.status === "FAILED" && (
           <section

@@ -5,7 +5,30 @@ import type { MissionEvent } from "./mission/types.js";
 import { createSandbox, destroySandbox } from "./sandbox/e2b.js";
 import { createHash } from "node:crypto";
 
-import { writeProofBundle } from "./proof/bundle.js";
+import { writeProofBundle, type ProofGitHubIssue } from "./proof/bundle.js";
+
+function issueSource(repositoryUrl: string, issue: string): ProofGitHubIssue | undefined {
+  const text = process.env.PATCHVERDICT_GITHUB_ISSUE;
+  if (!text) return undefined;
+  // Validate the server envelope and copy only source fields. The engine
+  // remains repository-oriented and receives only the reported issue context.
+  try {
+    const value = JSON.parse(text) as ProofGitHubIssue;
+    const url = new URL(repositoryUrl);
+    const repository = url.pathname.replace(/^\//, "").replace(/\.git\/?$/, "").replace(/\/$/, "");
+    if (!value || typeof value !== "object" ||
+      url.protocol !== "https:" || url.hostname !== "github.com" ||
+      typeof value.owner !== "string" || typeof value.repository !== "string" ||
+      `${value.owner}/${value.repository}` !== repository ||
+      !Number.isSafeInteger(value.number) || value.number < 1 ||
+      value.url !== `https://github.com/${repository}/issues/${value.number}` ||
+      typeof value.title !== "string" || !value.title.trim() || value.title.length > 1024 || /[\0\r\n]/.test(value.title) ||
+      (value.body !== undefined && typeof value.body !== "string") ||
+      issue !== (value.body ? `${value.title}\n\n${value.body}` : value.title)) throw new Error();
+    return { url: value.url, number: value.number, title: value.title, owner: value.owner, repository: value.repository,
+      ...(value.body !== undefined && { body: value.body }) };
+  } catch { throw new Error("The GitHub issue source metadata is invalid."); }
+}
 
 async function main() {
   const [repositoryUrl, issue, reproductionCommand, requiredOutput] =
@@ -21,6 +44,7 @@ async function main() {
     );
   }
 
+  const githubIssue = issueSource(repositoryUrl, issue);
   const requestedMissionId = process.env.PATCHVERDICT_MISSION_ID?.trim();
   if (requestedMissionId !== undefined && !/^[A-Za-z0-9_-]+$/.test(requestedMissionId)) {
     throw new Error("PATCHVERDICT_MISSION_ID must contain only letters, digits, underscores, and hyphens.");
@@ -132,6 +156,7 @@ async function main() {
         repositoryUrl: prepared.repositoryUrl,
 
         baseCommit: prepared.baseCommit,
+        ...(githubIssue && { githubIssue }),
       },
     });
 

@@ -1,5 +1,6 @@
 import { after } from "next/server";
-import { MissionInputError, parseMissionInput } from "../../../lib/mission-input";
+import { MissionInputError } from "../../../lib/mission-input";
+import { GitHubIssueError, resolveMissionInput } from "../../../lib/github-issue";
 import { BackendMissionError, runBackendMission } from "../../../lib/run-backend-mission";
 
 export const runtime = "nodejs";
@@ -51,7 +52,7 @@ async function readJson(request: Request): Promise<unknown> {
 
 export async function POST(request: Request) {
   try {
-    const input = parseMissionInput(await readJson(request));
+    const input = await resolveMissionInput(await readJson(request));
     const { missionId, completion } = await runBackendMission(input);
     after(() => completion);
     return Response.json({
@@ -63,12 +64,12 @@ export async function POST(request: Request) {
     // Only known, fixed public messages leave the server. Never return child
     // output, raw exception text, credentials, or filesystem paths.
     const known = error instanceof MissionInputError ||
-      error instanceof RequestBodyError || error instanceof BackendMissionError;
+      error instanceof RequestBodyError || error instanceof BackendMissionError || error instanceof GitHubIssueError;
     return Response.json(
       { error: known ? error.message : "The verification mission could not be started. Please try again." },
       {
         status: error instanceof MissionInputError ? 400 :
-          error instanceof RequestBodyError || error instanceof BackendMissionError ? error.status : 500,
+          error instanceof RequestBodyError || error instanceof BackendMissionError || error instanceof GitHubIssueError ? error.status : 500,
         headers: { "Cache-Control": "no-store" },
       },
     );

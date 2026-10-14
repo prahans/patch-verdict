@@ -1,3 +1,5 @@
+import type { GitHubIssue } from "./github-issue-url";
+
 // UI data contract for serialized proof bundles. Keep this independent of the engine.
 export type MissionState =
   | "PREPARING"
@@ -36,6 +38,7 @@ export type MissionResult = {
     baseCommit: string;
     changedFiles: string[];
     diff?: string;
+    sha256?: string;
   };
   checks?: {
     bugReproducedBeforePatch?: boolean;
@@ -71,6 +74,7 @@ export type MissionDetails = {
   source?: {
     repositoryUrl: string;
     baseCommit: string;
+    githubIssue?: GitHubIssue;
   };
 
   repository?: string;

@@ -2873,3 +2873,101 @@ summary,
     flex-direction: row-reverse;
   }
 }
+
+/* Issue input and explicit post-verification publication use the existing panels. */
+.launch-mode-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 4px;
+}
+.launch-mode-switch {
+  width: fit-content;
+  text-align: left;
+  font-size: 11px;
+  line-height: 1.65;
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: #53585e;
+  text-underline-offset: 3px;
+}
+.launch-mode-switch:hover,
+.launch-mode-switch:focus-visible {
+  color: var(--amber);
+}
+.launch-mode-switch:disabled,
+.action-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.issue-preview {
+  border: 1px solid #393c3f;
+  border-radius: 5px;
+  padding: 16px;
+  background: #171a1d;
+  overflow-wrap: anywhere;
+}
+.issue-preview-origin {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+  font-family: var(--font-geist-mono), monospace;
+}
+.issue-preview h3 {
+  margin: 8px 0;
+  font-size: 14px;
+  font-weight: 550;
+  line-height: 1.5;
+}
+.issue-preview-body {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+.issue-description {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.issue-origin-line {
+  padding-top: 0;
+}
+.mission-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  gap: 10px;
+  max-width: 355px;
+}
+.pull-request-action {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 190px;
+}
+.pull-request-note,
+.pull-request-error {
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.pull-request-error {
+  color: #f39b94;
+}
+.live-mission-facts a {
+  text-decoration: underline;
+  text-decoration-color: #53585e;
+  text-underline-offset: 3px;
+}
+.live-mission-facts a:hover {
+  color: var(--amber);
+}
+@media (max-width: 800px) {
+  .mission-actions {
+    justify-content: flex-start;
+    max-width: none;
+  }
+}

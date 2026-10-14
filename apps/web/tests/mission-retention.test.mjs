@@ -194,6 +194,22 @@ test("removes stale incomplete web missions and run-status files but keeps fresh
   assert.equal(await exists(freshRunFile), true);
 });
 
+test("PR publication metadata follows its proof bundle's existing retention lifetime", async () => {
+  const now = Date.parse("2026-10-13T02:00:00.000Z");
+  const retained = missionId(200);
+  const expired = missionId(201);
+  for (const [id, age] of [[retained, 0], [expired, 60_000]]) {
+    await createCompletedMission(id, now - age);
+    await writeFile(
+      path.join(fixtureRoot, "output", id, "pull-request.json"),
+      JSON.stringify({ number: 12, url: "https://github.com/owner/repo/pull/12" }),
+    );
+  }
+  await cleanupMissionOutput({ now, maxSavedMissions: 1 });
+  assert.equal(await exists(path.join(fixtureRoot, "output", retained, "pull-request.json")), true);
+  assert.equal(await exists(path.join(fixtureRoot, "output", expired, "pull-request.json")), false);
+});
+
 test("never deletes manual, benchmark, or non-web output artifacts", async () => {
   const now = Date.parse("2026-10-13T02:00:00.000Z");
   const staleTime = now - STALE_WEB_ARTIFACT_MS * 2;

@@ -1,4 +1,5 @@
 import type { MissionState } from "./mission-types";
+import type { GitHubIssue } from "./github-issue-url";
 
 export type MissionLiveEvent = {
   timestamp: string;
@@ -13,6 +14,7 @@ export type MissionLiveStatus = {
   message: string;
   repositoryUrl: string;
   issue: string;
+  githubIssue?: GitHubIssue;
   startedAt: string;
   updatedAt: string;
   deadlineAt: string;
