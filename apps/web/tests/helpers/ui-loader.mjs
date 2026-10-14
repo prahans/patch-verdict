@@ -13,6 +13,7 @@ registerHooks({
       return { url: "patchverdict:test-navigation", shortCircuit: true };
     if (specifier === "patchverdict:test-hooks")
       return { url: "patchverdict:test-hooks", shortCircuit: true };
+    if (specifier === "next/link") return nextResolve("next/link.js", context);
     if (specifier.startsWith("@/"))
       specifier = pathToFileURL(path.join(webRoot, specifier.slice(2))).href;
     if (specifier.startsWith(".") || specifier.startsWith("file:")) {

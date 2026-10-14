@@ -50,6 +50,8 @@ const { POST, runtime, maxDuration } =
 const { GET } = await import("../app/api/missions/[missionId]/status/route.ts");
 const testsDirectory = path.dirname(fileURLToPath(import.meta.url));
 const originalCwd = process.cwd();
+const originalFetch = globalThis.fetch;
+const originalGitHubToken = process.env.PATCHVERDICT_GITHUB_TOKEN;
 let fixtureRoot;
 let completions;
 
@@ -69,7 +71,7 @@ import path from "node:path";
 const [script, repositoryUrl, issue, suppliedCommand, requiredOutput] = process.argv.slice(2);
 const id = process.env.PATCHVERDICT_MISSION_ID;
 const command = suppliedCommand || "npm test";
-await writeFile("received.json", JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), id, inherited: process.env.PATCHVERDICT_BRIDGE_TEST_VALUE }));
+await writeFile("received.json", JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), id, inherited: process.env.PATCHVERDICT_BRIDGE_TEST_VALUE, githubToken: process.env.PATCHVERDICT_GITHUB_TOKEN, githubIssue: process.env.PATCHVERDICT_GITHUB_ISSUE }));
 if (issue.startsWith("crash:")) { console.error("SECRET_CREDENTIAL_DO_NOT_RETURN /private/server/path"); process.exit(7); }
 if (issue.startsWith("timeout:")) {
   const descendant = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "inherit" });
@@ -102,6 +104,7 @@ if (issue.startsWith("timeout:")) {
     const directory = path.join("output", id);
     await mkdir(directory, { recursive: true });
     const proof = { version: 2, mission: { id, issue, source: { repositoryUrl, baseCommit: "a".repeat(40) }, reproduction: { label: "Reproduction", command }, fullSuite: { label: "Suite", command } }, status: "FAILED", verdict: "FAILED", artifacts: null };
+    if (process.env.PATCHVERDICT_GITHUB_ISSUE) proof.mission.source.githubIssue = JSON.parse(process.env.PATCHVERDICT_GITHUB_ISSUE);
     if (issue.startsWith("foreign-proof:")) proof.mission.source.repositoryUrl = "https://github.com/other/repository";
     if (issue.startsWith("different-issue:")) proof.mission.issue = "unrelated bug";
     await writeFile(path.join(directory, "proof.json"), issue.startsWith("bad-bundle:") ? "{broken" : JSON.stringify(proof));
@@ -146,6 +149,9 @@ afterEach(async () => {
     ...globalThis.missionAfterCallbacks.map((callback) => callback()),
   ]);
   process.chdir(originalCwd);
+  globalThis.fetch = originalFetch;
+  if (originalGitHubToken === undefined) delete process.env.PATCHVERDICT_GITHUB_TOKEN;
+  else process.env.PATCHVERDICT_GITHUB_TOKEN = originalGitHubToken;
   delete process.env.PATCHVERDICT_BRIDGE_TEST_VALUE;
   // Verify the resolved target before recursively deleting this disposable fixture.
   assert.equal(path.dirname(path.resolve(fixtureRoot)), testsDirectory);
@@ -491,6 +497,40 @@ test("API returns 202 plus mission/status URLs before completion and retains com
     (await (await statusRequest(body.missionId)).json()).proofReady,
     true,
   );
+});
+
+test("issue POST resolves again, persists origin, passes literal canonical context and blanks write credentials", async () => {
+  process.env.PATCHVERDICT_GITHUB_TOKEN = "WRITE_TOKEN_MUST_NOT_REACH_CHILD";
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return Response.json({ number: 12, title: "Fix divide", body: null }); };
+  const response = await POST(request({ mode: "issue", issueUrl: `${validInput.repositoryUrl}/issues/12`,
+    repositoryUrl: "https://github.com/attacker/repository", issue: "forged bug", title: "forged title", body: "forged body",
+    reproductionCommand: "npm test -- divide", requiredOutput: "expected zero" }));
+  assert.equal(response.status, 202);
+  assert.equal(calls, 1);
+  await Promise.all(globalThis.missionAfterCallbacks.map((callback) => callback()));
+  const body = await response.json();
+  const status = await readMissionLiveStatus(body.missionId);
+  assert.equal(status.status, "COMPLETED");
+  assert.equal(status.issue, "Fix divide");
+  assert.equal(status.repositoryUrl, validInput.repositoryUrl);
+  assert.equal(status.githubIssue.number, 12);
+  const received = JSON.parse(await readFile(path.join(fixtureRoot, "received.json"), "utf8"));
+  assert.equal(received.githubToken, "");
+  assert.deepEqual(received.args.slice(1), [validInput.repositoryUrl, "Fix divide", "npm test -- divide", "expected zero"]);
+  assert.deepEqual(JSON.parse(received.githubIssue), status.githubIssue);
+  assert.doesNotMatch(JSON.stringify(status), /WRITE_TOKEN_MUST_NOT_REACH_CHILD|forged|attacker/);
+});
+
+test("invalid or inaccessible issue POST never launches backend", async () => {
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return new Response("private details", { status: 404 }); };
+  assert.equal((await POST(request({ mode: "issue", issueUrl: validInput.repositoryUrl }))).status, 400);
+  assert.equal(calls, 0);
+  assert.equal((await POST(request({ mode: "issue", issueUrl: `${validInput.repositoryUrl}/issues/12` }))).status, 404);
+  assert.equal(calls, 1);
+  assert.equal(globalThis.missionAfterCallbacks.length, 0);
+  await assert.rejects(readFile(path.join(fixtureRoot, "received.json")), { code: "ENOENT" });
 });
 
 test("API accepts a launch that later crashes, then exposes only safe persisted failure", async () => {

@@ -96,10 +96,40 @@ test("resolved issue preview appears after fetching and renders untrusted text w
 
 test("preview validates its origin, bounds, and exact requested URL", () => {
   assert.deepEqual(readIssuePreview(preview, issueUrl), preview);
+  assert.ok(readIssuePreview({ ...preview, title: "a".repeat(1024) }, issueUrl));
   for (const change of [
     { issueUrl: "javascript:alert(1)" }, { owner: "other" }, { repository: "other" },
     { issueNumber: 13 }, { title: "" }, { title: "a".repeat(1025) }, { bodyPreview: "x".repeat(2001) },
   ]) assert.equal(readIssuePreview({ ...preview, ...change }, issueUrl), null);
+});
+
+test("preview normalizes a mixed-case GitHub origin and caches the resolved URL", async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url) => { calls.push(url); return response(preview); });
+  const view = createHarness(InteractiveLauncher);
+  byId(view.render(), "issue-url").props.onChange({ target: { value: "HTTPS://GITHUB.COM/owner/repository/issues/12" } });
+  byId(view.render(), "issue-url").props.onBlur();
+  await settle();
+  assert.match(renderToStaticMarkup(view.render()), /ISSUE DETECTED/);
+  assert.deepEqual(calls, [`/api/github/issue?url=${encodeURIComponent(issueUrl)}`]);
+  button(view.render(), "Load issue preview").props.onClick();
+  await settle();
+  assert.equal(calls.length, 1);
+});
+
+test("switching to manual mode aborts a pending preview without showing its result", async (t) => {
+  const pending = deferred();
+  let signal;
+  t.mock.method(globalThis, "fetch", async (_url, options) => { signal = options.signal; return pending.promise; });
+  const view = createHarness(InteractiveLauncher);
+  byId(view.render(), "issue-url").props.onChange({ target: { value: issueUrl } });
+  byId(view.render(), "issue-url").props.onBlur();
+  button(view.render(), "No GitHub issue?").props.onClick();
+  assert.equal(signal.aborted, true);
+  pending.resolve(response(preview));
+  await settle();
+  button(view.render(), "Use a GitHub issue instead").props.onClick();
+  assert.doesNotMatch(renderToStaticMarkup(view.render()), /ISSUE DETECTED|Loading issue/);
 });
 
 test("invalid issue preview never fetches; changing the URL aborts and hides an earlier response", async (t) => {

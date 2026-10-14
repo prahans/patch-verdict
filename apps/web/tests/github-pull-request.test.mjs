@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
-import { registerHooks } from "node:module";
-import { spawnSync } from "node:child_process";
+import { registerHooks, syncBuiltinESMExports } from "node:module";
+import childProcess, { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, readFile, readdir, rm, symlink, unlink, utimes, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -206,9 +206,22 @@ const api = async (endpoint) => (await globalThis.fetch(`https://api.github.com/
   method: "GET", redirect: "error", cache: "no-store", headers: { Authorization: `Bearer ${token}` },
 })).json();
 
-test("VERIFIED publishes the exact patch and proof base with immutable evidence and atomic separate metadata", async () => {
+test("VERIFIED publishes the exact patch and proof base with immutable evidence and atomic separate metadata", async (t) => {
   const originalProof = await readFile(path.join(bundleDirectory, "proof.json"));
-  const result = await createMissionPullRequest(missionId);
+  const originalSpawn = childProcess.spawn;
+  const spy = t.mock.method(childProcess, "spawn", (command, args, options) => {
+    assert.equal(command, "git", "Publication must not invoke an AI or application process");
+    assert.equal(options.shell, false);
+    assert.equal(options.env.PATCHVERDICT_GITHUB_TOKEN, undefined);
+    assert.equal(options.env.OPENAI_API_KEY, undefined);
+    assert.equal(args.join(" ").includes(token), false);
+    return originalSpawn(command, args, options);
+  });
+  syncBuiltinESMExports();
+  let result;
+  try { result = await createMissionPullRequest(missionId); }
+  finally { spy.mock.restore(); syncBuiltinESMExports(); }
+  assert.ok(spy.mock.calls.length > 0);
   assert.deepEqual(result, { number: 12, url: `https://github.com/${repository}/pull/12`, draft: false });
   const commit = commitInfo(remote.branch);
   assert.equal(commit.tree.sha, patchedTree);
@@ -312,7 +325,7 @@ test("exact patch validation rejects changed bytes, mismatched changed-file sets
 test("real Git preserves text bytes, addition, deletion, and executable modes exactly", async () => {
   put("src/divide.ts", repairedFile.replaceAll("\n", "\r\n"), "100755");
   put("new/notes.txt", "New UTF-8 notes: café\n");
-  git(["update-index", "--force-remove", "unchanged.txt"]);
+  git(["update-index", "-z", "--index-info"], `0 ${"0".repeat(40)}\tunchanged.txt\0`);
   await savePatch();
   await createMissionPullRequest(missionId);
   assert.equal(commitInfo(remote.branch).tree.sha, patchedTree);
@@ -438,6 +451,29 @@ test("tampered remote blobs and trees are rejected before any branch or PR write
   await assert.rejects(createMissionPullRequest(missionId), /created tree differs/);
   assert.equal(writes("/git/refs").length, 0);
   assert.equal(writes("/pulls").length, 0);
+});
+
+test("publication never rebases onto an advanced branch and refuses a recovered commit with the wrong parent", async () => {
+  const advanced = git(["commit-tree", baseTree, "-p", baseCommit], "Default branch advanced\n").toString().trim();
+  remote.branch = existingCommit(patchedTree, advanced);
+  await assert.rejects(createMissionPullRequest(missionId), /exact recorded patch and base commit/);
+  assert.equal(writes().length, 0);
+  remote.branch = null;
+  await createMissionPullRequest(missionId);
+  assert.deepEqual(writes("/git/commits")[0].body.parents, [baseCommit]);
+  assert.equal(writes("/pulls")[0].body.base, "main");
+});
+
+test("proof mutation during publication stops before opening a PR", async () => {
+  remote.onRequest = async ({ endpoint, method }) => {
+    if (endpoint === "/git/refs" && method === "POST") {
+      proof.mission.issue = "Modified canonical context after publication started";
+      await saveProof();
+    }
+  };
+  await assert.rejects(createMissionPullRequest(missionId), /artifacts changed during publication/);
+  assert.equal(writes("/pulls").length, 0);
+  assert.equal(proof.verdict, "VERIFIED");
 });
 
 test("filesystem locks prevent another process from publishing and stale locks permit safe recovery", async () => {

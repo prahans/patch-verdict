@@ -48,6 +48,7 @@ function textBlob(bytes: Buffer) {
 // Only Git's index and object database are used; repository code is never executed.
 function gitRunner(directory: string) {
   const environment: NodeJS.ProcessEnv = {
+    NODE_ENV: process.env.NODE_ENV,
     PATH: process.env.PATH, SystemRoot: process.env.SystemRoot, WINDIR: process.env.WINDIR,
     TEMP: process.env.TEMP, TMP: process.env.TMP,
     HOME: directory, USERPROFILE: directory, XDG_CONFIG_HOME: directory,
@@ -75,6 +76,7 @@ function gitRunner(directory: string) {
 }
 
 export async function prepareExactPatch(api: GitHubRequest, baseCommit: string, changedFiles: string[], patch: Buffer): Promise<ExactPatch> {
+  gitSha(baseCommit);
   if (!changedFiles.length || changedFiles.length > 200 || new Set(changedFiles).size !== changedFiles.length || changedFiles.some((file) => !safePatchPath(file))) {
     throw new PullRequestError("The proof contains an unsupported or invalid changed-file set.");
   }

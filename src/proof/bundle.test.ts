@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { access, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -62,11 +62,11 @@ const result: MissionResult = {
   },
 };
 
-function startBundle() {
+function startBundle(source?: Parameters<typeof writeProofBundle>[0]["source"]) {
   const missionId = `bundle-publication-test-${randomUUID()}`;
   const directory = path.join(outputRoot, missionId);
   created.push(directory);
-  return { missionId, directory, completion: writeProofBundle({ missionId, input, result }) };
+  return { missionId, directory, completion: writeProofBundle({ missionId, input, result, ...(source && { source }) }) };
 }
 
 afterEach(async () => {
@@ -82,6 +82,18 @@ afterEach(async () => {
 });
 
 describe("proof bundle publication", () => {
+  it("binds exact patch artifact bytes with SHA-256 and preserves optional GitHub issue source", async () => {
+    const githubIssue = { url: "https://github.com/owner/repo/issues/12", number: 12, title: "Repair result", owner: "owner", repository: "repo", body: "Return the correct result." };
+    const source = { repositoryUrl: "https://github.com/owner/repo", baseCommit: "a".repeat(40), githubIssue };
+    const run = startBundle(source);
+    await run.completion;
+    const proof = JSON.parse(await readFile(path.join(run.directory, "proof.json"), "utf8"));
+    const bytes = await readFile(path.join(run.directory, "patch.diff"));
+    expect(proof.patch.sha256).toBe(createHash("sha256").update(bytes).digest("hex"));
+    expect(proof.mission.source).toEqual(source);
+    expect(bytes.toString("utf8")).toBe(`${result.patch!.diff}\n`);
+  });
+
   it("keeps proof absent while supporting evidence is being written", async () => {
     const blocked = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();

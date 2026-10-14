@@ -37,20 +37,22 @@ export function MissionLauncher() {
   }
 
   async function resolvePreview() {
-    if (!issueUrl.trim() || preview?.issueUrl === issueUrl.trim()) return;
+    if (!issueUrl.trim()) return;
+    let requestedUrl: string;
     try {
-      parseGitHubIssueUrl(issueUrl);
+      requestedUrl = parseGitHubIssueUrl(issueUrl).issueUrl;
     } catch {
       setPreviewError("Enter a GitHub issue URL such as https://github.com/owner/repo/issues/12, without extra paths or parameters.");
       return;
     }
+    if (preview?.issueUrl === requestedUrl) return;
     previewRequest.current?.abort();
     const request = new AbortController();
     previewRequest.current = request;
     setPreviewLoading(true);
     setPreviewError(null);
     try {
-      const response = await fetch(`/api/github/issue?url=${encodeURIComponent(issueUrl.trim())}`, {
+      const response = await fetch(`/api/github/issue?url=${encodeURIComponent(requestedUrl)}`, {
         cache: "no-store",
         signal: request.signal,
       });
@@ -60,7 +62,7 @@ export function MissionLauncher() {
         setPreviewError(readSafeError(value, "The GitHub issue could not be loaded. Please try again."));
         return;
       }
-      const resolved = readIssuePreview(value, issueUrl.trim());
+      const resolved = readIssuePreview(value, requestedUrl);
       if (!resolved) {
         setPreviewError("The server returned an invalid issue preview. Please try again.");
         return;
