@@ -533,6 +533,19 @@ test("invalid or inaccessible issue POST never launches backend", async () => {
   await assert.rejects(readFile(path.join(fixtureRoot, "received.json")), { code: "ENOENT" });
 });
 
+test("oversized serialized issue metadata is rejected before mission persistence or backend launch", async () => {
+  const body = "\u0001".repeat(9000);
+  globalThis.fetch = async () => Response.json({ number: 12, title: "Fix divide", body });
+  const response = await POST(request({ mode: "issue", issueUrl: `${validInput.repositoryUrl}/issues/12` }));
+  assert.equal(response.status, 400);
+  assert.match((await response.json()).error, /too large for the mission runner/);
+  assert.equal(globalThis.missionAfterCallbacks.length, 0);
+  const githubIssue = { url: `${validInput.repositoryUrl}/issues/12`, number: 12, title: "Fix divide", body, owner: "owner", repository: "repository" };
+  await assert.rejects(runBackendMission({ ...validInput, issue: `Fix divide\n\n${body}`, githubIssue }), /too large for the mission runner/);
+  await assert.rejects(readFile(path.join(fixtureRoot, "received.json")), { code: "ENOENT" });
+  await assert.rejects(readdir(path.join(fixtureRoot, "output", ".runs")), { code: "ENOENT" });
+});
+
 test("API accepts a launch that later crashes, then exposes only safe persisted failure", async () => {
   const response = await POST(
     request({

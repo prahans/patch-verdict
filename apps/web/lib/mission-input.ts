@@ -26,6 +26,14 @@ export class MissionInputError extends Error {
   }
 }
 
+export function assertGitHubIssueEnvelopeSize(githubIssue: GitHubIssue): void {
+  // JSON escapes can expand control characters even when the issue itself is
+  // within 10000 characters. Leave room below Windows' environment value limit.
+  if (JSON.stringify(githubIssue).length > 24000) {
+    throw new MissionInputError("The GitHub issue is too large for the mission runner. Use a shorter manual bug description.");
+  }
+}
+
 function field(
   value: unknown,
   label: string,
@@ -109,6 +117,7 @@ export function parseBackendMissionInput(value: MissionInput): ParsedMissionInpu
   }
   const githubIssue = parsePersistedGitHubIssue(value.githubIssue, value.repositoryUrl);
   if (!githubIssue) throw new MissionInputError("The resolved GitHub issue is invalid.");
+  assertGitHubIssueEnvelopeSize(githubIssue);
   const issue = githubIssue.body ? `${githubIssue.title}\n\n${githubIssue.body}` : githubIssue.title;
   if (value.issue !== issue) throw new MissionInputError("The resolved GitHub issue context does not match its source.");
   return {

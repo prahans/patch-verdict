@@ -4,6 +4,7 @@ import { parseGitHubIssueUrl, type GitHubIssue } from "./github-issue-url";
 import {
   MISSION_INPUT_LIMITS,
   MissionInputError,
+  assertGitHubIssueEnvelopeSize,
   parseMissionInput,
   type ParsedMissionInput,
 } from "./mission-input";
@@ -129,7 +130,7 @@ export async function resolveGitHubIssue(
       422,
     );
   }
-  return {
+  const githubIssue: GitHubIssue = {
     url: parsed.issueUrl,
     number: parsed.issueNumber,
     title,
@@ -137,6 +138,8 @@ export async function resolveGitHubIssue(
     owner: parsed.owner,
     repository: parsed.repository,
   };
+  assertGitHubIssueEnvelopeSize(githubIssue);
+  return githubIssue;
 }
 
 export async function resolveMissionInput(

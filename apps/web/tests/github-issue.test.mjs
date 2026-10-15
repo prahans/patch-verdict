@@ -160,3 +160,20 @@ test("persisted source validation rejects forged links, repositories and fields"
   assert.equal(parsePersistedGitHubIssue(value, "https://github.com/other/repo"), undefined);
   assert.throws(() => parseBackendMissionInput({ repositoryUrl, issue: "forged issue", githubIssue: value }));
 });
+
+test("serialized issue metadata is bounded before it reaches a Windows process environment", async () => {
+  const body = "\u0001".repeat(9000);
+  const githubIssue = { url: issueUrl, number: 12, title: issueData.title, owner: "owner", repository: "repository", body };
+  const issue = `${githubIssue.title}\n\n${body}`;
+  assert.ok(issue.length < 10000);
+  assert.ok(JSON.stringify(githubIssue).length > 24000);
+  globalThis.fetch = async () => response({ ...issueData, body });
+  await assert.rejects(resolveMissionInput({ mode: "issue", issueUrl }), /too large for the mission runner/);
+  assert.throws(() => parseBackendMissionInput({ repositoryUrl, issue, githubIssue }), /too large for the mission runner/);
+
+  const ordinaryBody = "Steps:\n\tDivide by zero.\nExpected:\n\tReturn zero.";
+  globalThis.fetch = async () => response({ ...issueData, body: ordinaryBody });
+  const input = await resolveMissionInput({ mode: "issue", issueUrl });
+  assert.equal(input.githubIssue.body, ordinaryBody);
+  assert.equal(parseBackendMissionInput(input).issue, `${issueData.title}\n\n${ordinaryBody}`);
+});
