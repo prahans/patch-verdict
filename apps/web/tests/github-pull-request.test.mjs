@@ -503,6 +503,10 @@ test("PR route rejects cross-site writes and client canonical data, and returns 
   }
   assert.equal((await POST(new Request(url, { method: "POST", body: JSON.stringify({ verdict: "VERIFIED", repositoryUrl: "https://github.com/other/repo" }) }), context)).status, 400);
   assert.equal(remote.calls.length, 0);
+  const emptyBodyResponse = await POST(new Request(url, { method: "POST", body: "", headers: { origin: "http://localhost" } }), context);
+  assert.equal(emptyBodyResponse.status, 200);
+  const emptyBodyResult = await emptyBodyResponse.json();
+  assert.deepEqual(Object.keys(emptyBodyResult).sort(), ["draft", "number", "url"]);
   const response = await POST(new Request(url, { method: "POST", headers: { origin: "http://localhost" } }), context);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("cache-control"), "no-store");
