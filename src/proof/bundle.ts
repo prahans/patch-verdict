@@ -18,6 +18,9 @@ type ProofSource = {
   repositoryUrl: string;
   baseCommit: string;
   githubIssue?: ProofGitHubIssue;
+  mode?: "THIRD_PARTY_JS_TS";
+  targetBranch?: string;
+  defaultBranch?: string;
 };
 
 type ProofBundleInput = {
@@ -48,19 +51,26 @@ export async function writeProofBundle({
     recursive: true,
   });
 
-  await rm(outputDirectory, {
-    recursive: true,
-    force: true,
-  });
-
-  await mkdir(outputDirectory, {
-    recursive: true,
-  });
+  const strict = source?.mode === "THIRD_PARTY_JS_TS";
+  if (strict) {
+    // An exclusive directory claim prevents overwriting finalized proof or racing writers.
+    await mkdir(outputDirectory);
+  } else {
+    await rm(outputDirectory, { recursive: true, force: true });
+    await mkdir(outputDirectory, { recursive: true });
+  }
 
   // Digest the very same UTF-8 buffer written below, including its trailing LF.
-  const patchBytes = result.patch ? Buffer.from(`${result.patch.diff}\n`, "utf8") : undefined;
+  const patchBytes = result.patch ? Buffer.from(strict ? result.patch.diff : `${result.patch.diff}\n`, "utf8") : undefined;
   const proof = {
-    version: 2,
+    version: strict ? 3 : 2,
+    ...(strict && {
+      outcome: result.outcome,
+      frozenReproduction: result.frozenReproduction ?? null,
+      suiteComparison: result.suiteComparison ?? null,
+      repair: result.repair ?? null,
+      error: result.error ?? null,
+    }),
 
     mission: {
       id: missionId,
@@ -73,6 +83,7 @@ export async function writeProofBundle({
 
             baseCommit: source.baseCommit,
             ...(source.githubIssue && { githubIssue: source.githubIssue }),
+            ...(strict && { mode: source.mode, targetBranch: source.targetBranch, defaultBranch: source.defaultBranch }),
           }
         : null,
 

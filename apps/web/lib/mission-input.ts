@@ -86,6 +86,7 @@ export function parseMissionInput(value: unknown): MissionRequest {
   };
   if (data.mode === "issue") {
     if (!isGitHubBranchName(data.targetBranch)) throw new MissionInputError("Load the issue and select an existing target branch before starting the mission.");
+    if (advanced.reproductionCommand || advanced.requiredOutput) throw new MissionInputError("Issue missions use framework-discovered target tests. Advanced overrides are available in manual mode only.");
     const issueUrl = field(data.issueUrl, "GitHub issue URL", MISSION_INPUT_LIMITS.repositoryUrl);
     try { return { mode: "issue", issueUrl: parseGitHubIssueUrl(issueUrl).issueUrl, targetBranch: data.targetBranch, ...advanced }; }
     catch { throw new MissionInputError("Enter an exact GitHub issue URL such as https://github.com/owner/repository/issues/12, without extra paths or parameters."); }
@@ -128,6 +129,7 @@ export function parseBackendMissionInput(value: MissionInput): ParsedMissionInpu
   if (strict && (!value.githubIssue || !isGitHubBranchName(value.targetBranch) || !isGitHubBranchName(value.defaultBranch) || !/^[a-f0-9]{40}$/.test(value.baseCommit ?? ""))) {
     throw new MissionInputError("Resolve the GitHub issue and target branch before starting verification.");
   }
+  if (strict && (value.reproductionCommand?.trim() || value.requiredOutput?.trim())) throw new MissionInputError("Issue missions cannot override target verification commands.");
   if (!strict && [value.targetBranch, value.baseCommit, value.defaultBranch].some((field) => field !== undefined)) throw new MissionInputError("Legacy missions cannot supply canonical branch metadata.");
   if (!value.githubIssue) {
     const parsed = parseMissionInput(value);

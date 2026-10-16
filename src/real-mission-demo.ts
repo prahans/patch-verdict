@@ -6,6 +6,8 @@ import { createSandbox, destroySandbox } from "./sandbox/e2b.js";
 import { createHash } from "node:crypto";
 
 import { writeProofBundle, type ProofGitHubIssue } from "./proof/bundle.js";
+import { readMissionEnvelope } from "./mission/input-envelope.js";
+import { runThirdPartyEnvelope } from "./mission/run-third-party-envelope.js";
 
 function issueSource(repositoryUrl: string, issue: string): ProofGitHubIssue | undefined {
   const text = process.env.PATCHVERDICT_GITHUB_ISSUE;
@@ -31,8 +33,16 @@ function issueSource(repositoryUrl: string, issue: string): ProofGitHubIssue | u
 }
 
 async function main() {
-  const [repositoryUrl, issue, reproductionCommand, requiredOutput] =
-    process.argv.slice(2);
+  const argv = process.argv.slice(2);
+  const envelope = argv[0] === "--input-stdin"
+    ? await readMissionEnvelope(process.stdin) : undefined;
+  if (envelope && argv.length !== 1) throw new Error("The stdin entry point accepts no other arguments.");
+  if (envelope?.mode === "THIRD_PARTY_JS_TS") {
+    await runThirdPartyEnvelope(envelope, process.env.PATCHVERDICT_MISSION_ID);
+    return;
+  }
+  const [repositoryUrl, issue, reproductionCommand, requiredOutput] = envelope
+    ? [envelope.repositoryUrl, envelope.issue, envelope.reproductionCommand, envelope.requiredOutput] : argv;
 
   if (!repositoryUrl || !issue) {
     throw new Error(
@@ -44,7 +54,7 @@ async function main() {
     );
   }
 
-  const githubIssue = issueSource(repositoryUrl, issue);
+  const githubIssue = envelope?.githubIssue ?? issueSource(repositoryUrl, issue);
   const requestedMissionId = process.env.PATCHVERDICT_MISSION_ID?.trim();
   if (requestedMissionId !== undefined && !/^[A-Za-z0-9_-]+$/.test(requestedMissionId)) {
     throw new Error("PATCHVERDICT_MISSION_ID must contain only letters, digits, underscores, and hyphens.");

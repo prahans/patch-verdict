@@ -8,13 +8,15 @@ import { createHarness, deferred, navigation, nodes, settle, textContent } from 
 const { MissionLauncher } = await import("../components/landing/mission-launcher.tsx");
 const { MissionLauncher: InteractiveLauncher } = await import("../components/landing/mission-launcher.tsx?interactive");
 const { IssuePreview, readIssuePreview } = await import("../components/landing/issue-preview.tsx");
+const { BranchSelector, readBranchPage } = await import("../components/landing/branch-selector.tsx");
+const { BranchSelector: InteractiveBranchSelector } = await import("../components/landing/branch-selector.tsx?interactive");
 const { MissionSummary } = await import("../components/mission/mission-summary.tsx");
 const { LiveMission } = await import("../components/mission/live-mission.tsx");
 const { PullRequestAction } = await import("../components/mission/pull-request-action.tsx?interactive");
 
 const issueUrl = "https://github.com/owner/repository/issues/12";
 const repositoryUrl = "https://github.com/owner/repository";
-const preview = { owner: "owner", repository: "repository", issueNumber: 12, issueUrl, title: "Division by zero returns Infinity", bodyPreview: "Return zero when the denominator is zero." };
+const preview = { owner: "owner", repository: "repository", issueNumber: 12, issueUrl, defaultBranch: "main", title: "Division by zero returns Infinity", bodyPreview: "Return zero when the denominator is zero." };
 const githubIssue = { owner: "owner", repository: "repository", number: 12, url: issueUrl, title: preview.title, body: preview.bodyPreview };
 const baseCommit = "a".repeat(40);
 const mission = {
@@ -43,14 +45,12 @@ function mockFormData(t) {
   });
 }
 
-test("landing renders issue mode by default with advanced fields and no manual inputs", () => {
+test("landing renders issue mode by default with framework-controlled verification and no manual inputs", () => {
   const html = render(MissionLauncher);
   assert.match(html, /GitHub issue URL/);
   assert.match(html, /https:\/\/github.com\/owner\/repo\/issues\/12/);
   assert.match(html, /Paste a public GitHub issue/);
-  assert.match(html, /Advanced verification settings/);
-  assert.match(html, /name="reproductionCommand"/);
-  assert.match(html, /name="requiredOutput"/);
+  assert.doesNotMatch(html, /Advanced verification settings|name="reproductionCommand"|name="requiredOutput"/);
   assert.doesNotMatch(html, /name="repositoryUrl"|name="issue"/);
 });
 
@@ -160,15 +160,14 @@ test("issue submission sends only canonical input fields and locks synchronous r
   const view = createHarness(InteractiveLauncher);
   const submit = form(view.render()).props.onSubmit;
   const event = { preventDefault() {}, currentTarget: {
-    issueUrl, repositoryUrl: "https://github.com/attacker/other", issue: "Untrusted claimed issue body", title: "Claimed title",
-    reproductionCommand: "npm run reproduce", requiredOutput: "Infinity",
+    issueUrl, targetBranch: "release/2.x",
   } };
   const first = submit(event);
   await submit(event);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, "/api/missions");
   assert.deepEqual(JSON.parse(calls[0].options.body), {
-    mode: "issue", issueUrl, reproductionCommand: "npm run reproduce", requiredOutput: "Infinity",
+    mode: "issue", issueUrl, targetBranch: "release/2.x", reproductionCommand: "", requiredOutput: "",
   });
   assert.equal(nodes(view.render(), (node) => node.type === "fieldset")[0].props.disabled, true);
   pending.resolve(response({ missionId: "web-created" }));
@@ -187,7 +186,7 @@ test("manual submission preserves validation and both advanced settings", async 
   await submit(event);
   assert.equal(calls.length, 0);
   assert.match(textContent(view.render()), /at least 20 characters/);
-  event.currentTarget = { repositoryUrl, issue: details.description, reproductionCommand: "npm test", requiredOutput: "AssertionError", issueUrl };
+  event.currentTarget = { repositoryUrl, issue: details.description, reproductionCommand: "npm test", requiredOutput: "AssertionError" };
   await form(view.render()).props.onSubmit(event);
   assert.deepEqual(JSON.parse(calls[0].options.body), {
     mode: "manual", repositoryUrl, issue: details.description, reproductionCommand: "npm test", requiredOutput: "AssertionError",
@@ -289,4 +288,42 @@ test("malformed PR URLs and oversized error responses use controlled fallback me
     assert.doesNotMatch(html, /javascript:|secret|View PR/);
     assert.ok(button(view.render(), "Create pull request"));
   }
+});
+
+
+test("issue preview preselects the default target branch and clears it when issue changes", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => response({ ...preview, defaultBranch: "master" }));
+  const view = createHarness(InteractiveLauncher);
+  byId(view.render(), "issue-url").props.onChange({ target: { value: issueUrl } });
+  byId(view.render(), "issue-url").props.onBlur();
+  await settle();
+  const html = renderToStaticMarkup(view.render());
+  assert.match(html, /name="targetBranch"/);
+  assert.match(html, /selected="" value="master"|value="master" selected=""/);
+  assert.match(html, /master \(default\)/);
+  byId(view.render(), "issue-url").props.onChange({ target: { value: issueUrl.replace("12", "13") } });
+  assert.doesNotMatch(renderToStaticMarkup(view.render()), /name="targetBranch"/);
+});
+
+test("branch selector validates bounded pages and explicit branch lookup before selection", async (t) => {
+  const selected = [];
+  const calls = [];
+  t.mock.method(globalThis, "fetch", async (url) => {
+    calls.push(url);
+    return response({ repositoryUrl, branches: url.includes("exact=") ? ["release/2.x"] : ["main", "release/2.x"], nextPage: url.includes("exact=") ? null : 2 });
+  });
+  const view = createHarness(InteractiveBranchSelector, { issueUrl, defaultBranch: "main", value: "main", onChange: (value) => selected.push(value) });
+  button(view.render(), "Browse branches").props.onClick();
+  await settle();
+  assert.ok(calls[0].includes("page=1"));
+  assert.match(textContent(view.render()), /Next branch page/);
+  byId(view.render(), "exact-target-branch").props.onChange({ target: { value: "release/2.x" } });
+  button(view.render(), "Verify and select branch").props.onClick();
+  await settle();
+  assert.ok(calls[1].includes("exact=release%2F2.x"));
+  assert.deepEqual(selected, ["release/2.x"]);
+  const validPage = { repositoryUrl, branches: ["main"], nextPage: null };
+  assert.deepEqual(readBranchPage(validPage, issueUrl), { branches: ["main"], nextPage: null });
+  for (const bad of [{ ...validPage, repositoryUrl: "https://github.com/other/repo" }, { ...validPage, branches: Array(31).fill("main") }, { ...validPage, branches: ["bad\nbranch"] }, { ...validPage, nextPage: 101 }]) assert.equal(readBranchPage(bad, issueUrl), null);
+  assert.match(render(BranchSelector, { issueUrl, defaultBranch: "main", value: "main", onChange() {} }), /main \(default\)/);
 });

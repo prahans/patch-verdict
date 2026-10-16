@@ -11,6 +11,7 @@ import { MissionHeader } from "./mission-header";
 import { FlightRecorder } from "./flight-recorder";
 import { Icon } from "./icon";
 import { parsePersistedGitHubIssue } from "@/lib/github-issue-url";
+import { isGitHubBranchName } from "@/lib/github-branch-name";
 
 const phaseCopy = {
   PREPARING: "Preparing isolated repository…",
@@ -40,6 +41,8 @@ function isStatusResponse(
 ): value is MissionLiveStatus {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
+  if (candidate.mode !== undefined && candidate.mode !== "THIRD_PARTY_JS_TS") return false;
+  if (candidate.mode === "THIRD_PARTY_JS_TS" && (!isGitHubBranchName(candidate.targetBranch) || !isGitHubBranchName(candidate.defaultBranch) || typeof candidate.baseCommit !== "string" || !/^[a-f0-9]{40}$/.test(candidate.baseCommit))) return false;
   if (candidate.githubIssue !== undefined) {
     try {
       if (!parsePersistedGitHubIssue(candidate.githubIssue, String(candidate.repositoryUrl))) return false;
@@ -206,6 +209,8 @@ export function LiveMission({
                 : "PatchVerdict is building the evidence chain."}
           </p>
           <dl className="live-mission-facts">
+            {status.targetBranch && <div><dt>Target branch</dt><dd>{status.targetBranch}</dd></div>}
+            {status.baseCommit && <div><dt>Base commit</dt><dd><code title={status.baseCommit}>{status.baseCommit.slice(0, 12)}</code></dd></div>}
             <div>
               <dt>Repository</dt>
               <dd className="live-repository">

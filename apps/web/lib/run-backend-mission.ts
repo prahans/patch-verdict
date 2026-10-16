@@ -8,7 +8,6 @@ import {
   parseBackendMissionInput,
   serializeBackendMissionInput,
   type MissionInput,
-  type ParsedMissionInput,
 } from "./mission-input";
 import {
   parseBackendEventLine,
@@ -64,7 +63,6 @@ function terminateProcessTree(child: ChildProcess) {
 
 function execute(
   repositoryRoot: string,
-  input: ParsedMissionInput,
   missionId: string,
   timeoutMs: number,
   envelope: string,
@@ -214,7 +212,7 @@ export async function runBackendMission(
 
   // execute() starts the real child immediately. Only startup is awaited by POST;
   // Next's after callback retains the completion promise after the 202 response.
-  const completion = execute(repositoryRoot, input, missionId, timeoutMs, envelope)
+  const completion = execute(repositoryRoot, missionId, timeoutMs, envelope)
     .then(async (result) => {
       if (result.timedOut) {
         await failMissionLiveStatus(

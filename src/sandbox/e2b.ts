@@ -3,7 +3,7 @@ import type { CommandEvidence } from "../evidence/command-evidence.js";
 
 export async function createSandbox() {
   const sandbox = await Sandbox.create({
-    timeoutMs: 10 * 60 * 1000,
+    timeoutMs: 20 * 60 * 1000,
   });
 
   return sandbox;

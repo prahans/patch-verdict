@@ -10,6 +10,7 @@ import {
 } from "@/lib/mission-input";
 import { parseGitHubIssueUrl } from "@/lib/github-issue-url";
 import { IssuePreview, readIssuePreview, type ResolvedIssuePreview } from "./issue-preview";
+import { BranchSelector } from "./branch-selector";
 
 export function MissionLauncher() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export function MissionLauncher() {
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [manualIssue, setManualIssue] = useState("");
   const [preview, setPreview] = useState<ResolvedIssuePreview | null>(null);
+  const [targetBranch, setTargetBranch] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -68,6 +70,7 @@ export function MissionLauncher() {
         return;
       }
       setPreview(resolved);
+      setTargetBranch(resolved.defaultBranch);
     } catch {
       if (!request.signal.aborted)
         setPreviewError("The GitHub issue could not be loaded. Check the connection and try again.");
@@ -175,6 +178,7 @@ export function MissionLauncher() {
                     setPreviewLoading(false);
                     setIssueUrl(event.target.value);
                     setPreview(null);
+                    setTargetBranch("");
                     setPreviewError(null);
                   }}
                   onBlur={() => void resolvePreview()}
@@ -192,6 +196,7 @@ export function MissionLauncher() {
                 </div>
               </div>
               {preview && <IssuePreview issue={preview} />}
+              {preview && <BranchSelector key={preview.issueUrl} issueUrl={preview.issueUrl} defaultBranch={preview.defaultBranch} value={targetBranch} onChange={setTargetBranch} />}
               {previewError && <p className="launch-error" role="alert">{previewError}</p>}
               <span className="sr-only" role="status" aria-live="polite">{previewLoading ? "Loading GitHub issue preview..." : ""}</span>
             </>
@@ -240,7 +245,7 @@ export function MissionLauncher() {
           </div>
             </>
           )}
-          <details className="launch-advanced">
+          {mode === "manual" && <details className="launch-advanced">
             <summary>Advanced verification settings</summary>
             <div className="launch-advanced-fields">
               <div className="launch-field">
@@ -283,11 +288,11 @@ export function MissionLauncher() {
                 </p>
               </div>
             </div>
-          </details>
+          </details>}
           <button
             className="launch-submit landing-button"
             type="submit"
-            disabled={running}
+            disabled={running || (mode === "issue" && !preview)}
           >
             <Icon
               name={running ? "activity" : "shield"}

@@ -68,10 +68,15 @@ const cli = String.raw`
 import { mkdir, writeFile, access } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
-const [script, repositoryUrl, issue, suppliedCommand, requiredOutput] = process.argv.slice(2);
+const [script, flag] = process.argv.slice(2);
+if (flag !== "--input-stdin") throw new Error("Expected fixed stdin flag");
+let stdin = "";
+for await (const chunk of process.stdin) stdin += chunk;
+const envelope = JSON.parse(stdin);
+const { repositoryUrl, issue, reproductionCommand: suppliedCommand, requiredOutput } = envelope;
 const id = process.env.PATCHVERDICT_MISSION_ID;
 const command = suppliedCommand || "npm test";
-await writeFile("received.json", JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), id, inherited: process.env.PATCHVERDICT_BRIDGE_TEST_VALUE, githubToken: process.env.PATCHVERDICT_GITHUB_TOKEN, githubIssue: process.env.PATCHVERDICT_GITHUB_ISSUE }));
+await writeFile("received.json", JSON.stringify({ args: process.argv.slice(2), envelope, cwd: process.cwd(), id, inherited: process.env.PATCHVERDICT_BRIDGE_TEST_VALUE, githubToken: process.env.PATCHVERDICT_GITHUB_TOKEN, githubIssue: process.env.PATCHVERDICT_GITHUB_ISSUE }));
 if (issue.startsWith("crash:")) { console.error("SECRET_CREDENTIAL_DO_NOT_RETURN /private/server/path"); process.exit(7); }
 if (issue.startsWith("timeout:")) {
   const descendant = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "inherit" });
@@ -104,7 +109,8 @@ if (issue.startsWith("timeout:")) {
     const directory = path.join("output", id);
     await mkdir(directory, { recursive: true });
     const proof = { version: 2, mission: { id, issue, source: { repositoryUrl, baseCommit: "a".repeat(40) }, reproduction: { label: "Reproduction", command }, fullSuite: { label: "Suite", command } }, status: "FAILED", verdict: "FAILED", artifacts: null };
-    if (process.env.PATCHVERDICT_GITHUB_ISSUE) proof.mission.source.githubIssue = JSON.parse(process.env.PATCHVERDICT_GITHUB_ISSUE);
+    if (envelope.githubIssue) proof.mission.source.githubIssue = envelope.githubIssue;
+    if (envelope.mode === "THIRD_PARTY_JS_TS") Object.assign(proof.mission.source, { mode: envelope.mode, targetBranch: envelope.targetBranch, defaultBranch: envelope.defaultBranch, baseCommit: envelope.baseCommit });
     if (issue.startsWith("foreign-proof:")) proof.mission.source.repositoryUrl = "https://github.com/other/repository";
     if (issue.startsWith("different-issue:")) proof.mission.issue = "unrelated bug";
     await writeFile(path.join(directory, "proof.json"), issue.startsWith("bad-bundle:") ? "{broken" : JSON.stringify(proof));
@@ -317,7 +323,7 @@ test("launch returns before completion, with initial durable status and unique I
   assert.equal((await readMissionLiveStatus(first.missionId)).proofReady, true);
 });
 
-test("fixed CLI arguments remain literal, environment is inherited, and server ID is authoritative", async () => {
+test("fixed CLI arguments and literal stdin envelope preserve data, inherited verification environment and server ID", async () => {
   process.env.PATCHVERDICT_BRIDGE_TEST_VALUE = "inherited-test-value";
   const input = {
     ...validInput,
@@ -332,8 +338,9 @@ test("fixed CLI arguments remain literal, environment is inherited, and server I
   );
   assert.deepEqual(received.args, [
     path.join(fixtureRoot, "src", "real-mission-demo.ts"),
-    ...Object.values(input),
+    "--input-stdin",
   ]);
+  assert.deepEqual(received.envelope, { version: 1, mode: "LEGACY", ...input });
   assert.equal(received.cwd, fixtureRoot);
   assert.equal(received.inherited, "inherited-test-value");
   assert.equal(received.id, run.missionId);
@@ -342,7 +349,7 @@ test("fixed CLI arguments remain literal, environment is inherited, and server I
   assert.equal(status.proofReady, true); // FAILED verdict plus nonzero CLI exit still has usable proof.
 });
 
-test("omitted reproduction keeps its positional slot before the optional failure marker", async () => {
+test("omitted reproduction is explicit in stdin before the optional failure marker", async () => {
   const run = await launch({
     repositoryUrl: validInput.repositoryUrl,
     issue: validInput.issue,
@@ -352,12 +359,9 @@ test("omitted reproduction keeps its positional slot before the optional failure
   const received = JSON.parse(
     await readFile(path.join(fixtureRoot, "received.json"), "utf8"),
   );
-  assert.deepEqual(received.args.slice(1), [
-    validInput.repositoryUrl,
-    validInput.issue,
-    "",
-    "marker",
-  ]);
+  assert.deepEqual(received.args.slice(1), ["--input-stdin"]);
+  assert.equal(received.envelope.reproductionCommand, "");
+  assert.equal(received.envelope.requiredOutput, "marker");
   assert.equal((await readMissionLiveStatus(run.missionId)).proofReady, true);
 });
 
@@ -447,7 +451,7 @@ test("timeout kills the CLI and descendant, then persists a safe failure", async
 
 test("API enforces JSON, bounded bodies, validation and Node runtime", async () => {
   assert.equal(runtime, "nodejs");
-  assert.equal(maxDuration, 300);
+  assert.equal(maxDuration, 1200);
   for (const [req, status] of [
     [request("{}", { "Content-Type": "text/plain" }), 415],
     [request("{broken"), 400],
@@ -499,35 +503,42 @@ test("API returns 202 plus mission/status URLs before completion and retains com
   );
 });
 
-test("issue POST resolves again, persists origin, passes literal canonical context and blanks write credentials", async () => {
+test("issue POST resolves fresh canonical branch and sends bounded stdin without publication credentials", async () => {
   process.env.PATCHVERDICT_GITHUB_TOKEN = "WRITE_TOKEN_MUST_NOT_REACH_CHILD";
   let calls = 0;
-  globalThis.fetch = async () => { calls++; return Response.json({ number: 12, title: "Fix divide", body: null }); };
-  const response = await POST(request({ mode: "issue", issueUrl: `${validInput.repositoryUrl}/issues/12`,
-    repositoryUrl: "https://github.com/attacker/repository", issue: "forged bug", title: "forged title", body: "forged body",
-    reproductionCommand: "npm test -- divide", requiredOutput: "expected zero" }));
+  globalThis.fetch = async (url) => { calls++;
+    return Response.json(url.endsWith("/issues/12") ? { number: 12, title: "Fix divide", body: null } :
+      url.includes("/branches/") ? { name: "release/2.x", commit: { sha: "a".repeat(40) } } :
+      { private: false, full_name: "owner/repository", html_url: validInput.repositoryUrl, default_branch: "main" });
+  };
+  const response = await POST(request({ mode: "issue", issueUrl: `${validInput.repositoryUrl}/issues/12`, targetBranch: "release/2.x" }));
   assert.equal(response.status, 202);
-  assert.equal(calls, 1);
+  assert.equal(calls, 3);
   await Promise.all(globalThis.missionAfterCallbacks.map((callback) => callback()));
   const body = await response.json();
   const status = await readMissionLiveStatus(body.missionId);
-  assert.equal(status.status, "COMPLETED");
   assert.equal(status.issue, "Fix divide");
   assert.equal(status.repositoryUrl, validInput.repositoryUrl);
   assert.equal(status.githubIssue.number, 12);
+  assert.equal(status.targetBranch, "release/2.x");
+  assert.equal(status.baseCommit, "a".repeat(40));
   const received = JSON.parse(await readFile(path.join(fixtureRoot, "received.json"), "utf8"));
   assert.equal(received.githubToken, "");
-  assert.deepEqual(received.args.slice(1), [validInput.repositoryUrl, "Fix divide", "npm test -- divide", "expected zero"]);
-  assert.deepEqual(JSON.parse(received.githubIssue), status.githubIssue);
-  assert.doesNotMatch(JSON.stringify(status), /WRITE_TOKEN_MUST_NOT_REACH_CHILD|forged|attacker/);
+  assert.equal(received.githubIssue, "");
+  assert.deepEqual(received.args.slice(1), ["--input-stdin"]);
+  assert.equal(received.envelope.version, 1);
+  assert.equal(received.envelope.mode, "THIRD_PARTY_JS_TS");
+  assert.deepEqual(received.envelope.githubIssue, status.githubIssue);
+  assert.equal(received.envelope.baseCommit, status.baseCommit);
+  assert.doesNotMatch(JSON.stringify(status), /WRITE_TOKEN_MUST_NOT_REACH_CHILD/);
 });
 
 test("invalid or inaccessible issue POST never launches backend", async () => {
   let calls = 0;
   globalThis.fetch = async () => { calls++; return new Response("private details", { status: 404 }); };
-  assert.equal((await POST(request({ mode: "issue", issueUrl: validInput.repositoryUrl }))).status, 400);
+  assert.equal((await POST(request({ mode: "issue", targetBranch: "main", issueUrl: validInput.repositoryUrl }))).status, 400);
   assert.equal(calls, 0);
-  assert.equal((await POST(request({ mode: "issue", issueUrl: `${validInput.repositoryUrl}/issues/12` }))).status, 404);
+  assert.equal((await POST(request({ mode: "issue", targetBranch: "main", issueUrl: `${validInput.repositoryUrl}/issues/12` }))).status, 404);
   assert.equal(calls, 1);
   assert.equal(globalThis.missionAfterCallbacks.length, 0);
   await assert.rejects(readFile(path.join(fixtureRoot, "received.json")), { code: "ENOENT" });
@@ -536,7 +547,7 @@ test("invalid or inaccessible issue POST never launches backend", async () => {
 test("oversized serialized issue metadata is rejected before mission persistence or backend launch", async () => {
   const body = "\u0001".repeat(9000);
   globalThis.fetch = async () => Response.json({ number: 12, title: "Fix divide", body });
-  const response = await POST(request({ mode: "issue", issueUrl: `${validInput.repositoryUrl}/issues/12` }));
+  const response = await POST(request({ mode: "issue", targetBranch: "main", issueUrl: `${validInput.repositoryUrl}/issues/12` }));
   assert.equal(response.status, 400);
   assert.match((await response.json()).error, /too large for the mission runner/);
   assert.equal(globalThis.missionAfterCallbacks.length, 0);

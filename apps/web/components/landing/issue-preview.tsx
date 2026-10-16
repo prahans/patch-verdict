@@ -1,4 +1,5 @@
 import { parseGitHubIssueUrl } from "@/lib/github-issue-url";
+import { isGitHubBranchName } from "@/lib/github-branch-name";
 
 export type ResolvedIssuePreview = {
   owner: string;
@@ -7,6 +8,7 @@ export type ResolvedIssuePreview = {
   title: string;
   bodyPreview: string;
   issueUrl: string;
+  defaultBranch: string;
 };
 
 export function readIssuePreview(value: unknown, requestedUrl: string): ResolvedIssuePreview | null {
@@ -14,7 +16,7 @@ export function readIssuePreview(value: unknown, requestedUrl: string): Resolved
   const issue = value as Record<string, unknown>;
   if (typeof issue.issueUrl !== "string" || issue.issueUrl !== requestedUrl ||
     typeof issue.title !== "string" || !issue.title.trim() || issue.title.length > 1024 ||
-    typeof issue.bodyPreview !== "string" || issue.bodyPreview.length > 2000) return null;
+    typeof issue.bodyPreview !== "string" || issue.bodyPreview.length > 2000 || !isGitHubBranchName(issue.defaultBranch)) return null;
   try {
     const parsed = parseGitHubIssueUrl(issue.issueUrl);
     if (parsed.owner !== issue.owner || parsed.repository !== issue.repository || parsed.issueNumber !== issue.issueNumber) return null;
