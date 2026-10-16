@@ -25,6 +25,7 @@ import type {
 export async function runMission(
   sandbox: Sandbox,
   input: MissionInput,
+  options: { onEvent?: (event: MissionEvent) => void } = {},
 ): Promise<MissionResult> {
   const events: MissionEvent[] = [];
   const checks: NonNullable<MissionResult["checks"]> = {};
@@ -44,6 +45,12 @@ export async function runMission(
     events.push(event);
 
     console.log(`[${nextState}] ${message}`);
+
+    try {
+      options.onEvent?.({ ...event });
+    } catch {
+      // Progress observers must not change execution or the recorded proof.
+    }
   }
 
   try {

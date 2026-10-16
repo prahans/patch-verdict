@@ -6,8 +6,8 @@ node_modules/
 .env.*
 !.env.example
 
-# Generated PatchVerdict output
-output/*.json
+# Generated PatchVerdict runtime and proof output
+/output/
 
 # Test coverage
 coverage/

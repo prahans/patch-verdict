@@ -10,7 +10,7 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     return specifier === "server-only"
       ? { url: "data:text/javascript,export {};", shortCircuit: true }
-      : nextResolve(specifier, context);
+      : nextResolve(specifier.startsWith(".") && !path.extname(specifier) ? specifier + ".ts" : specifier, context);
   },
 });
 const { loadProofBundle } = await import("../lib/load-proof-bundle.ts");
@@ -66,7 +66,11 @@ beforeEach(async () => {
   fixtureRoot = await mkdtemp(path.join(testsDirectory, ".proof-loader-"));
   const appDirectory = path.join(fixtureRoot, "apps", "web");
   bundleDirectory = path.join(fixtureRoot, "output", missionId);
-  await Promise.all([mkdir(appDirectory, { recursive: true }), mkdir(bundleDirectory, { recursive: true })]);
+  await Promise.all([mkdir(appDirectory, { recursive: true }), mkdir(bundleDirectory, { recursive: true }), mkdir(path.join(fixtureRoot, "src"))]);
+  await Promise.all([
+    writeFile(path.join(fixtureRoot, "package.json"), JSON.stringify({ name: "patch-verdict" })),
+    writeFile(path.join(fixtureRoot, "src", "real-mission-demo.ts"), "// repository marker"),
+  ]);
   process.chdir(appDirectory);
   await Promise.all([writeArtifact("proof.json", proof()), writeArtifact("events.json", events)]);
 });
@@ -97,6 +101,9 @@ test("normalizes real fields and preserves artifact contents and raw durations",
     description: "Expected behavior:\nThrow an error.",
     reproduction: proof().mission.reproduction,
     fullSuite: proof().mission.fullSuite,
+    sourcePath: undefined,
+    testPath: undefined,
+    testCommand: proof().mission.reproduction.command,
   });
   assert.equal(result.mission.status, "COMPLETED");
   assert.equal(result.mission.verdict, "VERIFIED");
@@ -117,6 +124,41 @@ test("bundles leave unknown iterations and optional artifacts unavailable", asyn
   assert.equal(result.mission.evidence, undefined);
   assert.equal(result.details.repository, undefined);
   assert.deepEqual(result.warnings, []);
+});
+
+test("issue-backed proof loads immutable source metadata and patch digest while old/manual proof remains compatible", async () => {
+  const githubIssue = { url: "https://github.com/owner/repo/issues/12", number: 12, title: "Divide by zero", owner: "owner", repository: "repo", body: "Expected zero instead of infinity." };
+  const data = proof();
+  data.mission.issue = `${githubIssue.title}\n\n${githubIssue.body}`;
+  data.mission.source = { repositoryUrl: "https://github.com/owner/repo", baseCommit: "a".repeat(40), githubIssue };
+  data.patch.sha256 = "b".repeat(64);
+  await writeArtifact("proof.json", data);
+  const result = await loadProofBundle(missionId);
+  assert.equal(result.details.title, githubIssue.title);
+  assert.equal(result.details.description, githubIssue.body);
+  assert.deepEqual(result.details.source.githubIssue, githubIssue);
+  assert.equal(result.mission.patch.sha256, data.patch.sha256);
+  delete data.mission.source.githubIssue;
+  delete data.patch.sha256;
+  await writeArtifact("proof.json", data);
+  const manual = await loadProofBundle(missionId);
+  assert.equal(manual.details.source.githubIssue, undefined);
+  assert.equal(manual.mission.patch.sha256, undefined);
+  assert.equal(manual.details.title, githubIssue.title);
+});
+
+test("proof source rejects unsafe or mismatched GitHub issue metadata and corrupt digest", async () => {
+  const source = { repositoryUrl: "https://github.com/owner/repo", baseCommit: "a".repeat(40),
+    githubIssue: { url: "https://github.com/owner/repo/issues/12", number: 12, title: "Divide", owner: "owner", repository: "repo" } };
+  for (const githubIssue of [{ ...source.githubIssue, url: "javascript:alert(1)" }, { ...source.githubIssue, number: 99 },
+    { ...source.githubIssue, owner: "other" }, { ...source.githubIssue, title: "" }]) {
+    const data = proof(); data.mission.source = { ...source, githubIssue };
+    await writeArtifact("proof.json", data);
+    await assert.rejects(loadProofBundle(missionId), /githubIssue/);
+  }
+  const data = proof(); data.patch.sha256 = "invalid";
+  await writeArtifact("proof.json", data);
+  await assert.rejects(loadProofBundle(missionId), /sha256/);
 });
 
 const reviewIntegrity = {

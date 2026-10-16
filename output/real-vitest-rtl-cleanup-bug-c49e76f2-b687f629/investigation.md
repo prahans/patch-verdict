@@ -1,3 +1,0 @@
-# Investigation Report
-
-Investigation identified that DarkMode tests fail due to DOM state pollution from previous tests. The DarkMode component uses the shared DarkModeContextProvider in renderWithContext, which maintains internal state across tests without cleanup. The test file imports cleanup from @testing-library/react but does not use it. The Counter tests run successfully, but DarkMode tests leak DOM state because each render() call appends to the document body without prior cleanup. The root cause is missing test cleanup between DarkMode tests, causing multiple component instances to remain mounted.

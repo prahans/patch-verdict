@@ -1,12 +1,23 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 
 import path from "node:path";
 
 import type { MissionInput, MissionResult } from "../mission/types.js";
 
+export type ProofGitHubIssue = {
+  url: string;
+  number: number;
+  title: string;
+  owner: string;
+  repository: string;
+  body?: string;
+};
+
 type ProofSource = {
   repositoryUrl: string;
   baseCommit: string;
+  githubIssue?: ProofGitHubIssue;
 };
 
 type ProofBundleInput = {
@@ -46,6 +57,8 @@ export async function writeProofBundle({
     recursive: true,
   });
 
+  // Digest the very same UTF-8 buffer written below, including its trailing LF.
+  const patchBytes = result.patch ? Buffer.from(`${result.patch.diff}\n`, "utf8") : undefined;
   const proof = {
     version: 2,
 
@@ -59,6 +72,7 @@ export async function writeProofBundle({
             repositoryUrl: source.repositoryUrl,
 
             baseCommit: source.baseCommit,
+            ...(source.githubIssue && { githubIssue: source.githubIssue }),
           }
         : null,
 
@@ -129,6 +143,7 @@ export async function writeProofBundle({
           baseCommit: result.patch.baseCommit,
 
           changedFiles: result.patch.changedFiles,
+          sha256: createHash("sha256").update(patchBytes!).digest("hex"),
         }
       : null,
 
@@ -158,14 +173,6 @@ export async function writeProofBundle({
   };
 
   await writeFile(
-    path.join(outputDirectory, "proof.json"),
-
-    JSON.stringify(proof, null, 2),
-
-    "utf8",
-  );
-
-  await writeFile(
     path.join(outputDirectory, "events.json"),
 
     JSON.stringify(result.events, null, 2),
@@ -177,9 +184,7 @@ export async function writeProofBundle({
     await writeFile(
       path.join(outputDirectory, "patch.diff"),
 
-      `${result.patch.diff}\n`,
-
-      "utf8",
+      patchBytes!,
     );
   }
 
@@ -225,6 +230,12 @@ ${result.investigation.report}
       "utf8",
     );
   }
+
+  // Publish the unchanged manifest last: its presence means every referenced
+  // artifact is fully written, and readers never observe partial proof JSON.
+  const temporaryProof = path.join(outputDirectory, "proof.json.tmp");
+  await writeFile(temporaryProof, JSON.stringify(proof, null, 2), "utf8");
+  await rename(temporaryProof, path.join(outputDirectory, "proof.json"));
 
   return {
     outputDirectory,
