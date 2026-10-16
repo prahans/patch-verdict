@@ -2971,3 +2971,151 @@ summary,
     max-width: none;
   }
 }
+
+
+/* Refined GitHub issue summary: keep source context compact and readable. */
+.summary-heading {
+  align-items: flex-start;
+}
+
+.summary-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.issue-body {
+  max-width: 780px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #121416;
+}
+
+.issue-body-heading {
+  color: var(--amber);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.issue-body-heading:not(:first-child) {
+  margin-top: 17px;
+  padding-top: 15px;
+  border-top: 1px solid #24282b;
+}
+
+.issue-body-paragraph {
+  margin-top: 8px;
+  color: #b8bdc2;
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.issue-body-code {
+  max-width: 100%;
+  margin-top: 9px;
+  overflow-x: auto;
+  border: 1px solid #272b2e;
+  border-radius: 4px;
+  background: #0d0f11;
+  padding: 10px 12px;
+  color: #cbd0d5;
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.issue-body-code code {
+  font-size: inherit;
+}
+
+.mission-actions {
+  padding-top: 42px;
+}
+
+.mission-origin-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 15px;
+  padding-bottom: 18px;
+}
+
+.mission-origin-item {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #121416;
+  padding: 8px 10px;
+  color: #b5b8bc;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.mission-origin-item svg {
+  color: #70777e;
+}
+
+.mission-origin-item a,
+.mission-origin-item .repository-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mission-origin-item a {
+  color: #c5c9cd;
+  text-decoration: none;
+}
+
+.mission-origin-item a:hover,
+.mission-origin-item a:focus-visible {
+  color: var(--foreground);
+}
+
+.mission-origin-item .repository-label {
+  flex-shrink: 0;
+  color: #7f868d;
+  font-size: 10px;
+}
+
+@media (max-width: 900px) {
+  .summary-heading {
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .mission-actions {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+    padding-top: 0;
+  }
+
+  .issue-body {
+    max-width: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .issue-body {
+    padding: 14px;
+  }
+
+  .mission-origin-list {
+    flex-direction: column;
+  }
+
+  .mission-origin-item {
+    width: 100%;
+    align-items: flex-start;
+  }
+}
