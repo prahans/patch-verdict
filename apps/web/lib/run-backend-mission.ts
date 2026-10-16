@@ -6,6 +6,7 @@ import { access } from "node:fs/promises";
 import path from "node:path";
 import {
   parseBackendMissionInput,
+  serializeBackendMissionInput,
   type MissionInput,
   type ParsedMissionInput,
 } from "./mission-input";
@@ -22,7 +23,7 @@ import {
 import { resolveRepositoryRoot } from "./repository-root";
 import { cleanupMissionOutput } from "./mission-retention";
 
-export const MISSION_TIMEOUT_MS = 270_000;
+export const MISSION_TIMEOUT_MS = 18 * 60_000;
 const MAX_LOG_CHARACTERS = 64 * 1024;
 const MAX_LINE_CHARACTERS = 4096;
 
@@ -66,6 +67,7 @@ function execute(
   input: ParsedMissionInput,
   missionId: string,
   timeoutMs: number,
+  envelope: string,
 ) {
   return new Promise<{ timedOut: boolean; persistenceFailed: boolean }>(
     (resolve) => {
@@ -74,10 +76,7 @@ function execute(
         [
           path.join(repositoryRoot, "node_modules", "tsx", "dist", "cli.mjs"),
           path.join(repositoryRoot, "src", "real-mission-demo.ts"),
-          input.repositoryUrl,
-          input.issue,
-          input.reproductionCommand,
-          input.requiredOutput,
+          "--input-stdin",
         ],
         {
           cwd: repositoryRoot,
@@ -87,12 +86,12 @@ function execute(
             // server's write token inside the verification child process.
             PATCHVERDICT_GITHUB_TOKEN: "",
             PATCHVERDICT_MISSION_ID: missionId,
-            PATCHVERDICT_GITHUB_ISSUE: input.githubIssue ? JSON.stringify(input.githubIssue) : "",
+            PATCHVERDICT_GITHUB_ISSUE: "",
           },
           shell: false,
           windowsHide: true,
           detached: process.platform !== "win32",
-          stdio: ["ignore", "pipe", "pipe"],
+          stdio: ["pipe", "pipe", "pipe"],
         },
       );
 
@@ -162,6 +161,8 @@ function execute(
       });
       child.once("error", finish);
       child.once("close", finish);
+      child.stdin.on("error", () => terminateProcessTree(child));
+      child.stdin.end(envelope, "utf8");
 
       const timeout = setTimeout(() => {
         timedOut = true;
@@ -186,6 +187,7 @@ export async function runBackendMission(
   options: { timeoutMs?: number } = {},
 ): Promise<{ missionId: string; completion: Promise<void> }> {
   const input = parseBackendMissionInput(values);
+  const envelope = serializeBackendMissionInput(input);
   const timeoutMs = options.timeoutMs ?? MISSION_TIMEOUT_MS;
   let repositoryRoot: string;
   try {
@@ -212,7 +214,7 @@ export async function runBackendMission(
 
   // execute() starts the real child immediately. Only startup is awaited by POST;
   // Next's after callback retains the completion promise after the 202 response.
-  const completion = execute(repositoryRoot, input, missionId, timeoutMs)
+  const completion = execute(repositoryRoot, input, missionId, timeoutMs, envelope)
     .then(async (result) => {
       if (result.timedOut) {
         await failMissionLiveStatus(

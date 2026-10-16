@@ -5,6 +5,12 @@ export type TestFramework = "vitest" | "jest" | "unknown";
 export type RepositoryRequest = {
   repositoryUrl: string;
 
+  mode?: "THIRD_PARTY_JS_TS";
+  /** Human-selected branch metadata; never used as shell checkout input. */
+  targetBranch?: string;
+  /** Server-resolved immutable checkout authority for strict missions. */
+  expectedCommit?: string;
+
   /**
    * Branch, tag, or commit requested by the user.
    *
@@ -15,6 +21,10 @@ export type RepositoryRequest = {
 };
 
 export type ProjectProfile = {
+  languageFamily?: "javascript-typescript";
+  projectKind?: "single-package";
+  targetBranch?: string;
+  baseCommit?: string;
   packageManager: PackageManager;
 
   testFramework: TestFramework;
@@ -40,6 +50,8 @@ export type ProjectProfile = {
 
 export type PreparedRepository = {
   repositoryUrl: string;
+  mode?: "THIRD_PARTY_JS_TS";
+  targetBranch?: string;
 
   /**
    * The branch/tag/SHA requested by the caller,
@@ -68,6 +80,8 @@ export type PreparedRepository = {
 
 export type RepositoryCheckout = {
   repositoryUrl: string;
+  mode?: "THIRD_PARTY_JS_TS";
+  targetBranch?: string;
 
   requestedRef?: string;
 

@@ -6,6 +6,7 @@ import path from "node:path";
 import { loadProofBundle } from "./load-proof-bundle";
 import type { MissionInput } from "./mission-input";
 import { parsePersistedGitHubIssue } from "./github-issue-url";
+import { isGitHubBranchName } from "./github-branch-name";
 import { isSafeMissionId, type MissionLiveEvent, type MissionLiveStatus } from "./mission-live-types";
 import { resolveRepositoryRoot } from "./repository-root";
 
@@ -66,6 +67,8 @@ function parseStatus(text: string, missionId: string): MissionLiveStatus {
     if (!githubIssue) throw new Error("The persisted GitHub issue source is invalid.");
     value.githubIssue = githubIssue;
   }
+  if (value.mode !== undefined && value.mode !== "THIRD_PARTY_JS_TS") throw new Error("The persisted mission mode is invalid.");
+  if (value.mode === "THIRD_PARTY_JS_TS" && (!value.githubIssue || !isGitHubBranchName(value.targetBranch) || !isGitHubBranchName(value.defaultBranch) || !/^[a-f0-9]{40}$/.test(value.baseCommit ?? ""))) throw new Error("The persisted branch source is invalid.");
   return value;
 }
 
@@ -119,6 +122,7 @@ export async function createMissionLiveStatus(missionId: string, input: MissionI
     message: "Mission accepted. Starting the backend.",
     repositoryUrl: input.repositoryUrl, issue: input.issue,
     ...(input.githubIssue && { githubIssue: input.githubIssue }),
+    ...(input.mode && { mode: input.mode, targetBranch: input.targetBranch, baseCommit: input.baseCommit, defaultBranch: input.defaultBranch }),
     startedAt: now, updatedAt: now,
     deadlineAt: new Date(Date.now() + timeoutMs + 5000).toISOString(),
     proofReady: false, events: [],
@@ -174,7 +178,12 @@ async function usableProof(current: MissionLiveStatus) {
       bundle.details.description === description.join("\n").trim() &&
       !!bundle.details.source &&
       canonicalUrl(bundle.details.source.repositoryUrl) === canonicalUrl(current.repositoryUrl) &&
-      JSON.stringify(bundle.details.source.githubIssue) === JSON.stringify(current.githubIssue);
+      JSON.stringify(bundle.details.source.githubIssue) === JSON.stringify(current.githubIssue) &&
+      (current.mode !== "THIRD_PARTY_JS_TS" ||
+        (bundle.details.source.baseCommit === current.baseCommit &&
+          (bundle.details.source as { targetBranch?: string }).targetBranch === current.targetBranch &&
+          (bundle.details.source as { defaultBranch?: string }).defaultBranch === current.defaultBranch &&
+          (bundle.details.source as { mode?: string }).mode === current.mode));
   } catch {
     return false;
   }

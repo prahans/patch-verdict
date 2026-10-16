@@ -4,7 +4,7 @@ import { GitHubIssueError, resolveMissionInput } from "../../../lib/github-issue
 import { BackendMissionError, runBackendMission } from "../../../lib/run-backend-mission";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 1200;
 
 const MAX_BODY_BYTES = 64 * 1024;
 

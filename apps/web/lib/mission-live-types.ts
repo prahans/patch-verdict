@@ -15,6 +15,10 @@ export type MissionLiveStatus = {
   repositoryUrl: string;
   issue: string;
   githubIssue?: GitHubIssue;
+  mode?: "THIRD_PARTY_JS_TS";
+  targetBranch?: string;
+  baseCommit?: string;
+  defaultBranch?: string;
   startedAt: string;
   updatedAt: string;
   deadlineAt: string;

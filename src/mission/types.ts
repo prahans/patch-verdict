@@ -6,6 +6,7 @@ import type { InvestigationDiagnosis } from "../agent/investigation-contract.js"
 export type MissionState =
   | "PREPARING"
   | "BASELINE"
+  | "REPRODUCING"
   | "INVESTIGATING"
   | "PATCHING"
   | "VERIFYING"
@@ -40,7 +41,12 @@ export type MissionChecks = {
 export type MissionResult = {
   status: "COMPLETED" | "FAILED";
 
-  verdict?: "VERIFIED" | "REVIEW_REQUIRED" | "FAILED";
+  verdict?: "VERIFIED" | "REVIEW_REQUIRED" | "FAILED" | null;
+
+  outcome?: import("./third-party-types.js").MissionOutcome;
+  frozenReproduction?: import("./third-party-types.js").FrozenReproduction;
+  suiteComparison?: import("./third-party-types.js").SuiteComparison;
+  repair?: import("./third-party-types.js").RepairProvenance;
 
   events: MissionEvent[];
 

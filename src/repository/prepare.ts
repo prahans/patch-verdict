@@ -7,6 +7,8 @@ import { cloneRepository } from "./clone.js";
 import { detectProject } from "./detect-project.js";
 
 import type { PreparedRepository, RepositoryRequest } from "./types.js";
+import { RepositoryPreparationError } from "./errors.js";
+export { RepositoryPreparationError } from "./errors.js";
 
 async function ensurePnpmAvailable(
   sandbox: Sandbox,
@@ -78,10 +80,11 @@ async function verifyHeadUnchanged(
 async function verifyTrackedFilesClean(
   sandbox: Sandbox,
   projectRoot: string,
+  strict = false,
 ): Promise<void> {
   const status = await runSandboxCommand(
     sandbox,
-    "git status --porcelain --untracked-files=no",
+    strict ? "git status --porcelain --untracked-files=all" : "git status --porcelain --untracked-files=no",
     projectRoot,
   );
 
@@ -102,9 +105,10 @@ export async function prepareRepository(
   sandbox: Sandbox,
   request: RepositoryRequest,
 ): Promise<PreparedRepository> {
+  try {
   const checkout = await cloneRepository(sandbox, request);
 
-  const project = await detectProject(sandbox, checkout.projectRoot);
+  const project = await detectProject(sandbox, checkout.projectRoot, request);
 
   if (project.packageManager === "pnpm") {
     await ensurePnpmAvailable(sandbox, checkout.projectRoot);
@@ -126,10 +130,12 @@ export async function prepareRepository(
 
   await verifyHeadUnchanged(sandbox, checkout.projectRoot, checkout.baseCommit);
 
-  await verifyTrackedFilesClean(sandbox, checkout.projectRoot);
+  await verifyTrackedFilesClean(sandbox, checkout.projectRoot, request.mode === "THIRD_PARTY_JS_TS");
 
   return {
     repositoryUrl: checkout.repositoryUrl,
+    ...(checkout.mode && { mode: checkout.mode }),
+    ...(checkout.targetBranch && { targetBranch: checkout.targetBranch }),
 
     ...(checkout.requestedRef && {
       requestedRef: checkout.requestedRef,
@@ -141,4 +147,8 @@ export async function prepareRepository(
 
     project,
   };
+  } catch (error) {
+    if (request.mode !== "THIRD_PARTY_JS_TS" || error instanceof RepositoryPreparationError) throw error;
+    throw new RepositoryPreparationError("PREPARATION_FAILED", error instanceof Error ? error.message : "Repository preparation failed.");
+  }
 }

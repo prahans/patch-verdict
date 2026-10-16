@@ -1,0 +1,15 @@
+# Third-party JS/TS milestone
+
+The strict flow binds one public GitHub issue to a human-selected branch and the exact SHA resolved by the server. It extends the existing clone, sandbox, investigation provenance, bounded patch loop, immutable evidence, and exact Git publication pipeline. Manual missions and historical v2 proofs keep their original semantics.
+
+The audit found that the legacy runner treats a failed full suite as reproduction, hardcodes Vitest in investigation tools, and lacks enforceable single-file repair permissions. Its suite-wide verdict also conflates target failures with unrelated failures. The strict flow therefore adds framework adapters, a separate reproduction discovery/generation phase, frozen target evidence, a stateful repair policy, normalized background comparison, and a deterministic outcome/verdict policy. These are separate modules used by a strict runner; the legacy runner is retained.
+
+Preparation must check supported single-package JS/TS layout, npm/pnpm lock consistency, repository-local Vitest/Jest, exact detached SHA, and clean files after installation. Structured reporter output lives outside the repository. Untouched background failures are captured and repeated before generation or repair. One observed existing test or one bounded generated regression must fail consistently at the target identity before repair is permitted.
+
+Generated regression creation and production repair have separate tool capabilities. Generation can create and revise one new test path at most twice. Freezing disables that writer. Repair can edit only one grounded production file across the initial attempt and correction; tests, configuration, dependencies, CI, symlinks, and Git internals are protected. Frozen hashes and canonical changed-file provenance are checked again after execution.
+
+The target is excluded by exact identity from both background channels. New failures fail repair; unchanged pre-existing failures require review. An AI-generated oracle always requires review, even when frozen and passing. Non-repair outcomes have no verdict or publication action. Proof v3 records these facts explicitly; v2 remains readable without reinterpretation.
+
+The web process passes a bounded fixed-schema stdin envelope. Browser-supplied repository identity or SHA is never checkout authority. Live state and finalized proof bind the same branch/SHA. Publishing strict proofs always uses the authenticated user's validated GitHub fork, the exact proof base parent and patch/tree, and the recorded target branch. Publication never invokes AI or changes the immutable proof. Existing exact-patch tooling, locks, and separate metadata are extended for fork recovery.
+
+Implementation order: outcome policy; branch and transport; exact SHA and preflight; adapters and baseline; discovery, regression and freezing; constrained repair and comparison; proof/UI; fork publication and recovery; fixture and quality gates. No real third-party fork or PR is created during development.

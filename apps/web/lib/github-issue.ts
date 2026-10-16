@@ -9,19 +9,9 @@ import {
   type ParsedMissionInput,
 } from "./mission-input";
 
-export class GitHubIssueError extends Error {
-  readonly status: number;
-  constructor(message: string, status = 502) {
-    super(message);
-    this.name = "GitHubIssueError";
-    this.status = status;
-  }
-}
-
-const unavailable = () =>
-  new GitHubIssueError(
-    "GitHub is unavailable. Please try loading the issue again.",
-  );
+import { GitHubIssueError, githubUnavailable as unavailable, readGitHubPublicJson } from "./github-public-api";
+import { resolveGitHubBranch, resolveGitHubRepository } from "./github-branches";
+export { GitHubIssueError } from "./github-public-api";
 
 export async function resolveGitHubIssue(
   issueUrl: string,
@@ -32,77 +22,9 @@ export async function resolveGitHubIssue(
   } catch {
     throw new MissionInputError("Enter an exact public GitHub issue URL.");
   }
-  let response: Response;
-  try {
-    // This public read deliberately has no write credential. Redirects cannot
-    // turn a fixed GitHub API request into an arbitrary network request.
-    response = await fetch(
-      `https://api.github.com/repos/${parsed.owner}/${parsed.repository}/issues/${parsed.issueNumber}`,
-      {
-        headers: {
-          Accept: "application/vnd.github+json",
-          "User-Agent": "PatchVerdict",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-        cache: "no-store",
-        redirect: "error",
-        signal: AbortSignal.timeout(15000),
-      },
-    );
-  } catch {
-    throw unavailable();
-  }
-  if (!response.ok) await response.body?.cancel().catch(() => undefined);
-  if (response.status === 404 || response.status === 401) {
-    throw new GitHubIssueError(
-      "The issue or repository was not found, or is private or inaccessible. Use a public GitHub issue.",
-      404,
-    );
-  }
-  if (
-    response.status === 429 ||
-    (response.status === 403 &&
-      (response.headers.get("x-ratelimit-remaining") === "0" ||
-        response.headers.has("retry-after")))
-  ) {
-    throw new GitHubIssueError(
-      "GitHub's rate limit was reached. Please try again later.",
-      429,
-    );
-  }
-  if (response.status === 403)
-    throw new GitHubIssueError(
-      "The GitHub issue is inaccessible. Use a public GitHub issue.",
-      403,
-    );
-  if (!response.ok || !response.body) throw unavailable();
-  const reader = response.body.getReader();
-  let bytes = 0;
-  let text = "";
-  const decoder = new TextDecoder();
-  let data: Record<string, unknown>;
-  try {
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      bytes += chunk.value.byteLength;
-      if (bytes > 256 * 1024) {
-        await reader.cancel();
-        throw unavailable();
-      }
-      text += decoder.decode(chunk.value, { stream: true });
-    }
-    text += decoder.decode();
-    const value: unknown = JSON.parse(text);
-    if (!value || typeof value !== "object" || Array.isArray(value))
-      throw unavailable();
-    data = value as Record<string, unknown>;
-  } catch {
-    throw unavailable();
-  } finally {
-    await reader.cancel().catch(() => undefined);
-    reader.releaseLock();
-  }
+  const value = await readGitHubPublicJson(`/repos/${parsed.owner}/${parsed.repository}/issues/${parsed.issueNumber}`);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw unavailable();
+  const data = value as Record<string, unknown>;
   if (Object.hasOwn(data, "pull_request"))
     throw new GitHubIssueError(
       "This GitHub URL is a pull request. Paste a GitHub issue URL instead.",
@@ -153,8 +75,17 @@ export async function resolveMissionInput(
   // Always perform a fresh read: preview/title/repository fields from the
   // browser are intentionally discarded by the pure request parser.
   const githubIssue = await resolveGitHubIssue(input.issueUrl);
+  const repository = await resolveGitHubRepository(`https://github.com/${githubIssue.owner}/${githubIssue.repository}`);
+  const branch = await resolveGitHubBranch(repository, input.targetBranch);
+  // Use API-confirmed repository casing consistently throughout the envelope.
+  githubIssue.owner = repository.owner;
+  githubIssue.repository = repository.repository;
+  githubIssue.url = `${repository.repositoryUrl}/issues/${githubIssue.number}`;
   return {
-    repositoryUrl: `https://github.com/${githubIssue.owner}/${githubIssue.repository}`,
+    mode: "THIRD_PARTY_JS_TS",
+    repositoryUrl: repository.repositoryUrl,
+    defaultBranch: repository.defaultBranch,
+    ...branch,
     issue: githubIssue.body
       ? `${githubIssue.title}\n\n${githubIssue.body}`
       : githubIssue.title,

@@ -3,6 +3,7 @@ import type { Sandbox } from "e2b";
 import { runSandboxCommand } from "../sandbox/e2b.js";
 
 import type { RepositoryCheckout, RepositoryRequest } from "./types.js";
+import { RepositoryPreparationError } from "./errors.js";
 
 const PROJECT_ROOT = "/tmp/patchverdict";
 
@@ -19,6 +20,10 @@ function normalizeGitHubRepositoryUrl(input: string): string {
 
   if (url.protocol !== "https:") {
     throw new Error("Only HTTPS GitHub repository URLs are supported.");
+  }
+
+  if (url.username || url.password || url.port || url.search || url.hash) {
+    throw new Error("Repository URL must not contain credentials, a port, query, or fragment.");
   }
 
   if (url.hostname !== "github.com" && url.hostname !== "www.github.com") {
@@ -127,7 +132,12 @@ export async function cloneRepository(
 ): Promise<RepositoryCheckout> {
   const repositoryUrl = normalizeGitHubRepositoryUrl(request.repositoryUrl);
 
-  const requestedRef = request.ref ? validateRef(request.ref) : undefined;
+  const strict = request.mode === "THIRD_PARTY_JS_TS";
+  if (strict && (!request.expectedCommit || !/^[a-f0-9]{40}$/i.test(request.expectedCommit) ||
+    !request.targetBranch || request.targetBranch.length > 1024 || /[\0\r\n]/.test(request.targetBranch) || request.ref)) {
+    throw new RepositoryPreparationError("PREPARATION_FAILED", "A canonical target branch and exact full base commit are required.");
+  }
+  const requestedRef = !strict && request.ref ? validateRef(request.ref) : undefined;
 
   const clone = await runSandboxCommand(
     sandbox,
@@ -141,8 +151,16 @@ export async function cloneRepository(
     );
   }
 
-  if (requestedRef) {
-    const resolvedCommit = await resolveRequestedRef(sandbox, requestedRef);
+  if (requestedRef || strict) {
+    const resolvedCommit = strict ? request.expectedCommit!.toLowerCase() : await resolveRequestedRef(sandbox, requestedRef!);
+
+    if (strict) {
+      const available = await runSandboxCommand(sandbox, `git cat-file -e ${shellQuote(`${resolvedCommit}^{commit}`)}`, PROJECT_ROOT);
+      if (available.exitCode !== 0) {
+        const fetch = await runSandboxCommand(sandbox, `git fetch --no-tags origin ${shellQuote(resolvedCommit)}`, PROJECT_ROOT);
+        if (fetch.exitCode !== 0) throw new RepositoryPreparationError("PREPARATION_FAILED", "The exact selected base commit could not be fetched.");
+      }
+    }
 
     const checkout = await runSandboxCommand(
       sandbox,
@@ -175,6 +193,10 @@ export async function cloneRepository(
     throw new Error("Repository base commit is not a valid full Git SHA.");
   }
 
+  if (strict && baseCommit.toLowerCase() !== request.expectedCommit!.toLowerCase()) {
+    throw new RepositoryPreparationError("PREPARATION_FAILED", "Checked-out HEAD does not match the canonical base commit.");
+  }
+
   const status = await runSandboxCommand(
     sandbox,
     "git status --porcelain",
@@ -193,6 +215,7 @@ export async function cloneRepository(
 
   return {
     repositoryUrl,
+    ...(strict && { mode: "THIRD_PARTY_JS_TS" as const, targetBranch: request.targetBranch! }),
     ...(requestedRef && {
       requestedRef,
     }),
