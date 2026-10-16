@@ -124,7 +124,7 @@ export function MissionSummary({
           <p className="eyebrow amber">PATCH VERIFICATION MISSION</p>
           <h1 id="mission-title">{githubIssue?.title ?? details.title}</h1>
           {githubIssue ? (
-            <GitHubIssueBody body={githubIssue.body} />
+            <GitHubIssueBody body={githubIssue.body ?? details.description} />
           ) : (
             <p className="mission-description">{details.description}</p>
           )}
