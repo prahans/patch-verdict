@@ -1,4 +1,5 @@
 import type { MissionDetails, MissionResult } from "./mission-types";
+import { assertProofV3Consistency } from "./proof-v3";
 
 export type PullRequestResult = { number: number; url: string; draft: boolean };
 
@@ -28,6 +29,14 @@ export function getPullRequestEligibility(mission: MissionResult, details: Missi
   // Refuse contradictory persisted evidence without recomputing or changing the
   // recorded verdict. Older bundles may omit these optional evidence fields.
   const integrity = mission.verificationIntegrity;
+  if (details.source.mode === "THIRD_PARTY_JS_TS") {
+    try {
+      assertProofV3Consistency(mission, details.source);
+      return { allowed: true, draft };
+    } catch {
+      return { allowed: false, draft, reason: "The strict proof does not contain consistent target, background, and frozen repair evidence." };
+    }
+  }
   if (mission.error || Object.entries(mission.checks ?? {}).some(([key, value]) => key !== "verificationIntegrityPreserved" && value === false) ||
     mission.reproduction?.reproduced === false ||
     (mission.evidence?.postPatchTest && mission.evidence.postPatchTest.exitCode !== 0) ||

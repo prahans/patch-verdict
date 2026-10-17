@@ -29,10 +29,11 @@ import {
   type GitHubRequest,
 } from "./exact-verified-patch";
 import type { MissionViewModel } from "./mission-types";
+import { publishFork } from "./github-fork-publication";
 
 export { PullRequestError } from "./exact-verified-patch";
 
-type Canonical = {
+export type Canonical = {
   directory: string;
   bundle: MissionViewModel;
   repository: string;
@@ -45,7 +46,7 @@ type Canonical = {
   branch: string;
   draft: boolean;
 };
-type Metadata = PullRequestResult & {
+export type Metadata = PullRequestResult & {
   repository: string;
   branch: string;
   headSha: string;
@@ -54,6 +55,11 @@ type Metadata = PullRequestResult & {
   patchSha256: string;
   proofSha256: string;
   createdAt: string;
+  publicationMode?: "FORK";
+  upstreamRepository?: string;
+  forkRepository?: string;
+  forkOwner?: string;
+  targetBranch?: string;
 };
 const pending = new Map<string, Promise<PullRequestResult>>();
 const MAX_JSON = 12 * 1024 * 1024;
@@ -118,12 +124,12 @@ async function canonical(missionId: string): Promise<Canonical> {
   try {
     const directory = await missionDirectory(missionId);
     // Bound required inputs before calling the shared, backward-compatible reader.
-    const proof = await artifact(directory, "proof.json", 2 * 1024 * 1024);
+    const proof = await artifact(directory, "proof.json", 16 * 1024 * 1024);
     await artifact(directory, "events.json", 2 * 1024 * 1024);
     const patch = await artifact(directory, "patch.diff", 2 * 1024 * 1024);
     const bundle = await loadProofBundle(missionId);
     if (
-      !proof.equals(await artifact(directory, "proof.json", 2 * 1024 * 1024))
+      !proof.equals(await artifact(directory, "proof.json", 16 * 1024 * 1024))
     ) {
       throw new PullRequestError(
         "The mission artifacts changed during publication.",
@@ -180,6 +186,11 @@ async function canonical(missionId: string): Promise<Canonical> {
 function parseMetadata(value: unknown, source: Canonical): Metadata | null {
   if (!isPullRequestResult(value)) return null;
   const saved = value as Metadata;
+  const strict = source.bundle.details.source?.mode === "THIRD_PARTY_JS_TS";
+  if (strict && (saved.publicationMode !== "FORK" || saved.upstreamRepository !== source.repository ||
+    saved.targetBranch !== source.bundle.details.source?.targetBranch || !saved.forkOwner ||
+    !/^[A-Za-z0-9-]+$/.test(saved.forkOwner) || !saved.forkRepository ||
+    !new RegExp("^" + saved.forkOwner + "/[A-Za-z0-9_.-]+$").test(saved.forkRepository))) return null;
   if (
     saved.repository !== source.repository ||
     saved.branch !== source.branch ||
@@ -207,6 +218,8 @@ function parseMetadata(value: unknown, source: Canonical): Metadata | null {
     patchSha256: saved.patchSha256,
     proofSha256: saved.proofSha256,
     createdAt: saved.createdAt,
+    ...(strict && { publicationMode: "FORK" as const, upstreamRepository: saved.upstreamRepository,
+      forkRepository: saved.forkRepository, forkOwner: saved.forkOwner, targetBranch: saved.targetBranch }),
   };
 }
 
@@ -290,7 +303,7 @@ async function responseJson(response: Response) {
   }
 }
 
-function github(source: Canonical, token: string): GitHubRequest {
+function githubRoot(token: string): GitHubRequest {
   const deadline = Date.now() + 120000;
   return async (endpoint, method = "GET", body, allowMissing = false) => {
     if (
@@ -304,7 +317,7 @@ function github(source: Canonical, token: string): GitHubRequest {
       );
     try {
       const response = await fetch(
-        `https://api.github.com/repos/${encodeURIComponent(source.owner)}/${encodeURIComponent(source.name)}${endpoint}`,
+        "https://api.github.com" + endpoint,
         {
           method,
           redirect: "error",
@@ -364,6 +377,17 @@ function github(source: Canonical, token: string): GitHubRequest {
   };
 }
 
+function forRepository(api: GitHubRequest, repository: string): GitHubRequest {
+  const parsed = parseGitHubRepositoryUrl("https://github.com/" + repository);
+  if (!parsed) throw new PullRequestError("Invalid publication repository.");
+  const prefix = "/repos/" + encodeURIComponent(parsed.owner) + "/" + encodeURIComponent(parsed.repository);
+  return (endpoint, method, body, allowMissing) => api(prefix + endpoint, method, body, allowMissing);
+}
+
+function github(source: Canonical, token: string): GitHubRequest {
+  return forRepository(githubRoot(token), source.repository);
+}
+
 function markdown(value: string, limit = 500) {
   return value
     .replace(/[\x00-\x1f\x7f]/g, " ")
@@ -371,7 +395,7 @@ function markdown(value: string, limit = 500) {
     .replace(/[\\`*_{}[\]()<>#+.!|@~-]/g, "\\$&");
 }
 
-export function pullRequestDescription(bundle: MissionViewModel) {
+export function pullRequestDescription(bundle: MissionViewModel, currentDefaultBranch?: string) {
   const { mission, details } = bundle;
   const outcome = (value: boolean | undefined) =>
     value === true ? "passed" : value === false ? "failed" : "not recorded";
@@ -390,6 +414,29 @@ export function pullRequestDescription(bundle: MissionViewModel) {
     "",
     "These results cover the recorded checks at the stated base commit; they do not establish that every behavior is correct.",
   ];
+  if (details.source?.mode === "THIRD_PARTY_JS_TS") {
+    const frozen = mission.frozenReproduction!;
+    lines.splice(0, lines.length,
+      "This candidate repair was verified against the recorded issue-specific reproduction on " +
+        markdown(details.source.targetBranch!) + " at commit " + details.source.baseCommit + ".",
+      "", "PatchVerdict verdict: **" + mission.verdict + "**",
+      "Upstream repository: " + markdown(details.source.repositoryUrl),
+      "Target branch: " + markdown(details.source.targetBranch!),
+      "Exact base commit: " + details.source.baseCommit,
+      "Reproduction origin: " + frozen.origin,
+      "Framework: " + frozen.framework,
+      "Test path: " + markdown(frozen.testPath),
+      "Test identity: " + markdown(frozen.testIdentity),
+      "Frozen SHA-256: " + frozen.frozenSha256,
+      "Frozen integrity: " + (mission.repair?.frozenIntegrity ? "unchanged" : "not preserved"),
+      "Production repair: " + mission.repair!.productionChangedFiles.map(file => markdown(file)).join(", "),
+      "Untouched suite failures: " + mission.suiteComparison!.baseline.failed.length,
+      "Post-patch suite failures: " + mission.suiteComparison!.postPatch.failed.length,
+      "Background comparison: " + mission.suiteComparison!.state,
+      "New non-target regressions: " + mission.suiteComparison!.newBackgroundFailures.length,
+      "", "These checks apply to this branch and exact base; they do not establish correctness on other branches or environments.");
+    if (frozen.origin === "GENERATED_REGRESSION") lines.push("", "The regression was AI-generated. Its expected behavior requires human review; freezing protects its bytes, not the correctness of its oracle.");
+  }
   if (mission.verdict === "REVIEW_REQUIRED") {
     lines.push("", "Human review is required. This pull request is a draft.");
     for (const reason of [
@@ -408,7 +455,9 @@ export function pullRequestDescription(bundle: MissionViewModel) {
     issue.owner.toLowerCase() === repository.owner.toLowerCase() &&
     issue.repository.toLowerCase() === repository.repository.toLowerCase()
   ) {
-    lines.push("", `Fixes #${issue.number}`);
+    const reference = details.source?.mode === "THIRD_PARTY_JS_TS" &&
+      details.source.targetBranch !== (currentDefaultBranch ?? details.source.defaultBranch) ? "Related to" : "Fixes";
+    lines.push("", reference + " #" + issue.number);
   }
   return lines.join("\n");
 }
@@ -501,6 +550,21 @@ async function recover(
 }
 
 async function publish(source: Canonical, token: string) {
+  if (source.bundle.details.source?.mode === "THIRD_PARTY_JS_TS") {
+    const root = githubRoot(token);
+    const assertUnchanged = async () => {
+      const latest = await canonical(source.bundle.details.id);
+      if (latest.proofSha256 !== source.proofSha256 || latest.patchSha256 !== source.patchSha256 ||
+        latest.repository !== source.repository || latest.baseCommit !== source.baseCommit || latest.draft !== source.draft ||
+        latest.bundle.details.source?.targetBranch !== source.bundle.details.source?.targetBranch) {
+        throw new PullRequestError("The mission artifacts changed during publication.");
+      }
+    };
+    const metadata = await publishFork(source, { root, repository: name => forRepository(root, name),
+      assertUnchanged, title: title(source), description: defaultBranch => pullRequestDescription(source.bundle, defaultBranch) });
+    await persist(source, metadata);
+    return publicResult(metadata);
+  }
   const api = github(source, token);
   const repository = record(await api(""));
   if (
@@ -651,7 +715,7 @@ async function publish(source: Canonical, token: string) {
 async function create(missionId: string) {
   const source = await canonical(missionId);
   const saved = await savedMetadata(source);
-  if (saved) return publicResult(saved);
+  if (saved && source.bundle.details.source?.mode !== "THIRD_PARTY_JS_TS") return publicResult(saved);
   const token = process.env.PATCHVERDICT_GITHUB_TOKEN?.trim();
   if (!token)
     throw new PullRequestError(
@@ -680,7 +744,7 @@ async function create(missionId: string) {
       throw error;
     }
     const existing = await savedMetadata(source);
-    if (existing) return publicResult(existing);
+    if (existing && source.bundle.details.source?.mode !== "THIRD_PARTY_JS_TS") return publicResult(existing);
     return await publish(source, token);
   } finally {
     if (handle) {

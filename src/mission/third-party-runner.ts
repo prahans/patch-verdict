@@ -130,6 +130,7 @@ export async function runThirdPartyMission(
       frozen.framework !== project.testFramework ||
       frozen.command !== adapter.command(frozen) ||
       !targetFailed(frozen.targetBaselineResult, frozen) ||
+      (frozen.origin === "EXISTING_TEST" && !targetFailed(baseline, frozen)) ||
       (await frozenFileHash(sandbox, projectRoot, frozen.testPath)) !==
         frozen.frozenSha256
     ) {
@@ -279,7 +280,8 @@ export async function runThirdPartyMission(
     record("VERIFYING", "Running frozen reproduction after patch");
     let candidateDiff = result.patch!.diff;
     let postTarget = await adapter.run(sandbox, frozen);
-    integrity = await capture() && integrity && result.patch!.diff === candidateDiff;
+    integrity =
+      (await capture()) && integrity && result.patch!.diff === candidateDiff;
     result.evidence!.postPatchTest = postTarget.evidence;
     if (
       integrity &&
@@ -299,7 +301,8 @@ export async function runThirdPartyMission(
       integrity = await capture();
       candidateDiff = result.patch!.diff;
       postTarget = await adapter.run(sandbox, frozen);
-      integrity = await capture() && integrity && result.patch!.diff === candidateDiff;
+      integrity =
+        (await capture()) && integrity && result.patch!.diff === candidateDiff;
       result.evidence!.postPatchTest = postTarget.evidence;
     }
     result.targetAfter = postTarget;
@@ -320,10 +323,13 @@ export async function runThirdPartyMission(
     );
     result.evidence!.fullSuite = postSuite.evidence;
     const sameTarget = (test: { testPath: string; testIdentity: string }) =>
-      test.testPath === frozen.testPath && test.testIdentity === frozen.testIdentity;
-    const targetVerified = targetPassed(postTarget, frozen) &&
+      test.testPath === frozen.testPath &&
+      test.testIdentity === frozen.testIdentity;
+    const targetVerified =
+      targetPassed(postTarget, frozen) &&
       postTarget.evidence.command === frozen.command &&
-      postSuite.execution === "COMPLETED" && postSuite.passed.some(sameTarget) &&
+      postSuite.execution === "COMPLETED" &&
+      postSuite.passed.some(sameTarget) &&
       !postSuite.failed.some(sameTarget);
     result.checks!.reproductionPassesAfterPatch = targetVerified;
     result.checks!.fullSuitePassesAfterPatch =

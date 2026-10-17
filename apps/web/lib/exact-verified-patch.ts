@@ -9,7 +9,7 @@ import path from "node:path";
 
 export type GitHubRequest = (endpoint: string, method?: string, body?: unknown, allowMissing?: boolean) => Promise<unknown>;
 type Entry = { path: string; mode: string; sha: string };
-export type ExactPatch = { baseTree: string; treeSha: string; entries: Array<Entry & { contents: Buffer | null }> };
+export type ExactPatch = { baseTree: string; treeSha: string; baseEntries: Entry[]; entries: Array<Entry & { contents: Buffer | null }> };
 
 export class PullRequestError extends Error {
   status: number;
@@ -135,9 +135,12 @@ export async function prepareExactPatch(api: GitHubRequest, baseCommit: string, 
     await git(["apply", "--cached", "--check", "--whitespace=nowarn", "-"], patch);
     await git(["apply", "--cached", "--whitespace=nowarn", "-"], patch);
     const result = new Map<string, Entry>();
+    const resultPaths = new Set<string>();
     for (const line of (await git(["ls-files", "--stage", "-z"])).toString("utf8").split("\0").filter(Boolean)) {
       const match = /^(\d{6}) ([a-f0-9]{40}) 0\t([\s\S]+)$/.exec(line);
       if (!match || !safePatchPath(match[3])) throw new PullRequestError("The resulting patch has invalid file paths.");
+      if (resultPaths.has(match[3].toLowerCase())) throw new PullRequestError("The resulting patch contains case-colliding file paths.");
+      resultPaths.add(match[3].toLowerCase());
       result.set(match[3], { mode: match[1], sha: match[2], path: match[3] });
     }
     const actual = [...new Set([...base.keys(), ...result.keys()])].filter((file) => base.get(file)?.sha !== result.get(file)?.sha || base.get(file)?.mode !== result.get(file)?.mode).sort();
@@ -155,7 +158,7 @@ export async function prepareExactPatch(api: GitHubRequest, baseCommit: string, 
       entries.push({ path: file, mode: after?.mode ?? before!.mode, sha: after?.sha ?? before!.sha, contents });
     }
     const treeSha = (await git(["write-tree", "--missing-ok"])).toString().trim();
-    return { baseTree, treeSha: gitSha(treeSha), entries };
+    return { baseTree, treeSha: gitSha(treeSha), baseEntries: [...base.values()], entries };
   } finally {
     // mkdtemp returns our own unique direct child; never follow a persisted path.
     if (path.dirname(directory) === os.tmpdir() && path.basename(directory).startsWith("patchverdict-pr-")) {
