@@ -1,9 +1,12 @@
 import type { GitHubIssue } from "./github-issue-url";
+import type { FrozenReproduction, MissionOutcome, NormalizedRun, RepairProvenance, SuiteComparison } from "../../../src/mission/third-party-types";
+export type { FrozenReproduction, MissionOutcome, NormalizedRun, RepairProvenance, SuiteComparison } from "../../../src/mission/third-party-types";
 
 // UI data contract for serialized proof bundles. Keep this independent of the engine.
 export type MissionState =
   | "PREPARING"
   | "BASELINE"
+  | "REPRODUCING"
   | "INVESTIGATING"
   | "PATCHING"
   | "VERIFYING"
@@ -26,7 +29,13 @@ export type CommandEvidence = {
 };
 
 export type MissionResult = {
+  proofVersion?: 2 | 3;
   status: "COMPLETED" | "FAILED";
+  outcome?: MissionOutcome;
+  frozenReproduction?: FrozenReproduction;
+  targetAfter?: NormalizedRun;
+  suiteComparison?: SuiteComparison;
+  repair?: RepairProvenance;
   verdict?: "VERIFIED" | "REVIEW_REQUIRED" | "FAILED" | null;
   events: MissionEvent[];
   investigation?: {
@@ -75,6 +84,9 @@ export type MissionDetails = {
     repositoryUrl: string;
     baseCommit: string;
     githubIssue?: GitHubIssue;
+    mode?: "THIRD_PARTY_JS_TS";
+    targetBranch?: string;
+    defaultBranch?: string;
   };
 
   repository?: string;

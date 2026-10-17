@@ -11,7 +11,7 @@ export type ProofGitHubIssue = {
   title: string;
   owner: string;
   repository: string;
-  body?: string;
+  body?: string | undefined;
 };
 
 type ProofSource = {
@@ -67,6 +67,7 @@ export async function writeProofBundle({
     ...(strict && {
       outcome: result.outcome,
       frozenReproduction: result.frozenReproduction ?? null,
+      targetAfter: result.targetAfter ?? null,
       suiteComparison: result.suiteComparison ?? null,
       repair: result.repair ?? null,
       error: result.error ?? null,
@@ -183,6 +184,10 @@ export async function writeProofBundle({
     },
   };
 
+  const proofJson = JSON.stringify(proof, null, 2);
+  if (Buffer.byteLength(proofJson) > 16 * 1024 * 1024 || (patchBytes?.length ?? 0) > 2 * 1024 * 1024) {
+    throw new Error("Proof artifacts exceed the bounded publication size.");
+  }
   await writeFile(
     path.join(outputDirectory, "events.json"),
 
@@ -245,7 +250,7 @@ ${result.investigation.report}
   // Publish the unchanged manifest last: its presence means every referenced
   // artifact is fully written, and readers never observe partial proof JSON.
   const temporaryProof = path.join(outputDirectory, "proof.json.tmp");
-  await writeFile(temporaryProof, JSON.stringify(proof, null, 2), "utf8");
+  await writeFile(temporaryProof, proofJson, "utf8");
   await rename(temporaryProof, path.join(outputDirectory, "proof.json"));
 
   return {

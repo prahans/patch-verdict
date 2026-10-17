@@ -45,6 +45,7 @@ export type MissionResult = {
 
   outcome?: import("./third-party-types.js").MissionOutcome;
   frozenReproduction?: import("./third-party-types.js").FrozenReproduction;
+  targetAfter?: import("./third-party-types.js").NormalizedRun;
   suiteComparison?: import("./third-party-types.js").SuiteComparison;
   repair?: import("./third-party-types.js").RepairProvenance;
 

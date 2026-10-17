@@ -154,7 +154,7 @@ export async function runThirdPartyMission(
                 ok: true as const,
                 data: (await adapter.run(toolSandbox, frozen)).evidence,
               }
-            : readTools.execute(toolSandbox, name, toolInput),
+            : readTools(toolSandbox, name, toolInput),
         context: {
           frozenReproduction: frozen,
           backgroundFailures: baseline.failed,
@@ -192,7 +192,7 @@ export async function runThirdPartyMission(
       allowedProductionFiles,
       frozenTestPath: frozen.testPath,
     });
-    if (!allowedProductionFiles.length)
+    if (!policy.allowedProductionFiles.length)
       return stop(
         "UNSUPPORTED_REPAIR_SCOPE",
         "No grounded production repair target is available.",
@@ -277,7 +277,9 @@ export async function runThirdPartyMission(
     phaseFailure = "VERIFICATION_FAILED";
     let integrity = await capture();
     record("VERIFYING", "Running frozen reproduction after patch");
+    let candidateDiff = result.patch!.diff;
     let postTarget = await adapter.run(sandbox, frozen);
+    integrity = await capture() && integrity && result.patch!.diff === candidateDiff;
     result.evidence!.postPatchTest = postTarget.evidence;
     if (
       integrity &&
@@ -295,9 +297,12 @@ export async function runThirdPartyMission(
       );
       phaseFailure = "VERIFICATION_FAILED";
       integrity = await capture();
+      candidateDiff = result.patch!.diff;
       postTarget = await adapter.run(sandbox, frozen);
+      integrity = await capture() && integrity && result.patch!.diff === candidateDiff;
       result.evidence!.postPatchTest = postTarget.evidence;
     }
+    result.targetAfter = postTarget;
     record("VERIFYING", "Comparing non-target suite failures");
     const postSuite = await adapter.run(sandbox);
     let stablePost = true;
@@ -314,10 +319,13 @@ export async function runThirdPartyMission(
       stablePost,
     );
     result.evidence!.fullSuite = postSuite.evidence;
-    result.checks!.reproductionPassesAfterPatch = targetPassed(
-      postTarget,
-      frozen,
-    );
+    const sameTarget = (test: { testPath: string; testIdentity: string }) =>
+      test.testPath === frozen.testPath && test.testIdentity === frozen.testIdentity;
+    const targetVerified = targetPassed(postTarget, frozen) &&
+      postTarget.evidence.command === frozen.command &&
+      postSuite.execution === "COMPLETED" && postSuite.passed.some(sameTarget) &&
+      !postSuite.failed.some(sameTarget);
+    result.checks!.reproductionPassesAfterPatch = targetVerified;
     result.checks!.fullSuitePassesAfterPatch =
       postSuite.execution === "COMPLETED" && postSuite.evidence.exitCode === 0;
     result.checks!.verificationIntegrityPreserved = integrity;
@@ -338,7 +346,7 @@ export async function runThirdPartyMission(
       frozenIntegrity: result.repair!.frozenIntegrity,
       repairAttempted: attempted,
       repairScopeValid: result.repair!.scopeValid,
-      targetPassesAfterPatch: targetPassed(postTarget, frozen),
+      targetPassesAfterPatch: targetVerified,
       backgroundComparison: result.suiteComparison.state,
       verificationIntegrity: integrity,
     });
