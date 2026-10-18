@@ -23,6 +23,7 @@ import type { StrictToolExecutor } from "../tools/strict-policy.js";
 const MAX_ITERATIONS = 8;
 const MAX_DUPLICATE_CALLS = 2;
 const MAX_TEST_CALLS = 2;
+const MAX_TOOL_CALLS = 32;
 const INVESTIGATION_ALLOWED_TOOLS = new Set([
   "list_files",
   "read_file",
@@ -220,6 +221,7 @@ Important:
   let testCalls = 0;
   let forceFinalReport = false;
   let completedIterations = 0;
+  let requestedToolCalls = 0;
   const inspectedFiles = new Set<string>();
 
   const executedTests = new Set<string>();
@@ -372,6 +374,10 @@ Do not invent paths or evidence.
     }
 
     for (const toolCall of toolCalls) {
+      if (++requestedToolCalls > MAX_TOOL_CALLS) {
+        forceFinalReport = true;
+        break;
+      }
       if (!INVESTIGATION_ALLOWED_TOOLS.has(toolCall.function.name)) {
         messages.push({
           role: "tool",

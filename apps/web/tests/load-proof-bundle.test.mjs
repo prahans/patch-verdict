@@ -461,6 +461,12 @@ test("v3 early outcomes preserve null verdict and captured background without cl
 test("v3 rejects forged bindings, target identities, trust policy and contradictory failure comparison", async () => {
   const mutations = [
     p => { p.mission.source.targetBranch = "other"; },
+    p => { p.createdAt = "not-a-timestamp"; },
+    p => { p.backgroundBaseline = null; },
+    p => { p.backgroundBaseline = structuredClone(p.backgroundBaseline); p.backgroundBaseline.evidence.stdout = "different original baseline"; },
+    p => { p.backgroundBaselineRepeat = null; },
+    p => { p.backgroundBaselineRepeat.failed = []; p.backgroundBaselineRepeat.passed = [...p.backgroundBaselineRepeat.discovered]; p.backgroundBaselineRepeat.errorKind = undefined; p.backgroundBaselineRepeat.evidence.exitCode = 0; },
+    p => { p.backgroundBaselineRepeat.evidence.command = "different suite command"; },
     p => { p.mission.source.defaultBranch = "bad\nbranch"; },
     p => { p.mission.issue = "forged"; },
     p => { p.outcome = "TARGET_NOT_REPRODUCED"; },
@@ -473,6 +479,7 @@ test("v3 rejects forged bindings, target identities, trust policy and contradict
     p => { p.targetAfter.passed[0].testIdentity = "unrelated"; },
     p => { p.targetAfter.discovered.push(p.targetAfter.discovered[0]); },
     p => { p.suiteComparison.state = "UNCHANGED_PREEXISTING_FAILURES"; },
+    p => { p.suiteComparison.postPatch.passed = p.suiteComparison.postPatch.passed.filter(test => test.testIdentity !== "healthy behavior"); },
     p => { p.suiteComparison.newBackgroundFailures.push({ testPath: "other.test.ts", testIdentity: "unrelated" }); },
     p => { p.repair.productionChangedFiles.push("src/other.ts"); },
     p => { p.repair.frozenIntegrity = false; },

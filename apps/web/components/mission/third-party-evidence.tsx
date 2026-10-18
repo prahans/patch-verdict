@@ -81,7 +81,7 @@ export function ThirdPartyEvidence({ mission }: { mission: MissionResult }) {
         <div><dt>New failures</dt><dd>{suite?.newBackgroundFailures.length ?? "Not evaluated"}</dd></div>
         <div><dt>State</dt><dd>{suite?.state.replaceAll("_", " ") ?? (mission.backgroundBaselineRepeat ? "Baseline repeat recorded" : "Not compared")}</dd></div>
       </dl>
-      <p className="proof-note">The selected target is excluded from background comparison. Unrelated failures do not establish reproduction of this issue.</p>
+      <p className="proof-note">{target ? "The selected target is excluded from background comparison. Unrelated failures do not establish reproduction of this issue." : "Untouched suite failures are recorded; an issue-specific target has not been established."}</p>
       {suite && [{ label: "Unchanged failures", items: suite.stableBackgroundFailures }, { label: "New failures", items: suite.newBackgroundFailures }, { label: "Resolved failures", items: suite.resolvedBackgroundFailures }].map(group => group.items.length > 0 && <details key={group.label}><summary>{group.label} ({group.items.length})</summary><ul>{group.items.slice(0, 20).map(item => <li key={JSON.stringify(item)}><code>{item.testPath}</code>: {item.testIdentity}</li>)}</ul>{group.items.length > 20 && <p>Showing the first 20 identities. Export evidence for the complete list.</p>}</details>)}
     </div>
   </section>;

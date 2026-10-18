@@ -45,6 +45,7 @@ export type Canonical = {
   patch: Buffer;
   branch: string;
   draft: boolean;
+  publicationTimestamp?: string;
 };
 export type Metadata = PullRequestResult & {
   repository: string;
@@ -154,6 +155,15 @@ async function canonical(missionId: string): Promise<Canonical> {
         "The proof repository is not a supported GitHub repository.",
       );
     const digest = patchDigest(patch);
+    const manifest = JSON.parse(proof.toString("utf8")) as Record<string, unknown>;
+    let publicationTimestamp: string | undefined;
+    if (source.mode === "THIRD_PARTY_JS_TS") {
+      if (typeof manifest.createdAt !== "string" || !Number.isFinite(Date.parse(manifest.createdAt)) ||
+        new Date(manifest.createdAt).toISOString() !== manifest.createdAt) {
+        throw new PullRequestError("This proof has no immutable publication timestamp. Run a new mission.");
+      }
+      publicationTimestamp = manifest.createdAt;
+    }
     if (
       digest !== bundle.mission.patch!.sha256 ||
       patch.toString("utf8") !== bundle.mission.patch!.diff
@@ -174,6 +184,7 @@ async function canonical(missionId: string): Promise<Canonical> {
       patch,
       branch: `patchverdict/${missionId}`,
       draft: policy.draft,
+      ...(publicationTimestamp && { publicationTimestamp }),
     };
   } catch (error) {
     if (error instanceof PullRequestError) throw error;

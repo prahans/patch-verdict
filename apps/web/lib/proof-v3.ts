@@ -25,6 +25,8 @@ function repositoryPath(value: unknown): string {
 const identityKey = (value: TestIdentity) => JSON.stringify([value.testPath, value.testIdentity]);
 const identitySet = (values: TestIdentity[]) => new Set(values.map(identityKey));
 const sameSet = (left: Set<string>, right: Set<string>) => left.size === right.size && [...left].every(value => right.has(value));
+const sameEvidence = (left: CommandEvidence, right: CommandEvidence) => (["command", "exitCode", "stdout", "stderr", "durationMs"] as const).every(key => left[key] === right[key]);
+const stableRunPartition = (left: NormalizedRun, right: NormalizedRun) => left.execution === "COMPLETED" && right.execution === "COMPLETED" && left.evidence.command === right.evidence.command && sameSet(identitySet(left.discovered), identitySet(right.discovered)) && sameSet(identitySet(left.passed), identitySet(right.passed)) && sameSet(identitySet(left.failed), identitySet(right.failed));
 function identity(value: unknown): TestIdentity {
   const data = object(value, "test identity");
   return { testPath: repositoryPath(data.testPath), testIdentity: text(data.testIdentity, "test identity", 2000) };
@@ -71,6 +73,7 @@ export function parseProofV3Fields(proof: ObjectValue, source: MissionDetails["s
   if (!source) return fail("canonical source");
   if (source.mode !== "THIRD_PARTY_JS_TS" || !source.githubIssue || !isGitHubBranchName(source.targetBranch) || !isGitHubBranchName(source.defaultBranch)) fail("canonical source");
   if (!outcomes.has(proof.outcome as MissionOutcome)) fail("outcome");
+  if (proof.createdAt !== undefined && (typeof proof.createdAt !== "string" || !Number.isFinite(Date.parse(proof.createdAt)) || new Date(proof.createdAt).toISOString() !== proof.createdAt)) fail("creation timestamp");
   const parsed: ProofV3Fields = { outcome: proof.outcome as MissionOutcome };
   if (proof.frozenReproduction != null) {
     const data = object(proof.frozenReproduction, "frozen reproduction");
@@ -102,6 +105,9 @@ export function assertProofV3Consistency(mission: MissionResult, source: NonNull
   if (!outcome || (outcome === "REPAIR_EVALUATED") !== (mission.verdict !== null && mission.verdict !== undefined)) fail("outcome/verdict combination");
   if (patch && patch.baseCommit !== source.baseCommit) fail("patch base binding");
   if (targetAfter && (!target || targetAfter.evidence.command !== target.command)) fail("post-target command binding");
+  for (const [artifact, normalized] of [[mission.evidence?.baselineTest, target?.targetBaselineResult.evidence], [mission.evidence?.postPatchTest, targetAfter?.evidence], [mission.evidence?.fullSuite, suite?.postPatch.evidence]]) {
+    if (artifact && normalized && !sameEvidence(artifact, normalized)) fail("command artifact binding");
+  }
   if (suite) {
     if (!target) fail("background target exclusion");
     const targetKey = identityKey(target!);
@@ -112,7 +118,9 @@ export function assertProofV3Consistency(mission: MissionResult, source: NonNull
     const resolved = new Set([...before].filter(key => !after.has(key)));
     if (!sameSet(stable, identitySet(suite.stableBackgroundFailures)) || !sameSet(added, identitySet(suite.newBackgroundFailures)) || !sameSet(resolved, identitySet(suite.resolvedBackgroundFailures))) fail("background failure sets");
     const withoutTarget = (values: TestIdentity[]) => identitySet(values.filter(item => identityKey(item) !== targetKey));
-    const comparable = suite.baseline.execution === "COMPLETED" && suite.postPatch.execution === "COMPLETED" && sameSet(withoutTarget(suite.baseline.discovered), withoutTarget(suite.postPatch.discovered));
+    const executedAfter = identitySet([...suite.postPatch.passed, ...suite.postPatch.failed]);
+    const baselinePassedStillExecuted = [...withoutTarget(suite.baseline.passed)].every(key => executedAfter.has(key));
+    const comparable = suite.baseline.execution === "COMPLETED" && suite.postPatch.execution === "COMPLETED" && sameSet(withoutTarget(suite.baseline.discovered), withoutTarget(suite.postPatch.discovered)) && baselinePassedStillExecuted;
     const passedAfter = identitySet(suite.postPatch.passed);
     const resolvedPassed = [...resolved].every(key => passedAfter.has(key));
     const expected = !comparable ? "UNKNOWN" : added.size ? "REGRESSED" : !resolvedPassed ? "UNKNOWN" : !before.size && !after.size ? "CLEAN" : resolved.size ? "IMPROVED_WITH_BACKGROUND_FAILURES" : "UNCHANGED_PREEXISTING_FAILURES";
@@ -122,6 +130,8 @@ export function assertProofV3Consistency(mission: MissionResult, source: NonNull
   const positive = mission.verdict === "VERIFIED" || mission.verdict === "REVIEW_REQUIRED";
   if (!positive) return;
   if (mission.status !== "COMPLETED" || mission.error || !target?.stable || !targetAfter || !suite || !repair?.scopeValid || !repair.frozenIntegrity || !patch?.applied || !patch.sha256 || !patch.diff || !checks?.bugReproducedBeforePatch || !checks.reproductionPassesAfterPatch || !checks.verificationIntegrityPreserved || integrity?.status !== "PRESERVED" || !integrity.preserved || integrity.violations.length || integrity.protectedChangedFiles.length) fail("positive repair evidence");
+  if (!mission.backgroundBaseline || JSON.stringify(mission.backgroundBaseline) !== JSON.stringify(suite!.baseline)) fail("untouched background baseline binding");
+  if (mission.backgroundBaseline!.failed.length && (!mission.backgroundBaselineRepeat || !stableRunPartition(mission.backgroundBaseline!, mission.backgroundBaselineRepeat))) fail("background baseline stability");
   const key = identityKey(target!);
   if (targetAfter!.execution !== "COMPLETED" || targetAfter!.evidence.exitCode !== 0 || targetAfter!.failed.length || targetAfter!.passed.length !== 1 || identityKey(targetAfter!.passed[0]) !== key || !suite!.postPatch.passed.some(item => identityKey(item) === key) || suite!.postPatch.failed.some(item => identityKey(item) === key)) fail("post-target identity");
   if (target!.origin === "EXISTING_TEST" && !suite!.baseline.failed.some(item => identityKey(item) === key)) fail("existing target baseline");

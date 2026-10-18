@@ -45,7 +45,7 @@ function refSha(value: unknown, branch: string): string {
 
 /** Deterministic Git object: retries cannot create commits with a new timestamp. */
 export function forkCommitPlan(source: Canonical, treeSha: string, title: string) {
-  const date = source.bundle.mission.events[0]?.timestamp;
+  const date = source.publicationTimestamp;
   const milliseconds = Date.parse(date ?? "");
   if (!Number.isFinite(milliseconds)) throw new PullRequestError("The immutable proof is missing a publication timestamp.");
   const seconds = Math.floor(milliseconds / 1000);
@@ -95,7 +95,15 @@ export async function publishFork(source: Canonical, clients: Clients): Promise<
   // Validate exact bytes before creating any fork or Git object.
   const exact = await prepareExactPatch(upstreamApi, source.baseCommit, source.bundle.mission.patch!.changedFiles, source.patch);
   const frozen = source.bundle.mission.frozenReproduction!;
+  const production = source.bundle.mission.repair!.productionChangedFiles[0];
+  const productionBase = exact.baseEntries.find(entry => entry.path === production);
+  if (!productionBase || !["100644", "100755"].includes(productionBase.mode)) {
+    throw new PullRequestError("The production repair must modify an existing regular source file.");
+  }
   if (frozen.origin === "GENERATED_REGRESSION") {
+    if (exact.baseEntries.some(entry => entry.path === frozen.testPath)) {
+      throw new PullRequestError("A trusted generated regression must be a new file absent from the proof base.");
+    }
     const entry = exact.entries.find(entry => entry.path === frozen.testPath);
     if (!entry?.contents || patchDigest(entry.contents) !== frozen.frozenSha256) throw new PullRequestError("The published regression differs from the frozen verified bytes.");
   } else {

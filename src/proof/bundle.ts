@@ -1,4 +1,4 @@
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
 import path from "node:path";
@@ -56,6 +56,13 @@ export async function writeProofBundle({
     // An exclusive directory claim prevents overwriting finalized proof or racing writers.
     await mkdir(outputDirectory);
   } else {
+    // A legacy entry point must never replace a finalized strict proof ID.
+    try {
+      const existing = JSON.parse(await readFile(path.join(outputDirectory, "proof.json"), "utf8")) as { version?: unknown };
+      if (existing.version === 3) throw new Error("A finalized version 3 proof is immutable.");
+    } catch (error) {
+      if (!(typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT")) throw error;
+    }
     await rm(outputDirectory, { recursive: true, force: true });
     await mkdir(outputDirectory, { recursive: true });
   }
@@ -65,6 +72,7 @@ export async function writeProofBundle({
   const proof = {
     version: strict ? 3 : 2,
     ...(strict && {
+      createdAt: result.events[0]?.timestamp ?? new Date().toISOString(),
       outcome: result.outcome,
       frozenReproduction: result.frozenReproduction ?? null,
       targetAfter: result.targetAfter ?? null,

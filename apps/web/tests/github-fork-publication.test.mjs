@@ -1,20 +1,28 @@
 import assert from "node:assert/strict";
 import { beforeEach, afterEach, test } from "node:test";
-import { registerHooks } from "node:module";
-import { spawnSync } from "node:child_process";
+import { registerHooks, syncBuiltinESMExports } from "node:module";
+import childProcess, { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { proofV3Fixture } from "./helpers/proof-v3-fixture.mjs";
 
 registerHooks({ resolve(specifier, context, next) {
   return specifier === "server-only" ? { url: "data:text/javascript,export {};", shortCircuit: true }
     : next(specifier.startsWith(".") && !path.extname(specifier) ? specifier + ".ts" : specifier, context);
 } });
 const { publishFork, forkCommitPlan } = await import("../lib/github-fork-publication.ts");
-const { pullRequestDescription } = await import("../lib/github-pull-request.ts");
+const { pullRequestDescription, createMissionPullRequest, readMissionPullRequest } = await import("../lib/github-pull-request.ts");
 const { PullRequestError } = await import("../lib/exact-verified-patch.ts");
+const { loadProofBundle } = await import("../lib/load-proof-bundle.ts");
+const { POST } = await import("../app/api/missions/[missionId]/pull-request/route.ts");
 const testsDirectory = path.dirname(fileURLToPath(import.meta.url));
+const originalCwd = process.cwd();
+const originalFetch = globalThis.fetch;
+const originalToken = process.env.PATCHVERDICT_GITHUB_TOKEN;
+const originalOpenAiKey = process.env.OPENAI_API_KEY;
+const token = "fork-integration-token-never-leak";
 const digest = bytes => createHash("sha256").update(bytes).digest("hex");
 const original = "export const divide = (a, b) => a / b;\n";
 const repaired = "export const divide = (a, b) => b === 0 ? 0 : a / b;\n";
@@ -81,7 +89,7 @@ beforeEach(async () => {
   const baseCommit = git(["commit-tree", baseTree], "Base\n").toString().trim();
   put("src/divide.ts", repaired);
   source = {
-    directory, repository: upstreamName, owner: "upstream", name: "project", baseCommit, proofSha256: "b".repeat(64), patchSha256: "", patch: Buffer.alloc(0), branch: "patchverdict/mission-fork", draft: false,
+    directory, repository: upstreamName, owner: "upstream", name: "project", baseCommit, proofSha256: "b".repeat(64), patchSha256: "", patch: Buffer.alloc(0), branch: "patchverdict/mission-fork", draft: false, publicationTimestamp: "2026-10-01T12:34:56.000Z",
     bundle: { warnings: [], details: { id: "mission-fork", title: "Division by zero", source: { mode: "THIRD_PARTY_JS_TS", repositoryUrl: `https://github.com/${upstreamName}`, targetBranch: "release/2.x", defaultBranch: "main", baseCommit,
       githubIssue: { owner: "upstream", repository: "project", number: 123, title: "Division by zero" } } },
       mission: { status: "COMPLETED", outcome: "REPAIR_EVALUATED", verdict: "VERIFIED", events: [{ timestamp: "2026-10-01T12:34:56.000Z" }], patch: { changedFiles: [] },
@@ -156,9 +164,192 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  globalThis.fetch = originalFetch;
+  process.chdir(originalCwd);
+  if (originalToken === undefined) delete process.env.PATCHVERDICT_GITHUB_TOKEN;
+  else process.env.PATCHVERDICT_GITHUB_TOKEN = originalToken;
+  if (originalOpenAiKey === undefined) delete process.env.OPENAI_API_KEY;
+  else process.env.OPENAI_API_KEY = originalOpenAiKey;
   assert.equal(path.dirname(directory), testsDirectory);
   assert.ok(path.basename(directory).startsWith(".fork-publication-"));
   await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+});
+
+async function integrationFixture({ background = false } = {}) {
+  const missionId = source.bundle.details.id;
+  const bundleDirectory = path.join(directory, "output", missionId);
+  await mkdir(path.join(bundleDirectory, "evidence"), { recursive: true });
+  await mkdir(path.join(directory, "src"));
+  await writeFile(path.join(directory, "package.json"), JSON.stringify({ name: "patch-verdict" }));
+  await writeFile(path.join(directory, "src", "real-mission-demo.ts"), "// integration fixture root");
+  const fixture = proofV3Fixture({ missionId, background });
+  const proof = fixture.proof;
+  proof.createdAt = "2026-10-01T12:34:56.000Z";
+  proof.mission.source = { ...source.bundle.details.source, githubIssue: { ...source.bundle.details.source.githubIssue, url: `https://github.com/${upstreamName}/issues/123`, body: "Return zero instead of Infinity." } };
+  proof.mission.issue = `${proof.mission.source.githubIssue.title}\n\n${proof.mission.source.githubIssue.body}`;
+  proof.patch = { applied: true, baseCommit: source.baseCommit, changedFiles: source.bundle.mission.patch.changedFiles, sha256: source.patchSha256 };
+  proof.frozenReproduction.baseCommit = source.baseCommit;
+  proof.frozenReproduction.frozenSha256 = digest(regression);
+  const events = [{ timestamp: "2026-10-01T12:34:56.000Z", state: "COMPLETED", message: "Mission completed with verified evidence" }];
+  const artifacts = {
+    "proof.json": JSON.stringify(proof), "events.json": JSON.stringify(events), "patch.diff": source.patch,
+    "evidence/baseline-test.json": JSON.stringify(fixture.baseline), "evidence/post-patch-test.json": JSON.stringify(fixture.postPatch), "evidence/full-suite.json": JSON.stringify(fixture.fullSuite),
+  };
+  for (const [file, content] of Object.entries(artifacts)) await writeFile(path.join(bundleDirectory, file), content);
+  process.chdir(directory);
+  process.env.PATCHVERDICT_GITHUB_TOKEN = token;
+  process.env.OPENAI_API_KEY = "unrelated-ai-key-never-inherit";
+  source.bundle = await loadProofBundle(missionId);
+  source.proofSha256 = digest(artifacts["proof.json"]);
+  source.draft = source.bundle.mission.verdict === "REVIEW_REQUIRED";
+  globalThis.fetch = async (url, options) => {
+    const parsed = new URL(url);
+    assert.equal(parsed.origin, "https://api.github.com");
+    assert.equal(options.headers.Authorization, `Bearer ${token}`);
+    assert.equal(options.redirect, "error");
+    assert.equal(options.cache, "no-store");
+    const method = options.method;
+    const body = options.body ? JSON.parse(options.body) : undefined;
+    const repo = /^\/repos\/([^/]+)\/([^/]+)(.*)$/.exec(parsed.pathname);
+    const value = repo
+      ? await clients.repository(`${decodeURIComponent(repo[1])}/${decodeURIComponent(repo[2])}`)(repo[3] + parsed.search, method, body, true)
+      : await clients.root(parsed.pathname + parsed.search, method, body, true);
+    return value === null ? new Response(null, { status: 404 }) : value instanceof Response ? value : Response.json(value);
+  };
+  return { missionId, bundleDirectory, proof, artifacts };
+}
+
+test("strict Create route reloads proof, strips credentials from Git, persists separate metadata, and revalidates repeated clicks", async t => {
+  const fixture = await integrationFixture();
+  const context = { params: Promise.resolve({ missionId: fixture.missionId }) };
+  const url = `http://localhost/api/missions/${fixture.missionId}/pull-request`;
+  const originalSpawn = childProcess.spawn;
+  const spy = t.mock.method(childProcess, "spawn", (command, args, options) => {
+    assert.equal(command, "git", "Publication must not run AI or repository code");
+    assert.equal(options.shell, false);
+    assert.equal(options.env.PATCHVERDICT_GITHUB_TOKEN, undefined);
+    assert.equal(options.env.OPENAI_API_KEY, undefined);
+    assert.equal(args.join(" ").includes(token), false);
+    return originalSpawn(command, args, options);
+  });
+  syncBuiltinESMExports();
+  try {
+    const response = await POST(new Request(url, { method: "POST", headers: { origin: "http://localhost" } }), context);
+    assert.equal(response.status, 200, await response.clone().text());
+    const result = await response.json();
+    assert.deepEqual(Object.keys(result).sort(), ["draft", "number", "url"]);
+    assert.equal(result.draft, false);
+    assert.ok(spy.mock.calls.length > 0);
+    const saved = JSON.parse(await readFile(path.join(fixture.bundleDirectory, "pull-request.json"), "utf8"));
+    assert.equal(saved.publicationMode, "FORK");
+    assert.equal(saved.targetBranch, "release/2.x");
+    assert.equal(saved.forkRepository, "publisher/project");
+    assert.equal(saved.proofSha256, digest(fixture.artifacts["proof.json"]));
+    assert.equal(saved.patchSha256, digest(fixture.artifacts["patch.diff"]));
+    const callCount = remote.calls.length;
+    assert.deepEqual(await createMissionPullRequest(fixture.missionId), result);
+    assert.ok(remote.calls.length > callCount, "Repeated strict actions must validate remote state even with saved metadata");
+    assert.equal(posts("/pulls").length, 1);
+    assert.deepEqual(await readMissionPullRequest(fixture.missionId), result);
+    for (const [file, bytes] of Object.entries(fixture.artifacts)) assert.deepEqual(await readFile(path.join(fixture.bundleDirectory, file)), Buffer.from(bytes));
+    const files = await readdir(fixture.bundleDirectory);
+    assert.ok(!files.some(file => file.endsWith(".tmp") || file.endsWith(".lock")));
+    assert.equal(JSON.stringify(saved).includes(token), false);
+    delete process.env.PATCHVERDICT_GITHUB_TOKEN;
+    assert.deepEqual(await readMissionPullRequest(fixture.missionId), result);
+    await assert.rejects(createMissionPullRequest(fixture.missionId), { status: 503 });
+  } finally { spy.mock.restore(); syncBuiltinESMExports(); }
+});
+
+test("strict canonical proof accepts unchanged background failures as draft and denies conflicting evidence before GitHub", async () => {
+  const fixture = await integrationFixture({ background: true });
+  assert.equal((await createMissionPullRequest(fixture.missionId)).draft, true);
+  assert.equal(posts("/pulls")[0].body.draft, true);
+  const before = remote.calls.length;
+  fixture.proof.targetAfter.failed = fixture.proof.frozenReproduction.targetBaselineResult.failed;
+  await writeFile(path.join(fixture.bundleDirectory, "proof.json"), JSON.stringify(fixture.proof));
+  await assert.rejects(createMissionPullRequest(fixture.missionId), { status: 409 });
+  assert.equal(remote.calls.length, before);
+});
+
+test("strict local persistence failure recovers the existing upstream PR without another publication", async () => {
+  const fixture = await integrationFixture();
+  remote.onRequest = async call => {
+    if (call.endpoint === "/pulls" && call.method === "POST") await mkdir(path.join(fixture.bundleDirectory, "pull-request.json"));
+  };
+  await assert.rejects(createMissionPullRequest(fixture.missionId), /local record could not be saved/);
+  assert.equal(posts("/pulls").length, 1);
+  const obstruction = path.resolve(fixture.bundleDirectory, "pull-request.json");
+  assert.equal(path.dirname(obstruction), path.resolve(fixture.bundleDirectory));
+  await rm(obstruction, { recursive: true });
+  remote.onRequest = undefined;
+  assert.equal((await createMissionPullRequest(fixture.missionId)).number, 9);
+  assert.equal(posts("/pulls").length, 1);
+  assert.equal(posts("/git/commits").length, 1);
+  assert.deepEqual(await readFile(path.join(fixture.bundleDirectory, "proof.json")), Buffer.from(fixture.artifacts["proof.json"]));
+});
+
+test("strict metadata forgery cannot select fork/base and a newly mutated proof stops before opening a PR", async () => {
+  const fixture = await integrationFixture();
+  await createMissionPullRequest(fixture.missionId);
+  const location = path.join(fixture.bundleDirectory, "pull-request.json");
+  const saved = JSON.parse(await readFile(location, "utf8"));
+  for (const override of [{ targetBranch: "main" }, { forkOwner: "attacker", forkRepository: "attacker/other" }, { publicationMode: "DIRECT" }, { proofSha256: "0".repeat(64) }]) {
+    await writeFile(location, JSON.stringify({ ...saved, ...override }));
+    if (!override.forkOwner) assert.equal(await readMissionPullRequest(fixture.missionId), null);
+    const result = await createMissionPullRequest(fixture.missionId);
+    assert.equal(result.number, 9);
+    assert.equal(JSON.parse(await readFile(location, "utf8")).forkRepository, "publisher/project");
+  }
+  assert.equal(posts("/pulls").length, 1);
+  // A fresh canonical action must re-read proof after remote object preparation.
+  remote.prs = []; remote.refs = null;
+  await rm(location);
+  remote.onRequest = async call => {
+    if (call.endpoint === "/git/refs" && call.method === "POST") {
+      fixture.proof.createdAt = "2026-10-01T12:34:57.000Z";
+      await writeFile(path.join(fixture.bundleDirectory, "proof.json"), JSON.stringify(fixture.proof));
+    }
+  };
+  await assert.rejects(createMissionPullRequest(fixture.missionId), /artifacts changed/);
+  assert.equal(posts("/pulls").length, 1);
+});
+
+test("strict route rejects browser canonical overrides and sanitizes HTTP token/permission failures", async () => {
+  const fixture = await integrationFixture();
+  const context = { params: Promise.resolve({ missionId: fixture.missionId }) };
+  const url = `http://localhost/api/missions/${fixture.missionId}/pull-request`;
+  const forged = await POST(new Request(url, { method: "POST", body: JSON.stringify({ forkOwner: "attacker", baseCommit: "0".repeat(40), targetBranch: "main" }) }), context);
+  assert.equal(forged.status, 400);
+  assert.equal(remote.calls.length, 0);
+  for (const [status, headers, expected] of [[403, {}, 403], [403, { "x-ratelimit-remaining": "0" }, 429], [429, {}, 429]]) {
+    remote.onRequest = () => new Response(`${token} C:\\private\\file sensitive API response`, { status, headers });
+    const response = await POST(new Request(url, { method: "POST" }), context);
+    assert.equal(response.status, expected);
+    const result = await response.json();
+    assert.doesNotMatch(result.error, /fork-integration-token|private|sensitive/);
+  }
+  assert.equal(posts().length, 0);
+  assert.deepEqual(await readFile(path.join(fixture.bundleDirectory, "proof.json")), Buffer.from(fixture.artifacts["proof.json"]));
+});
+
+test("publication timestamp comes only from immutable proof bytes, not mutable event timestamps", async () => {
+  const fixture = await integrationFixture();
+  const first = await createMissionPullRequest(fixture.missionId);
+  const metadataFile = path.join(fixture.bundleDirectory, "pull-request.json");
+  const head = JSON.parse(await readFile(metadataFile, "utf8")).headSha;
+  await writeFile(path.join(fixture.bundleDirectory, "events.json"), JSON.stringify([{ timestamp: "2030-01-01T00:00:00.000Z", state: "COMPLETED", message: "Same proof, changed display timestamp" }]));
+  assert.deepEqual(await createMissionPullRequest(fixture.missionId), first);
+  assert.equal(JSON.parse(await readFile(metadataFile, "utf8")).headSha, head);
+  assert.equal(posts("/git/commits").length, 1);
+  assert.equal(posts("/pulls").length, 1);
+  assert.equal(posts("/git/commits")[0].body.author.date, "2026-10-01T12:34:56Z");
+  delete fixture.proof.createdAt;
+  await writeFile(path.join(fixture.bundleDirectory, "proof.json"), JSON.stringify(fixture.proof));
+  assert.equal((await loadProofBundle(fixture.missionId)).mission.verdict, "VERIFIED");
+  const calls = remote.calls.length;
+  await assert.rejects(createMissionPullRequest(fixture.missionId), /timestamp/);
+  assert.equal(remote.calls.length, calls);
 });
 
 test("exact verified tree is published only through authenticated fork to the recorded maintenance branch", async () => {

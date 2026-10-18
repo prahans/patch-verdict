@@ -181,6 +181,8 @@ describe("proof bundle publication", () => {
     await expect(
       writeProofBundle({ missionId, input, result: strictResult, source }),
     ).rejects.toMatchObject({ code: "EEXIST" });
+    await expect(writeProofBundle({ missionId, input, result })).rejects.toThrow("immutable");
+    expect(proof.createdAt).toBe(result.events[0]!.timestamp);
     expect(await readFile(path.join(directory, "proof.json"))).toEqual(
       original,
     );

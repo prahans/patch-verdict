@@ -16,11 +16,13 @@ export function proofV3Fixture({ missionId = "fixture-divide-zero", generated = 
   const diff = "diff --git a/src/divide.ts b/src/divide.ts\n--- a/src/divide.ts\n+++ b/src/divide.ts\n@@ -1 +1 @@\n-export const divide = (a, b) => a / b;\n+export const divide = (a, b) => b === 0 ? 0 : a / b;\n";
   const proof = {
     version: 3,
+    createdAt: "2026-10-18T00:00:00.000Z",
     mission: { id: missionId, issue: `${source.githubIssue.title}\n\n${source.githubIssue.body}`, source, reproduction: { label: "Frozen target", command }, fullSuite: { label: "Repository full suite", command: suiteCommand }, verificationIntegrity: { status: "PRESERVED", preserved: true, violations: [], reviewFlags: [], protectedChangedFiles: [] } },
     status: "COMPLETED", outcome: "REPAIR_EVALUATED", verdict: generated || background ? "REVIEW_REQUIRED" : "VERIFIED",
     frozenReproduction: { ...target, origin: generated ? "GENERATED_REGRESSION" : "EXISTING_TEST", framework: "vitest", command, frozenSha256: "c".repeat(64), targetBranch: source.targetBranch, baseCommit: source.baseCommit, stable: true, targetBaselineResult: targetBaseline },
     targetAfter,
     backgroundBaseline: baseline,
+    ...(baseline.failed.length && { backgroundBaselineRepeat: structuredClone(baseline) }),
     suiteComparison: { baseline, postPatch, state: background ? "UNCHANGED_PREEXISTING_FAILURES" : "CLEAN", stableBackgroundFailures: background ? [other] : [], newBackgroundFailures: [], resolvedBackgroundFailures: [] },
     repair: { trustedRegressionChangedFiles: generated ? [target.testPath] : [], productionChangedFiles: ["src/divide.ts"], frozenIntegrity: true, scopeValid: true },
     patch: { applied: true, baseCommit: source.baseCommit, changedFiles: ["src/divide.ts", ...(generated ? [target.testPath] : [])], sha256: createHash("sha256").update(diff).digest("hex") },

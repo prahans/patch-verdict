@@ -361,3 +361,15 @@ test("v3 terminal outcomes show branch-specific guidance and no publication acti
     if (outcome === "TARGET_NOT_REPRODUCED") assert.match(html, /Choose another target branch and start a new mission/);
   }
 });
+
+test("v3 UI shows skipped former passing background coverage as UNKNOWN with publication unavailable", () => {
+  const fixture = proofV3Fixture();
+  const proof = fixture.proof;
+  proof.suiteComparison.postPatch.passed = proof.suiteComparison.postPatch.passed.filter(test => test.testIdentity !== "healthy behavior");
+  proof.suiteComparison.state = "UNKNOWN";
+  const data = { ...proof, verdict: "FAILED", proofVersion: 3, patch: { ...proof.patch, diff: fixture.diff }, verificationIntegrity: proof.mission.verificationIntegrity, events: [] };
+  const html = render(ThirdPartyProofChain, { mission: data }) + render(MissionSummary, { mission: data, details: { ...details, source: proof.mission.source } });
+  assert.match(html, /UNKNOWN/);
+  assert.match(html, /FAILED/);
+  assert.doesNotMatch(html, /Create (?:draft )?pull request/);
+});
