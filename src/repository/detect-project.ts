@@ -228,6 +228,13 @@ export function analyzeStrictProject(
   }
   const frameworks = (["vitest", "jest"] as const).filter((framework) => typeof dependencies[framework] === "string" && new RegExp(`(?:^|\\s)${framework}(?:\\s|$)`).test(script));
   if (frameworks.length !== 1) unsupported("The test script must use exactly one repository-installed supported framework: Vitest or Jest.");
+  // The adapter invokes the installed framework directly. Do not silently
+  // discard environment setup, service orchestration, custom configuration,
+  // selectors, or lifecycle hooks encoded in the repository's test command.
+  if (!/^(?:vitest(?:\s+(?:run|--run))?|jest(?:\s+--runInBand)?)$/.test(script.trim()) ||
+    [scripts.pretest, scripts.posttest].some((value) => value !== undefined && (typeof value !== "string" || value.trim() !== ""))) {
+    unsupported("This test script requires custom flags, environment setup, or lifecycle hooks that PatchVerdict cannot safely preserve yet. Supported scripts are vitest, vitest run, vitest --run, jest, and jest --runInBand.");
+  }
   if (!trackedPaths.some((name) => /\.(?:[cm]?[jt]s|[jt]sx)$/i.test(name) && !/(?:^|\/)(?:__tests__|tests?|specs?|\.github)\//i.test(name) && !/\.(?:test|spec|config|setup)\./i.test(name) && !/\.d\.[cm]?ts$/i.test(name))) {
     unsupported("No supported JavaScript or TypeScript production source was found.");
   }

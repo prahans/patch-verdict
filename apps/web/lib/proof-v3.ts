@@ -64,11 +64,12 @@ function files(value: unknown): string[] {
   return paths;
 }
 
-export type ProofV3Fields = Pick<MissionResult, "outcome" | "frozenReproduction" | "targetAfter" | "suiteComparison" | "repair">;
+export type ProofV3Fields = Pick<MissionResult, "outcome" | "frozenReproduction" | "targetAfter" | "backgroundBaseline" | "backgroundBaselineRepeat" | "suiteComparison" | "repair">;
 
 /** Parse recorded evidence. Contradictions are rejected, never converted into a new verdict. */
 export function parseProofV3Fields(proof: ObjectValue, source: MissionDetails["source"]): ProofV3Fields {
-  if (!source || source.mode !== "THIRD_PARTY_JS_TS" || !source.githubIssue || !isGitHubBranchName(source.targetBranch) || !isGitHubBranchName(source.defaultBranch)) fail("canonical source");
+  if (!source) return fail("canonical source");
+  if (source.mode !== "THIRD_PARTY_JS_TS" || !source.githubIssue || !isGitHubBranchName(source.targetBranch) || !isGitHubBranchName(source.defaultBranch)) fail("canonical source");
   if (!outcomes.has(proof.outcome as MissionOutcome)) fail("outcome");
   const parsed: ProofV3Fields = { outcome: proof.outcome as MissionOutcome };
   if (proof.frozenReproduction != null) {
@@ -82,6 +83,8 @@ export function parseProofV3Fields(proof: ObjectValue, source: MissionDetails["s
     parsed.frozenReproduction = target;
   }
   if (proof.targetAfter != null) parsed.targetAfter = run(proof.targetAfter);
+  if (proof.backgroundBaseline != null) parsed.backgroundBaseline = run(proof.backgroundBaseline);
+  if (proof.backgroundBaselineRepeat != null) parsed.backgroundBaselineRepeat = run(proof.backgroundBaselineRepeat);
   if (proof.suiteComparison != null) {
     const data = object(proof.suiteComparison, "suite comparison");
     if (!states.has(data.state as SuiteComparison["state"])) fail("background state");

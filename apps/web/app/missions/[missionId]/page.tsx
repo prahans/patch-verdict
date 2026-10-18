@@ -9,6 +9,7 @@ import { InvestigationReport } from "@/components/mission/investigation-report";
 import { VerificationEvidence } from "@/components/mission/verification-evidence";
 import { Icon } from "@/components/mission/icon";
 import { LiveMission } from "@/components/mission/live-mission";
+import { MissionOutcomeNotice, ThirdPartyEvidence } from "@/components/mission/third-party-evidence";
 
 import { loadProofBundle } from "@/lib/load-proof-bundle";
 import { proofBundleExists, readMissionLiveStatus } from "@/lib/mission-live-status";
@@ -111,8 +112,9 @@ export default async function MissionPage({ params }: MissionPageProps) {
         </div>
 
         <MissionSummary mission={mission} details={missionDetails} pullRequest={pullRequest} />
+        <MissionOutcomeNotice mission={mission} details={missionDetails} />
 
-        {mission.status === "FAILED" && (
+        {mission.status === "FAILED" && !mission.outcome && (
           <section
             className="panel bundle-notice is-failed"
             aria-label="Mission failure"
@@ -164,9 +166,11 @@ export default async function MissionPage({ params }: MissionPageProps) {
           />
         </div>
 
+        {mission.proofVersion === 3 && <ThirdPartyEvidence mission={mission} />}
         <VerificationEvidence
           evidence={mission.evidence}
           bugReproducedBeforePatch={mission.checks?.bugReproducedBeforePatch}
+          thirdParty={mission.proofVersion === 3}
         />
 
         <footer className="mission-footer">

@@ -32,12 +32,14 @@ export function isSafeMissionId(value: string): boolean {
 }
 
 const knownMessages: Partial<Record<MissionState, readonly string[]>> = {
-  PREPARING: ["Preparing repository..."],
-  BASELINE: ["Running reproduction test before patch", "Reported bug reproduced"],
+  PREPARING: ["Preparing repository...", "Repository preflight passed"],
+  BASELINE: ["Running reproduction test before patch", "Reported bug reproduced", "Capturing untouched background suite", "Stable pre-existing failures recorded", "Untouched background suite is clean"],
+  REPRODUCING: ["Searching for issue-specific reproduction", "No existing target test found", "Generating bounded regression test", "Correcting generated regression before freeze", "Target reproduced and frozen"],
   INVESTIGATING: ["AI investigation started", "AI investigation completed"],
   PATCHING: [
     "AI patch phase started", "Candidate patch applied", "Git diff captured",
     "Verification integrity preserved", "Reproduction failed; starting the single correction attempt",
+    "Starting the single correction attempt",
   ],
   VERIFYING: [
     "Running reproduction test after patch", "Reproduction test passes after patch",
@@ -45,11 +47,13 @@ const knownMessages: Partial<Record<MissionState, readonly string[]>> = {
     "Reproduction test passes after correction",
     "Reproduction test still fails after correction; no correction attempts remain",
     "Running full test suite", "Full test suite passes", "Full test suite fails",
+    "Running frozen reproduction after patch", "Comparing non-target suite failures",
   ],
   VERDICT: ["Calculating deterministic verdict"],
   COMPLETED: [
     "Mission completed with verdict VERIFIED", "Mission completed with verdict REVIEW_REQUIRED",
     "Mission completed with verdict FAILED",
+    "Candidate failed verification integrity",
   ],
 };
 
@@ -59,11 +63,12 @@ export function parseBackendEventLine(line: string, missionId: string): Omit<Mis
   if (!isSafeMissionId(missionId)) return null;
   const prefix = `PATCHVERDICT EVENT ${missionId}: `;
   if (!line.startsWith(prefix)) return null;
-  const match = /^\[(PREPARING|BASELINE|INVESTIGATING|PATCHING|VERIFYING|VERDICT|COMPLETED|FAILED)\] (.+)$/.exec(line.slice(prefix.length).replace(/\r$/, ""));
+  const match = /^\[(PREPARING|BASELINE|REPRODUCING|INVESTIGATING|PATCHING|VERIFYING|VERDICT|COMPLETED|FAILED)\] (.+)$/.exec(line.slice(prefix.length).replace(/\r$/, ""));
   if (!match) return null;
   const state = match[1] as MissionState;
   const message = match[2];
   if (knownMessages[state]?.includes(message)) return { state, message };
+  if (state === "COMPLETED") return { state, message: "Mission stopped. Recording the canonical outcome." };
   if (state === "PATCHING" && /^Git captured \d+ changed file\(s\)$/.test(message)) {
     return { state, message };
   }

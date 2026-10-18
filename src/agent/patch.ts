@@ -25,6 +25,7 @@ type PatchVerificationFeedback = Pick<
 };
 
 const MAX_PATCH_ITERATIONS = 4;
+const MAX_PATCH_TOOL_CALLS = 20;
 const PATCH_ALLOWED_TOOLS = new Set<string>([
   "list_files",
   "read_file",
@@ -77,6 +78,7 @@ ${JSON.stringify(verificationFeedback, null, 2)}`
   ];
 
   let patchApplied = false;
+  let toolCallsExecuted = 0;
 
   for (let iteration = 1; iteration <= MAX_PATCH_ITERATIONS; iteration++) {
     console.log("");
@@ -110,12 +112,16 @@ ${JSON.stringify(verificationFeedback, null, 2)}`
         completed: true,
         patchApplied,
         report: messageContentToText(message.content),
+        unsupportedScope: !!strictPolicy && /\bUNSUPPORTED_REPAIR_SCOPE\b/.test(messageContentToText(message.content)),
       };
     }
 
     let patchUnchanged = false;
 
     for (const toolCall of toolCalls) {
+      if (++toolCallsExecuted > MAX_PATCH_TOOL_CALLS) {
+        return { completed: false, patchApplied, report: "Patch tool-call budget exhausted.", unsupportedScope: false };
+      }
       const requestedToolName = toolCall.function.name;
 
       // Never trust a model-provided tool name.
@@ -216,6 +222,11 @@ ${JSON.stringify(verificationFeedback, null, 2)}`
 
         content: JSON.stringify(result),
       });
+      // A response can contain several tool calls. Stop at the first actual
+      // edit, before processing any later write from that same response.
+      if (patchApplied) {
+        return { completed: true, patchApplied: true, report: "Candidate patch applied.", unsupportedScope: false };
+      }
     }
 
     /*
@@ -227,6 +238,7 @@ ${JSON.stringify(verificationFeedback, null, 2)}`
         completed: true,
         patchApplied: true,
         report: "Candidate patch applied.",
+        unsupportedScope: false,
       };
     }
 
@@ -243,5 +255,6 @@ ${JSON.stringify(verificationFeedback, null, 2)}`
     completed: false,
     patchApplied,
     report: "Patch iteration budget exhausted.",
+    unsupportedScope: false,
   };
 }

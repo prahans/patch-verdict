@@ -1,5 +1,6 @@
 import type { MissionResult } from "@/lib/mission-types";
 import { Icon } from "./icon";
+import { ThirdPartyProofChain } from "./third-party-evidence";
 
 type ProofCheckState = "passed" | "failed" | "review" | "unavailable";
 
@@ -23,6 +24,7 @@ function booleanState(value: boolean | undefined): ProofCheckState {
 }
 
 export function ProofChain({ mission }: { mission: MissionResult }) {
+  if (mission.proofVersion === 3) return <ThirdPartyProofChain mission={mission} />;
   const reviewFlags = mission.verificationIntegrity?.reviewFlags.filter((flag) => flag.trim()) ?? [];
   const reviewReason = reviewFlags.join(" · ") ||
     "Verification independence requires human review; no specific reason was recorded.";

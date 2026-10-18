@@ -1,9 +1,12 @@
 import "server-only";
 
-import { readFile, realpath } from "node:fs/promises";
+import { open, realpath } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { resolveRepositoryRoot } from "./repository-root";
 import { parseGitHubRepositoryUrl, parsePersistedGitHubIssue, type GitHubIssue } from "./github-issue-url";
+import { assertProofV3Consistency, parseProofV3Fields, type ProofV3Fields } from "./proof-v3";
+import { isGitHubBranchName } from "./github-branch-name";
 import type {
   CommandEvidence,
   MissionEvent,
@@ -13,7 +16,8 @@ import type {
 } from "./mission-types";
 
 type JsonObject = Record<string, unknown>;
-type ProofMetadata = {
+type ProofMetadata = ProofV3Fields & {
+  version: 2 | 3;
   id: string;
   issue: string;
 
@@ -25,6 +29,9 @@ type ProofMetadata = {
     repositoryUrl: string;
     baseCommit: string;
     githubIssue?: GitHubIssue;
+    mode?: "THIRD_PARTY_JS_TS";
+    targetBranch?: string;
+    defaultBranch?: string;
   };
 
   reproduction: {
@@ -64,6 +71,7 @@ type ProofMetadata = {
 const missionStates = new Set<MissionState>([
   "PREPARING",
   "BASELINE",
+  "REPRODUCING",
   "INVESTIGATING",
   "PATCHING",
   "VERIFYING",
@@ -117,8 +125,8 @@ function parseJson(contents: string, filename: string): unknown {
 
 function parseProof(value: unknown, missionId: string): ProofMetadata {
   const proof = object(value, "proof.json");
-  if (proof.version !== 2) {
-    invalid("proof.json version", "version 2");
+  if (proof.version !== 2 && proof.version !== 3) {
+    invalid("proof.json version", "version 2 or 3");
   }
 
   const mission = object(proof.mission, "proof.json mission");
@@ -163,6 +171,7 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
   const hasArtifacts = proof.artifacts !== null;
   const hasEvidence = hasArtifacts && artifacts?.evidence !== null;
   const metadata: ProofMetadata = {
+    version: proof.version,
     id,
     issue: string(mission.issue, "proof.json mission.issue", true),
     reproduction: {
@@ -240,6 +249,12 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
       const githubIssue = parsePersistedGitHubIssue(source.githubIssue, repositoryUrl);
       if (!githubIssue) invalid("proof.json mission.source.githubIssue", "valid GitHub issue metadata matching the repository");
       metadata.source.githubIssue = githubIssue;
+    }
+    if (proof.version === 3) {
+      if (source.mode !== "THIRD_PARTY_JS_TS" || !isGitHubBranchName(source.targetBranch) || !isGitHubBranchName(source.defaultBranch)) invalid("proof.json mission.source", "canonical third-party branch metadata");
+      Object.assign(metadata.source, { mode: source.mode, targetBranch: source.targetBranch, defaultBranch: source.defaultBranch });
+      const issue = metadata.source.githubIssue;
+      if (!issue || metadata.issue !== (issue.body ? `${issue.title}\n\n${issue.body}` : issue.title)) invalid("proof.json mission.issue", "canonical GitHub issue text");
     }
   }
 
@@ -478,11 +493,12 @@ function parseProof(value: unknown, missionId: string): ProofMetadata {
   }
   if (proof.error != null)
     metadata.error = string(proof.error, "proof.json error");
+  if (proof.version === 3) Object.assign(metadata, parseProofV3Fields(proof, metadata.source));
   return metadata;
 }
 
 function parseEvents(value: unknown): MissionEvent[] {
-  if (!Array.isArray(value)) return invalid("events.json", "an array");
+  if (!Array.isArray(value) || value.length > 10000) return invalid("events.json", "a bounded array");
   return value.map((item, index) => {
     const label = `events.json[${index}]`;
     const event = object(item, label);
@@ -542,7 +558,22 @@ async function readArtifact(
   // The filenames are constants below; artifact paths inside proof.json are never followed.
   const resolved = await realpath(path.join(directory, filename));
   assertContained(directory, resolved, filename);
-  return readFile(resolved, "utf8");
+  const limit = filename === "proof.json" ? 16 * 1024 * 1024 : filename === "patch.diff" ? 2 * 1024 * 1024 : filename.startsWith("evidence/") ? 256 * 1024 : 1024 * 1024;
+  const handle = await open(resolved, "r");
+  try {
+    const info = await handle.stat();
+    if (!info.isFile() || info.size > limit) throw new Error("Proof artifact exceeds its supported size.");
+    // Read at most limit+1 even if another process grows the file after stat.
+    const buffer = Buffer.alloc(limit + 1);
+    let bytes = 0;
+    while (bytes <= limit) {
+      const chunk = await handle.read(buffer, bytes, buffer.length - bytes, bytes);
+      if (!chunk.bytesRead) break;
+      bytes += chunk.bytesRead;
+    }
+    if (bytes > limit) throw new Error("Proof artifact exceeds its supported size.");
+    return buffer.subarray(0, bytes).toString("utf8");
+  } finally { await handle.close(); }
 }
 
 async function readRequired(
@@ -652,6 +683,7 @@ export async function loadProofBundle(
     status: proof.status,
     verdict: proof.verdict,
     events,
+    ...(proof.version === 3 && { proofVersion: 3, outcome: proof.outcome, frozenReproduction: proof.frozenReproduction, targetAfter: proof.targetAfter, backgroundBaseline: proof.backgroundBaseline, backgroundBaselineRepeat: proof.backgroundBaselineRepeat, suiteComparison: proof.suiteComparison, repair: proof.repair }),
   };
   if (proof.checks) mission.checks = proof.checks;
   if (proof.reproductionClassification) {
@@ -688,6 +720,17 @@ export async function loadProofBundle(
     (proof.status === "FAILED" ? lastFailure?.message : undefined);
   if (error !== undefined) mission.error = error;
 
+  if (proof.version === 3) {
+    if (mission.patch?.diff !== undefined && createHash("sha256").update(mission.patch.diff, "utf8").digest("hex") !== mission.patch.sha256) invalid("patch.diff", "the recorded exact patch digest");
+    if (mission.frozenReproduction && proof.reproduction.command !== mission.frozenReproduction.command) invalid("mission.reproduction.command", "the frozen target command");
+    const pairs = [[mission.evidence?.baselineTest, mission.frozenReproduction?.targetBaselineResult.evidence], [mission.evidence?.postPatchTest, mission.targetAfter?.evidence], [mission.evidence?.fullSuite, mission.suiteComparison?.postPatch.evidence]];
+    const positive = mission.verdict === "VERIFIED" || mission.verdict === "REVIEW_REQUIRED";
+    for (const [artifact, recorded] of pairs) {
+      if ((positive && (!artifact || !recorded)) || (artifact && recorded && (Object.keys(artifact) as (keyof CommandEvidence)[]).some(key => artifact[key] !== recorded[key]))) invalid("command evidence", "evidence matching the normalized test run");
+    }
+    assertProofV3Consistency(mission, proof.source!);
+  }
+
   const testFile = proof.inspectedFiles?.find(isTestFile);
 
   return {
@@ -703,9 +746,9 @@ export async function loadProofBundle(
 
       fullSuite: proof.fullSuite,
 
-      sourcePath: proof.patchTarget,
+      sourcePath: proof.repair?.productionChangedFiles[0] ?? proof.patchTarget,
 
-      testPath: testFile,
+      testPath: proof.frozenReproduction?.testPath ?? testFile,
 
       testCommand: proof.reproduction.command,
 

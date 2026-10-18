@@ -34,6 +34,8 @@ export type MissionResult = {
   outcome?: MissionOutcome;
   frozenReproduction?: FrozenReproduction;
   targetAfter?: NormalizedRun;
+  backgroundBaseline?: NormalizedRun;
+  backgroundBaselineRepeat?: NormalizedRun;
   suiteComparison?: SuiteComparison;
   repair?: RepairProvenance;
   verdict?: "VERIFIED" | "REVIEW_REQUIRED" | "FAILED" | null;

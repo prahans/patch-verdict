@@ -56,9 +56,9 @@ describe("strict preparation integrity", () => {
     expect(mocks.run.mock.calls.filter((call) => call[1] === "git rev-parse HEAD")).toHaveLength(2);
     expect(mocks.run.mock.calls.map((call) => call[1])).toContain("git status --porcelain --untracked-files=all");
   });
-  it.each(["100644 blob", "120000 blob", "160000 commit"])("rejects unsupported tree modes or install changes: %s", async (mode) => {
+  it.each(["120000 blob", "160000 commit"])("rejects unsupported tree mode %s", async (mode) => {
     mocks.run.mockImplementation(async (_sandbox, command: string) => ok(command, command === "git rev-parse HEAD" ? sha : command.startsWith("git ls-tree") ? `${mode} ${sha}\tpackage.json\0` : command.includes("--untracked-files=all") ? "?? install-generated.js" : ""));
-    await expect(prepareRepository(sandbox, request)).rejects.toMatchObject({ outcome: mode.startsWith("100644") ? "UNSUPPORTED_REPOSITORY" : "UNSUPPORTED_REPOSITORY" });
+    await expect(prepareRepository(sandbox, request)).rejects.toMatchObject({ outcome: "UNSUPPORTED_REPOSITORY" });
   });
   it("reports preparation failure when installation changes tracked or untracked content", async () => {
     mocks.run.mockImplementation(async (_sandbox, command: string) => ok(command, command === "git rev-parse HEAD" ? sha : command.startsWith("git ls-tree") ? tree : command.includes("--untracked-files=all") ? " M package-lock.json\n?? install-generated.js" : ""));

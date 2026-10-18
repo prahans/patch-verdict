@@ -12,7 +12,7 @@ import { resolveRepositoryRoot } from "./repository-root";
 
 // This map only serializes writes; disk is the authoritative state on every read.
 const writes = new Map<string, Promise<unknown>>();
-const phases = new Set(["PREPARING", "BASELINE", "INVESTIGATING", "PATCHING", "VERIFYING", "VERDICT", "COMPLETED", "FAILED"]);
+const phases = new Set(["PREPARING", "BASELINE", "REPRODUCING", "INVESTIGATING", "PATCHING", "VERIFYING", "VERDICT", "COMPLETED", "FAILED"]);
 
 function contained(parent: string, child: string) {
   const relative = path.relative(parent, child);

@@ -166,6 +166,8 @@ export function MissionSummary({
         )}
       </div>
       <dl className="mission-facts">
+        {details.source?.targetBranch && <div><dt>Target branch</dt><dd><Icon name="branch" />{details.source.targetBranch}{details.source.targetBranch === details.source.defaultBranch && <span className="fact-detail">default</span>}</dd></div>}
+        {mission.outcome && <div><dt>Mission outcome</dt><dd>{mission.outcome.replaceAll("_", " ")}</dd></div>}
         <div>
           <dt>Mission status</dt>
           <dd

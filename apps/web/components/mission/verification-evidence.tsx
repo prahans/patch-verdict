@@ -49,9 +49,10 @@ function EvidenceRow({ title, evidence, baseline = false, bugReproducedBeforePat
   );
 }
 
-export function VerificationEvidence({ evidence, bugReproducedBeforePatch }: {
+export function VerificationEvidence({ evidence, bugReproducedBeforePatch, thirdParty = false }: {
   evidence: MissionResult["evidence"];
   bugReproducedBeforePatch?: boolean;
+  thirdParty?: boolean;
 }) {
   return (
     <section className="panel evidence-panel" id="verification-evidence" aria-labelledby="evidence-heading">
@@ -67,7 +68,7 @@ export function VerificationEvidence({ evidence, bugReproducedBeforePatch }: {
         <EvidenceRow title="Post-patch reproduction" evidence={evidence?.postPatchTest} />
         <EvidenceRow title="Full test suite" evidence={evidence?.fullSuite} />
       </div>
-      <p className="panel-footer">Baseline labels use the saved reproduction check. Both post-patch checks must pass for verification.</p>
+      <p className="panel-footer">{thirdParty ? "Raw exit codes describe command execution. The repair verdict uses the frozen target and non-target background comparison separately." : "Baseline labels use the saved reproduction check. Both post-patch checks must pass for verification."}</p>
     </section>
   );
 }

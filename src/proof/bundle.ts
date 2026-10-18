@@ -68,6 +68,8 @@ export async function writeProofBundle({
       outcome: result.outcome,
       frozenReproduction: result.frozenReproduction ?? null,
       targetAfter: result.targetAfter ?? null,
+      backgroundBaseline: result.backgroundBaseline ?? null,
+      backgroundBaselineRepeat: result.backgroundBaselineRepeat ?? null,
       suiteComparison: result.suiteComparison ?? null,
       repair: result.repair ?? null,
       error: result.error ?? null,

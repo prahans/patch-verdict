@@ -36,6 +36,11 @@ describe("strict JS/TS repository preflight", () => {
     [{ scripts: { test: "echo vitest" }, devDependencies: {} }, files],
     [{ scripts: { test: "vitest && jest" }, devDependencies: { vitest: "1", jest: "1" } }, files],
     [{ scripts: { test: "docker compose run vitest" } }, files],
+    [{ scripts: { test: "vitest run --config custom.config.ts" } }, files],
+    [{ scripts: { test: "cross-env DATABASE_URL=example vitest run" } }, files],
+    [{ scripts: { test: "echo ready && vitest run" } }, files],
+    [{ scripts: { pretest: "node start-db.js", test: "vitest run" } }, files],
+    [{ scripts: { test: "vitest run", posttest: "node assert-db.js" } }, files],
     [{ devDependencies: { vitest: "1", "@playwright/test": "1" } }, files],
     [{}, ["package.json", "package-lock.json", "src/divide.test.ts", "vitest.config.ts", "types.d.ts"]],
   ])("rejects unsupported or ambiguous project metadata %#", (overrides, paths) => {

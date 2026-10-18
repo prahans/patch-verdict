@@ -73,6 +73,7 @@ export async function runThirdPartyMission(
     const adapter = createFrameworkAdapter(project.testFramework, projectRoot);
     record("BASELINE", "Capturing untouched background suite");
     const baseline = await adapter.run(sandbox);
+    result.backgroundBaseline = baseline;
     await assertUntouchedRepository(sandbox, projectRoot, baseCommit);
     if (baseline.execution !== "COMPLETED")
       return stop(
@@ -81,6 +82,7 @@ export async function runThirdPartyMission(
       );
     if (baseline.failed.length) {
       const repeated = await adapter.run(sandbox);
+      result.backgroundBaselineRepeat = repeated;
       await assertUntouchedRepository(sandbox, projectRoot, baseCommit);
       if (!stableRuns(baseline, repeated))
         return stop(

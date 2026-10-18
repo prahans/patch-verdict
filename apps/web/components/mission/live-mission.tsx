@@ -15,7 +15,8 @@ import { isGitHubBranchName } from "@/lib/github-branch-name";
 
 const phaseCopy = {
   PREPARING: "Preparing isolated repository…",
-  BASELINE: "Reproducing the reported failure…",
+  BASELINE: "Capturing the repository baseline…",
+  REPRODUCING: "Establishing one issue-specific target reproduction…",
   INVESTIGATING: "AI is inspecting repository evidence…",
   PATCHING: "Producing a bounded candidate patch…",
   VERIFYING: "Running trusted verification…",
