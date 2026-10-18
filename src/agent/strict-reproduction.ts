@@ -448,6 +448,13 @@ export async function generateRegressionReproduction(
               writer.freeze();
               return finish(verified);
             }
+            // A valid passing target already establishes that this proposed
+            // behavior works. Do not offer an oracle rewrite to manufacture a
+            // failure; revisions are for invalid test construction only.
+            if (verified.run?.execution === "COMPLETED") {
+              writer.freeze();
+              return finish({ reason: "The generated issue-specific test already passes on the selected base; no repair was attempted." });
+            }
             result = {
               ok: false,
               error: verified.reason,

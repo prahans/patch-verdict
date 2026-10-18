@@ -110,7 +110,10 @@ if (issue.startsWith("timeout:")) {
     await mkdir(directory, { recursive: true });
     const proof = { version: 2, mission: { id, issue, source: { repositoryUrl, baseCommit: "a".repeat(40) }, reproduction: { label: "Reproduction", command }, fullSuite: { label: "Suite", command } }, status: "FAILED", verdict: "FAILED", artifacts: null };
     if (envelope.githubIssue) proof.mission.source.githubIssue = envelope.githubIssue;
-    if (envelope.mode === "THIRD_PARTY_JS_TS") Object.assign(proof.mission.source, { mode: envelope.mode, targetBranch: envelope.targetBranch, defaultBranch: envelope.defaultBranch, baseCommit: envelope.baseCommit });
+    if (envelope.mode === "THIRD_PARTY_JS_TS") {
+      Object.assign(proof.mission.source, { mode: envelope.mode, targetBranch: envelope.targetBranch, defaultBranch: envelope.defaultBranch, baseCommit: envelope.baseCommit });
+      Object.assign(proof, { version: 3, status: "COMPLETED", verdict: null, outcome: "TARGET_NOT_REPRODUCED", frozenReproduction: null, targetAfter: null, suiteComparison: null, repair: null });
+    }
     if (issue.startsWith("foreign-proof:")) proof.mission.source.repositoryUrl = "https://github.com/other/repository";
     if (issue.startsWith("different-issue:")) proof.mission.issue = "unrelated bug";
     await writeFile(path.join(directory, "proof.json"), issue.startsWith("bad-bundle:") ? "{broken" : JSON.stringify(proof));
@@ -522,6 +525,8 @@ test("issue POST resolves fresh canonical branch and sends bounded stdin without
   assert.equal(status.githubIssue.number, 12);
   assert.equal(status.targetBranch, "release/2.x");
   assert.equal(status.baseCommit, "a".repeat(40));
+  assert.equal(status.status, "COMPLETED");
+  assert.equal(status.proofReady, true);
   const received = JSON.parse(await readFile(path.join(fixtureRoot, "received.json"), "utf8"));
   assert.equal(received.githubToken, "");
   assert.equal(received.githubIssue, "");

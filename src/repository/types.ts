@@ -25,6 +25,7 @@ export type ProjectProfile = {
   projectKind?: "single-package";
   targetBranch?: string;
   baseCommit?: string;
+  protectedPaths?: string[];
   packageManager: PackageManager;
 
   testFramework: TestFramework;

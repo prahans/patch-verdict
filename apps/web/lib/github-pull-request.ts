@@ -416,6 +416,8 @@ export function pullRequestDescription(bundle: MissionViewModel, currentDefaultB
   ];
   if (details.source?.mode === "THIRD_PARTY_JS_TS") {
     const frozen = mission.frozenReproduction!;
+    const backgroundCount = (tests: Array<{ testPath: string; testIdentity: string }>) => tests.filter(test =>
+      test.testPath !== frozen.testPath || test.testIdentity !== frozen.testIdentity).length;
     lines.splice(0, lines.length,
       "This candidate repair was verified against the recorded issue-specific reproduction on " +
         markdown(details.source.targetBranch!) + " at commit " + details.source.baseCommit + ".",
@@ -430,8 +432,8 @@ export function pullRequestDescription(bundle: MissionViewModel, currentDefaultB
       "Frozen SHA-256: " + frozen.frozenSha256,
       "Frozen integrity: " + (mission.repair?.frozenIntegrity ? "unchanged" : "not preserved"),
       "Production repair: " + mission.repair!.productionChangedFiles.map(file => markdown(file)).join(", "),
-      "Untouched suite failures: " + mission.suiteComparison!.baseline.failed.length,
-      "Post-patch suite failures: " + mission.suiteComparison!.postPatch.failed.length,
+      "Background baseline failures: " + backgroundCount(mission.suiteComparison!.baseline.failed),
+      "Background post-patch failures: " + backgroundCount(mission.suiteComparison!.postPatch.failed),
       "Background comparison: " + mission.suiteComparison!.state,
       "New non-target regressions: " + mission.suiteComparison!.newBackgroundFailures.length,
       "", "These checks apply to this branch and exact base; they do not establish correctness on other branches or environments.");

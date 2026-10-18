@@ -140,3 +140,23 @@ test("valid FAILED verdict is represented as saved proof, without changing passe
   assert.equal(find(steps, "verdict").detail, "FAILED");
   assert.ok(steps.every((step) => step.state !== "RUNNING"));
 });
+
+
+test("strict live events keep background failure separate from issue reproduction", () => {
+  const before = [event("BASELINE", "Capturing untouched background suite"), event("BASELINE", "Stable pre-existing failures recorded")];
+  const state = { mode: "THIRD_PARTY_JS_TS", status: "RUNNING", phase: "BASELINE", events: before };
+  const initial = buildLiveProofChain(state);
+  assert.equal(find(initial, "baseline").state, "REVIEW");
+  assert.equal(find(initial, "target").state, "WAITING");
+  const messages = ["Searching for issue-specific reproduction", "Generating bounded regression test", "Target reproduced and frozen"];
+  for (const message of messages) {
+    assert.deepEqual(parseBackendEventLine(line("REPRODUCING", message), missionId), { state: "REPRODUCING", message });
+    state.events.push(event("REPRODUCING", message));
+  }
+  state.events.push(event("VERIFYING", "Comparing non-target suite failures"));
+  const later = buildLiveProofChain(state);
+  assert.equal(find(later, "target").state, "PASSED");
+  assert.equal(find(later, "reproduction").state, "WAITING");
+  assert.equal(find(later, "suite").state, "RUNNING");
+  assert.equal(parseBackendEventLine(line("REPRODUCING", "SECRET_TOKEN from repository"), missionId), null);
+});

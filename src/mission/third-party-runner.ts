@@ -194,6 +194,7 @@ export async function runThirdPartyMission(
       projectRoot,
       allowedProductionFiles,
       frozenTestPath: frozen.testPath,
+      protectedPaths: project.protectedPaths ?? [],
     });
     if (!policy.allowedProductionFiles.length)
       return stop(
@@ -214,13 +215,14 @@ export async function runThirdPartyMission(
       policy,
     );
     attempted = patch.patchApplied;
+    const unsupportedScope = policy.rejectedScope || patch.unsupportedScope === true;
     if (!attempted)
       return stop(
-        policy.rejectedScope ? "UNSUPPORTED_REPAIR_SCOPE" : "PATCH_FAILED",
-        policy.rejectedScope
+        unsupportedScope ? "UNSUPPORTED_REPAIR_SCOPE" : "PATCH_FAILED",
+        unsupportedScope
           ? "The repair requires changes outside the supported one-file scope."
           : "No candidate production patch was produced.",
-        !policy.rejectedScope,
+        !unsupportedScope,
       );
 
     const capture = async () => {
@@ -292,13 +294,17 @@ export async function runThirdPartyMission(
     ) {
       record("PATCHING", "Starting the single correction attempt");
       phaseFailure = "PATCH_FAILED";
-      await patchIssue(
+      const correction = await patchIssue(
         sandbox,
         input.issue,
         context,
         { ...postTarget.evidence, candidateDiff: result.patch!.diff },
         policy,
       );
+      if (!correction.patchApplied && (correction.unsupportedScope || policy.rejectedScope)) {
+        await capture();
+        return stop("UNSUPPORTED_REPAIR_SCOPE", "The correction requires changes outside the supported one-file scope.");
+      }
       phaseFailure = "VERIFICATION_FAILED";
       integrity = await capture();
       candidateDiff = result.patch!.diff;

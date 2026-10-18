@@ -11,7 +11,7 @@ const { parseGitHubIssueUrl, parseGitHubRepositoryUrl, parsePersistedGitHubIssue
 const { parseMissionInput, parseBackendMissionInput } = await import("../lib/mission-input.ts");
 const { resolveGitHubIssue, resolveMissionInput } = await import("../lib/github-issue.ts");
 const { GET } = await import("../app/api/github/issue/route.ts");
-const { resolveGitHubRepository, resolveGitHubBranch, listGitHubBranches } = await import("../lib/github-branches.ts");
+const { resolveGitHubRepository, resolveGitHubBranch } = await import("../lib/github-branches.ts");
 const { GET: branchGET } = await import("../app/api/github/branches/route.ts");
 const originalFetch = globalThis.fetch;
 const originalToken = process.env.PATCHVERDICT_GITHUB_TOKEN;

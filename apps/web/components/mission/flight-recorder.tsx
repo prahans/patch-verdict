@@ -13,15 +13,18 @@ function liveEventTone(event: MissionEvent) {
   if (message.startsWith("Verification requires human review") ||
     message === "Mission completed with verdict REVIEW_REQUIRED") return "review";
   if (["Reported bug reproduced", "AI investigation completed", "Candidate patch applied",
+    "Untouched background suite is clean", "Target reproduced and frozen", "Repository preflight passed",
     "Git diff captured", "Verification integrity preserved", "Reproduction test passes after patch",
     "Reproduction test passes after correction", "Full test suite passes",
     "Mission completed with verdict VERIFIED"].includes(message) ||
     /^Git captured \d+ changed file\(s\)$/.test(message)) return "passed";
   if ((state === "PREPARING" && ["Backend process started.", "Preparing repository..."].includes(message)) ||
     (state === "BASELINE" && message === "Running reproduction test before patch") ||
+    (state === "BASELINE" && message === "Capturing untouched background suite") ||
+    (state === "REPRODUCING" && ["Searching for issue-specific reproduction", "Generating bounded regression test", "Correcting generated regression before freeze"].includes(message)) ||
     (state === "INVESTIGATING" && message === "AI investigation started") ||
     (state === "PATCHING" && ["AI patch phase started", "Reproduction failed; starting the single correction attempt"].includes(message)) ||
-    (state === "VERIFYING" && ["Running reproduction test after patch", "Running reproduction test after correction", "Running full test suite"].includes(message)) ||
+    (state === "VERIFYING" && ["Running reproduction test after patch", "Running reproduction test after correction", "Running full test suite", "Running frozen reproduction after patch", "Comparing non-target suite failures"].includes(message)) ||
     (state === "VERDICT" && message === "Calculating deterministic verdict")) return "running";
   return "recorded";
 }

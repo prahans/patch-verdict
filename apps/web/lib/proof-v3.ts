@@ -1,5 +1,5 @@
 import { isGitHubBranchName } from "./github-branch-name";
-import type { CommandEvidence, FrozenReproduction, MissionDetails, MissionOutcome, MissionResult, NormalizedRun, RepairProvenance, SuiteComparison } from "./mission-types";
+import type { CommandEvidence, FrozenReproduction, MissionDetails, MissionOutcome, MissionResult, NormalizedRun, SuiteComparison } from "./mission-types";
 import type { FrameworkErrorKind, TestIdentity } from "../../../src/mission/third-party-types";
 
 type ObjectValue = Record<string, unknown>;
@@ -113,7 +113,8 @@ export function assertProofV3Consistency(mission: MissionResult, source: NonNull
     if (!sameSet(stable, identitySet(suite.stableBackgroundFailures)) || !sameSet(added, identitySet(suite.newBackgroundFailures)) || !sameSet(resolved, identitySet(suite.resolvedBackgroundFailures))) fail("background failure sets");
     const withoutTarget = (values: TestIdentity[]) => identitySet(values.filter(item => identityKey(item) !== targetKey));
     const comparable = suite.baseline.execution === "COMPLETED" && suite.postPatch.execution === "COMPLETED" && sameSet(withoutTarget(suite.baseline.discovered), withoutTarget(suite.postPatch.discovered));
-    const resolvedPassed = [...resolved].every(key => identitySet(suite.postPatch.passed).has(key));
+    const passedAfter = identitySet(suite.postPatch.passed);
+    const resolvedPassed = [...resolved].every(key => passedAfter.has(key));
     const expected = !comparable ? "UNKNOWN" : added.size ? "REGRESSED" : !resolvedPassed ? "UNKNOWN" : !before.size && !after.size ? "CLEAN" : resolved.size ? "IMPROVED_WITH_BACKGROUND_FAILURES" : "UNCHANGED_PREEXISTING_FAILURES";
     if (suite.state !== "UNSTABLE" && suite.state !== expected) fail("background comparison state");
     if (target!.origin === "GENERATED_REGRESSION" && suite.baseline.discovered.some(item => item.testPath === target!.testPath)) fail("generated test in untouched baseline");
@@ -129,5 +130,8 @@ export function assertProofV3Consistency(mission: MissionResult, source: NonNull
   if (mission.verdict !== expectedVerdict) fail("verdict trust policy");
   if (repair!.productionChangedFiles.length !== 1 || repair!.trustedRegressionChangedFiles.length !== (target!.origin === "GENERATED_REGRESSION" ? 1 : 0) || (target!.origin === "GENERATED_REGRESSION" && repair!.trustedRegressionChangedFiles[0] !== target!.testPath) || !sameSet(new Set(patch!.changedFiles), new Set([...repair!.productionChangedFiles, ...repair!.trustedRegressionChangedFiles]))) fail("repair provenance");
   const production = repair!.productionChangedFiles[0];
-  if (!/\.(?:[cm]?[jt]s|jsx|tsx)$/.test(production) || production === target!.testPath || /(?:^|[/._-])(?:tests?|specs?|mocks?|fixtures?|config|setup|teardown|vitest|jest|babel|webpack|rollup|vite|eslint|prettier|tsconfig|scripts?|ci)(?:[./_-]|$)/i.test(production) || /(^|\/)\.[^/]+/.test(production) || /\.d\.[cm]?ts$/.test(production)) fail("production repair path");
+  if (!/\.(?:[cm]?[jt]s|jsx|tsx)$/.test(production) || production === target!.testPath ||
+    /(^|\/)(?:\.[^/]+|__[^/]+__|tests?|specs?|fixtures?|mocks?|scripts?|config|configs|coverage|dist|build|e2e|cypress|playwright|setup|ci)(\/|$)/i.test(production) ||
+    /(?:^|[/._-])(?:test|tests|spec|specs|mock|fixture|config|setup|teardown|vitest|jest|babel|webpack|rollup|vite|eslint|prettier|tsconfig|gulpfile|gruntfile)(?:[._-]|$)/i.test(production) ||
+    /(^|\/)setupTests\./i.test(production) || /\.d\.[cm]?ts$/.test(production)) fail("production repair path");
 }

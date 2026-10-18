@@ -4,6 +4,7 @@ import { registerHooks } from "node:module";
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { proofV3Fixture } from "./helpers/proof-v3-fixture.mjs";
 
 // Next enforces this marker at build time; standalone Node tests have no client graph.
 registerHooks({
@@ -419,4 +420,96 @@ test("a changed proof artifact is reflected by the next load", async () => {
   assert.notEqual(next.details.title, first.details.title);
   assert.equal(next.details.title, "Updated real title");
   assert.equal(next.mission.verdict, "FAILED");
+});
+
+
+async function saveV3(fixture) {
+  await Promise.all([writeArtifact("proof.json", fixture.proof), writeArtifact("patch.diff", fixture.diff), writeArtifact("events.json", fixture.events), writeArtifact("evidence/baseline-test.json", fixture.baseline), writeArtifact("evidence/post-patch-test.json", fixture.postPatch), writeArtifact("evidence/full-suite.json", fixture.fullSuite)]);
+}
+
+test("v3 preserves exact source, normalized target, trusted provenance and background channels", async () => {
+  for (const options of [{}, { background: true }, { generated: true }, { generated: true, background: true }]) {
+    const fixture = proofV3Fixture(options);
+    await saveV3(fixture);
+    const result = await loadProofBundle(missionId);
+    assert.equal(result.mission.proofVersion, 3);
+    assert.equal(result.mission.outcome, "REPAIR_EVALUATED");
+    assert.equal(result.mission.verdict, fixture.proof.verdict);
+    assert.deepEqual(result.details.source, fixture.proof.mission.source);
+    assert.deepEqual(result.mission.frozenReproduction, fixture.proof.frozenReproduction);
+    assert.deepEqual(result.mission.targetAfter, fixture.proof.targetAfter);
+    assert.equal(result.mission.suiteComparison.newBackgroundFailures.length, 0);
+    assert.deepEqual(result.mission.repair, fixture.proof.repair);
+    assert.equal(result.details.testPath, fixture.proof.frozenReproduction.testPath);
+    assert.equal(result.mission.patch.diff, fixture.diff);
+  }
+});
+
+test("v3 early outcomes preserve null verdict and captured background without claiming reproduction", async () => {
+  for (const outcome of ["TARGET_NOT_REPRODUCED", "UNSTABLE_REPRODUCTION", "UNSUPPORTED_REPOSITORY", "PREPARATION_FAILED", "UNSUPPORTED_REPAIR_SCOPE", "INVESTIGATION_FAILED", "PATCH_FAILED", "VERIFICATION_FAILED"]) {
+    const { proof } = proofV3Fixture({ background: true });
+    Object.assign(proof, { outcome, verdict: null, frozenReproduction: null, targetAfter: null, suiteComparison: null, repair: null, patch: null, artifacts: null, checks: null, error: "No trustworthy completed repair." });
+    await writeArtifact("proof.json", proof);
+    const result = await loadProofBundle(missionId);
+    assert.equal(result.mission.outcome, outcome);
+    assert.equal(result.mission.verdict, null);
+    assert.equal(result.mission.patch, undefined);
+    assert.ok(result.mission.backgroundBaseline.failed.length);
+  }
+});
+
+test("v3 rejects forged bindings, target identities, trust policy and contradictory failure comparison", async () => {
+  const mutations = [
+    p => { p.mission.source.targetBranch = "other"; },
+    p => { p.mission.source.defaultBranch = "bad\nbranch"; },
+    p => { p.mission.issue = "forged"; },
+    p => { p.outcome = "TARGET_NOT_REPRODUCED"; },
+    p => { p.verdict = null; },
+    p => { p.frozenReproduction.stable = false; },
+    p => { p.frozenReproduction.testPath = "../private.ts"; },
+    p => { p.frozenReproduction.targetBaselineResult.errorKind = "MODULE_RESOLUTION_ERROR"; },
+    p => { p.frozenReproduction.targetBaselineResult.failed[0].testIdentity = "unrelated"; },
+    p => { p.targetAfter.evidence.command = "other test"; },
+    p => { p.targetAfter.passed[0].testIdentity = "unrelated"; },
+    p => { p.targetAfter.discovered.push(p.targetAfter.discovered[0]); },
+    p => { p.suiteComparison.state = "UNCHANGED_PREEXISTING_FAILURES"; },
+    p => { p.suiteComparison.newBackgroundFailures.push({ testPath: "other.test.ts", testIdentity: "unrelated" }); },
+    p => { p.repair.productionChangedFiles.push("src/other.ts"); },
+    p => { p.repair.frozenIntegrity = false; },
+    p => { p.patch.sha256 = "0".repeat(64); },
+  ];
+  for (const mutate of mutations) {
+    const fixture = proofV3Fixture();
+    mutate(fixture.proof);
+    await saveV3(fixture);
+    await assert.rejects(loadProofBundle(missionId), /Invalid/);
+  }
+  for (const options of [{ generated: true }, { background: true }]) {
+    const fixture = proofV3Fixture(options);
+    fixture.proof.verdict = "VERIFIED";
+    await saveV3(fixture);
+    await assert.rejects(loadProofBundle(missionId), /trust policy/);
+  }
+});
+
+test("v3 positive proofs require matching immutable evidence and digest-backed patch artifacts", async () => {
+  const fixture = proofV3Fixture();
+  await saveV3(fixture);
+  await writeArtifact("evidence/post-patch-test.json", { ...fixture.postPatch, stdout: "changed" });
+  await assert.rejects(loadProofBundle(missionId), /matching the normalized/);
+  await saveV3(fixture);
+  await rm(path.join(bundleDirectory, "evidence/post-patch-test.json"));
+  await assert.rejects(loadProofBundle(missionId), /matching the normalized/);
+  await saveV3(fixture);
+  await writeArtifact("patch.diff", fixture.diff + "changed");
+  await assert.rejects(loadProofBundle(missionId), /exact patch digest/);
+});
+
+test("proof and command artifact reads enforce bounded sizes", async () => {
+  await writeArtifact("proof.json", " ".repeat(16 * 1024 * 1024 + 1));
+  await assert.rejects(loadProofBundle(missionId), /supported size/);
+  await writeArtifact("proof.json", proof());
+  await writeArtifact("evidence/baseline-test.json", " ".repeat(256 * 1024 + 1));
+  const result = await loadProofBundle(missionId);
+  assert.ok(result.warnings.some(warning => warning.includes("supported size")));
 });

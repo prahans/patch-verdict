@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { proofV3Fixture } from "./helpers/proof-v3-fixture.mjs";
 import { test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -10,6 +11,7 @@ const { MissionLauncher: InteractiveLauncher } = await import("../components/lan
 const { IssuePreview, readIssuePreview } = await import("../components/landing/issue-preview.tsx");
 const { BranchSelector, readBranchPage } = await import("../components/landing/branch-selector.tsx");
 const { BranchSelector: InteractiveBranchSelector } = await import("../components/landing/branch-selector.tsx?interactive");
+const { MissionOutcomeNotice, ThirdPartyEvidence, ThirdPartyProofChain } = await import("../components/mission/third-party-evidence.tsx");
 const { MissionSummary } = await import("../components/mission/mission-summary.tsx");
 const { LiveMission } = await import("../components/mission/live-mission.tsx");
 const { PullRequestAction } = await import("../components/mission/pull-request-action.tsx?interactive");
@@ -326,4 +328,36 @@ test("branch selector validates bounded pages and explicit branch lookup before 
   assert.deepEqual(readBranchPage(validPage, issueUrl), { branches: ["main"], nextPage: null });
   for (const bad of [{ ...validPage, repositoryUrl: "https://github.com/other/repo" }, { ...validPage, branches: Array(31).fill("main") }, { ...validPage, branches: ["bad\nbranch"] }, { ...validPage, nextPage: 101 }]) assert.equal(readBranchPage(bad, issueUrl), null);
   assert.match(render(BranchSelector, { issueUrl, defaultBranch: "main", value: "main", onChange() {} }), /main \(default\)/);
+});
+
+
+test("v3 UI separates generated target trust, production changes and unchanged background failures", () => {
+  const fixture = proofV3Fixture({ generated: true, background: true });
+  const proof = fixture.proof;
+  const data = { ...proof, proofVersion: 3, patch: { ...proof.patch, diff: fixture.diff }, verificationIntegrity: proof.mission.verificationIntegrity, events: [] };
+  const html = render(ThirdPartyEvidence, { mission: data }) + render(ThirdPartyProofChain, { mission: data });
+  assert.match(html, /AI-generated regression/);
+  assert.match(html, /Human review required/);
+  assert.match(html, /Frozen SHA-256/);
+  assert.match(html, /Unchanged/);
+  assert.match(html, /1 existing failures/);
+  assert.match(html, /UNCHANGED PREEXISTING FAILURES/);
+  assert.match(html, /src\/divide.ts/);
+  assert.match(html, /REVIEW_REQUIRED/);
+  assert.doesNotMatch(html, /Full test suite passes/);
+  const summary = render(MissionSummary, { mission: data, details: { ...details, source: proof.mission.source } });
+  assert.match(summary, /release\/2.x/);
+});
+
+test("v3 terminal outcomes show branch-specific guidance and no publication action", () => {
+  const fixture = proofV3Fixture();
+  for (const outcome of ["TARGET_NOT_REPRODUCED", "UNSTABLE_REPRODUCTION", "UNSUPPORTED_REPOSITORY", "PREPARATION_FAILED", "UNSUPPORTED_REPAIR_SCOPE"]) {
+    const data = { status: "COMPLETED", proofVersion: 3, outcome, verdict: null, events: [] };
+    const sourceDetails = { ...details, source: fixture.proof.mission.source };
+    const html = render(MissionOutcomeNotice, { mission: data, details: sourceDetails }) + render(MissionSummary, { mission: data, details: sourceDetails });
+    assert.match(html, new RegExp(outcome.replaceAll("_", " ")));
+    assert.match(html, /No repair verdict was issued/);
+    assert.doesNotMatch(html, /Create (?:draft )?pull request/);
+    if (outcome === "TARGET_NOT_REPRODUCED") assert.match(html, /Choose another target branch and start a new mission/);
+  }
 });

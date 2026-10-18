@@ -2,6 +2,7 @@ import type { Sandbox } from "e2b";
 
 import { readSandboxFile, runSandboxCommand } from "../sandbox/e2b.js";
 import { RepositoryPreparationError } from "./errors.js";
+import { collectProtectedPaths } from "./protected-paths.js";
 
 import type { PackageManager, ProjectProfile, TestFramework, RepositoryRequest } from "./types.js";
 
@@ -155,7 +156,9 @@ export async function detectProject(
     const paths = entries.map((entry) => entry.path);
     if (!paths.includes("package.json")) throw new RepositoryPreparationError("UNSUPPORTED_REPOSITORY", "A root package.json is required.");
     const contents = await readSandboxFile(sandbox, `${projectRoot}/package.json`);
-    return analyzeStrictProject(contents, paths, request);
+    const profile = analyzeStrictProject(contents, paths, request);
+    profile.protectedPaths = await collectProtectedPaths(paths, contents, (relative) => readSandboxFile(sandbox, `${projectRoot}/${relative}`));
+    return profile;
   }
   const packageJsonPath = `${projectRoot}/package.json`;
 

@@ -89,7 +89,7 @@ export default async function MissionPage({ params }: MissionPageProps) {
         Skip to mission
       </a>
 
-      <MissionHeader verdict={mission.verdict} />
+      <MissionHeader verdict={mission.verdict} outcome={mission.outcome} />
 
       <main id="mission" className="mission-shell">
         <div className="workspace-bar">

@@ -2,8 +2,9 @@ import Link from "next/link";
 import type { MissionResult } from "@/lib/mission-types";
 import { Icon } from "./icon";
 
-export function MissionHeader({ verdict, executionStatus }: {
+export function MissionHeader({ verdict, executionStatus, outcome }: {
   verdict: MissionResult["verdict"];
+  outcome?: MissionResult["outcome"];
   executionStatus?: "RUNNING" | "FAILED" | "RECORDED";
 }) {
   const verdictClass =
@@ -43,9 +44,9 @@ export function MissionHeader({ verdict, executionStatus }: {
             {executionStatus === "FAILED" ? "EXECUTION FAILED" : executionStatus}
           </span> : <span
             className={`verdict-badge ${verdictClass}`}
-            aria-label={`Verdict: ${verdict === "REVIEW_REQUIRED" ? "Human review required" : verdict ?? "Unavailable"}`}
+            aria-label={outcome && !verdict ? `Outcome: ${outcome.replaceAll("_", " ")}` : `Verdict: ${verdict === "REVIEW_REQUIRED" ? "Human review required" : verdict ?? "Unavailable"}`}
           >
-            <Icon name={verdictIcon} width="15" height="15" />{verdict ?? "UNAVAILABLE"}
+            <Icon name={verdictIcon} width="15" height="15" />{verdict ?? outcome?.replaceAll("_", " ") ?? "UNAVAILABLE"}
           </span>}
         </div>
       </div>

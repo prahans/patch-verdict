@@ -231,6 +231,16 @@ describe("read-only issue-specific discovery", () => {
 });
 
 describe("separate regression agent", () => {
+  it("does not revise a valid passing oracle merely to manufacture a target failure", async () => {
+    mocks.send.mockResolvedValueOnce(message(null, [["read_file", { path: "src/calc.ts" }]]))
+      .mockResolvedValueOnce(message(null, [["write_regression_test", write()], ["write_regression_test", write(generated, `${source}\n// fake failure`)]]));
+    vi.mocked(input.adapter.run).mockResolvedValue(run(generated, true));
+    const result = await generateRegressionReproduction(sandbox, input);
+    expect(result.frozen).toBeUndefined();
+    expect(result.reason).toMatch(/already passes/);
+    expect(mocks.write).toHaveBeenCalledOnce();
+    expect(mocks.freeze).toHaveBeenCalledOnce();
+  });
   it("corrects one invalid generated import on the same file before freezing", async () => {
     mocks.send
       .mockResolvedValueOnce(

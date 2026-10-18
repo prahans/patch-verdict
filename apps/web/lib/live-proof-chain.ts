@@ -27,8 +27,9 @@ const definitions = [
 // Replay persisted events in order. Neither time nor a later phase implies that
 // a missing check passed; a correction can replace an earlier failed check.
 export function buildLiveProofChain(
-  status: Pick<MissionLiveStatus, "events" | "phase" | "status">,
+  status: Pick<MissionLiveStatus, "events" | "phase" | "status" | "mode">,
 ): LiveProofStep[] {
+  if (status.mode === "THIRD_PARTY_JS_TS") return buildThirdPartyLiveChain(status);
   const steps: LiveProofStep[] = definitions.map(([id, label]) => ({
     id,
     label,
@@ -127,6 +128,46 @@ export function buildLiveProofChain(
   } else if (status.status === "COMPLETED") {
     for (const step of steps)
       if (step.state === "RUNNING") step.state = "WAITING";
+  }
+  return steps;
+}
+
+function buildThirdPartyLiveChain(status: Pick<MissionLiveStatus, "events" | "status">): LiveProofStep[] {
+  const steps: LiveProofStep[] = [["baseline", "Untouched background suite"], ["target", "Issue-specific frozen target"], ["investigation", "Repository investigation"], ["patch", "One-file production repair"], ["reproduction", "Frozen target after repair"], ["suite", "Non-target background comparison"], ["verdict", "Recorded outcome / verdict"]].map(([id, label]) => ({ id, label, state: "WAITING" }));
+  const set = (id: string, state: LiveProofState, detail?: string) => {
+    if (state === "RUNNING") for (const step of steps) if (step.state === "RUNNING") step.state = "WAITING";
+    const step = steps.find(item => item.id === id)!;
+    step.state = state; step.detail = detail;
+  };
+  for (const event of status.events) {
+    const message = event.message;
+    if (event.state === "BASELINE") {
+      if (message === "Capturing untouched background suite") set("baseline", "RUNNING");
+      if (message === "Stable pre-existing failures recorded") set("baseline", "REVIEW", "Stable pre-existing failures");
+      if (message === "Untouched background suite is clean") set("baseline", "PASSED", "Clean untouched suite");
+    }
+    if (event.state === "REPRODUCING") {
+      if (message === "Searching for issue-specific reproduction") set("target", "RUNNING");
+      if (message === "Generating bounded regression test") set("target", "RUNNING", "Generated oracle requires review");
+      if (message === "Target reproduced and frozen") set("target", "PASSED", "Stable target frozen");
+    }
+    if (event.state === "INVESTIGATING" && message === "AI investigation started") set("investigation", "RUNNING");
+    if (event.state === "INVESTIGATING" && message === "AI investigation completed") set("investigation", "PASSED");
+    if (event.state === "PATCHING" && ["AI patch phase started", "Starting the single correction attempt"].includes(message)) set("patch", "RUNNING");
+    if (event.state === "PATCHING" && message === "Candidate patch applied") set("patch", "PASSED");
+    if (event.state === "VERIFYING" && message === "Running frozen reproduction after patch") set("reproduction", "RUNNING");
+    if (event.state === "VERIFYING" && message === "Comparing non-target suite failures") set("suite", "RUNNING");
+    if (event.state === "VERDICT") set("verdict", "RUNNING");
+    if (event.state === "COMPLETED") {
+      const verdict = /^Mission completed with verdict (VERIFIED|REVIEW_REQUIRED|FAILED)$/.exec(message)?.[1];
+      if (verdict) set("verdict", verdict === "VERIFIED" ? "PASSED" : verdict === "REVIEW_REQUIRED" ? "REVIEW" : "FAILED", verdict);
+      else set("verdict", "REVIEW", "Recording canonical outcome");
+      for (const step of steps) if (step.state === "RUNNING") step.state = "WAITING";
+    }
+  }
+  if (status.status === "FAILED") {
+    for (const step of steps) if (step.state === "RUNNING") step.state = "FAILED";
+    set("verdict", "FAILED", "EXECUTION FAILED");
   }
   return steps;
 }

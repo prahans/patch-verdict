@@ -27,7 +27,12 @@ function boundedEvidence(evidence: CommandEvidence): CommandEvidence {
 }
 
 function classifyError(text: string): FrameworkErrorKind {
-  if (/timed?\s*out|timeout|ETIMEDOUT/i.test(text)) return "TIMEOUT";
+  if (
+    /\btimed?\s*out\b|\bTimeoutError\b|\btimeout(?:\s+of|\s*:)|\bETIMEDOUT\b/i.test(
+      text,
+    )
+  )
+    return "TIMEOUT";
   if (/no tests? (?:found|files? found)|no test files found/i.test(text))
     return "NO_TESTS_FOUND";
   if (
@@ -49,7 +54,7 @@ function classifyError(text: string): FrameworkErrorKind {
   )
     return "TEST_PARSE_ERROR";
   if (
-    /configuration|config error|validation error|failed to load config|unknown option|unknown argument/i.test(
+    /config(?:uration)? error|validation error|failed to load config|unknown option|unknown argument/i.test(
       text,
     )
   )
