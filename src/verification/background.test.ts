@@ -30,6 +30,11 @@ it("detects flaky populations and pass/fail changes", () => {
   expect(stableRuns(run(["B"], ["A"]), run(["A"], ["B"]))).toBe(false);
   expect(stableRuns(run(["B"], ["A"]), run(["B"], ["A"]))).toBe(true);
 });
+it("does not call a formerly passing background test becoming skipped clean", () => {
+  const post = run(["A"], []);
+  post.discovered.push(test("B"));
+  expect(compareBackground(run(["B"], ["A"]), post, test("A")).state).toBe("UNKNOWN");
+});
 it("requires observed exact target and successful execution", () => {
   expect(targetFailed(run([], ["A"]), test("B"))).toBe(false);
   expect(targetFailed(run([], ["A"]), test("A"))).toBe(true);

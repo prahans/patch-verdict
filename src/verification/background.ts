@@ -37,9 +37,12 @@ export function compareBackground(baseline: NormalizedRun, postPatch: Normalized
   const stableBackgroundFailures = [...after].filter(([id]) => before.has(id)).map(([, test]) => test);
   const newBackgroundFailures = [...after].filter(([id]) => !before.has(id)).map(([, test]) => test);
   const resolvedBackgroundFailures = [...before].filter(([id]) => !after.has(id)).map(([, test]) => test);
+  const executedAfter = new Set([...postPatch.passed, ...postPatch.failed].map(identityKey));
+  const skippedPreviouslyPassed = withoutTarget(baseline.passed).some(test => !executedAfter.has(identityKey(test)));
   let state: SuiteComparison["state"];
   if (!stable) state = "UNSTABLE";
   else if (baseline.execution !== "COMPLETED" || postPatch.execution !== "COMPLETED" ||
+    skippedPreviouslyPassed ||
     !same(keys(withoutTarget(baseline.discovered)), keys(withoutTarget(postPatch.discovered)))) state = "UNKNOWN";
   else if (newBackgroundFailures.length) state = "REGRESSED";
   // A formerly failing test counts as resolved only if it actually passed, not skipped.

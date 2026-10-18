@@ -284,6 +284,14 @@ it("rejects a target that passes alone but fails in the full suite", async () =>
   );
   expect((await runThirdPartyMission(sandbox, input)).verdict).toBe("FAILED");
 });
+it("fails when a formerly passing background test becomes skipped", async () => {
+  const postSuite = run(["A"], []);
+  postSuite.discovered.push(identity("B"));
+  sequence(run(["B"], ["A"]), run(["B"], ["A"]), run(["A"], [], "target-command"), postSuite);
+  const result = await runThirdPartyMission(sandbox, input);
+  expect(result.verdict).toBe("FAILED");
+  expect(result.suiteComparison?.state).toBe("UNKNOWN");
+});
 it("detects candidate mutation during target execution and grants no correction", async () => {
   mocks.capture
     .mockResolvedValueOnce(git)
