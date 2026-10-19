@@ -47,6 +47,14 @@ type Proposal = TestIdentity & {
   assertionQuote: string;
   reason: string;
 };
+
+type NoReproductionConclusion = {
+  notReproducible: true;
+  issueQuote: string;
+  sourcePath: string;
+  sourceQuote: string;
+  reason: string;
+};
 const READ_TOOLS = new Set(["list_files", "read_file", "search_code"]);
 const MAX_DISCOVERY_ITERATIONS = 5;
 const MAX_REGRESSION_ITERATIONS = 6;
@@ -112,6 +120,33 @@ function parse(value: string): unknown {
 function hash(contents: string) {
   return createHash("sha256").update(contents).digest("hex");
 }
+function groundedNoReproduction(
+  value: unknown,
+  issue: string,
+  inspected: Map<string, string>,
+): NoReproductionConclusion | undefined {
+  const input = object(value);
+  if (
+    !input ||
+    input.notReproducible !== true ||
+    typeof input.issueQuote !== "string" ||
+    input.issueQuote.trim().length < 8 ||
+    input.issueQuote.length > 1000 ||
+    !issue.includes(input.issueQuote) ||
+    !safeRepositoryPath(input.sourcePath) ||
+    typeof input.sourceQuote !== "string" ||
+    input.sourceQuote.trim().length < 8 ||
+    input.sourceQuote.length > 2000 ||
+    !inspected.get(input.sourcePath)?.includes(input.sourceQuote) ||
+    typeof input.reason !== "string" ||
+    input.reason.trim().length < 20 ||
+    input.reason.length > 2000
+  )
+    return;
+
+  return input as NoReproductionConclusion;
+}
+
 function groundedProposal(
   value: unknown,
   issue: string,
@@ -377,7 +412,7 @@ export async function generateRegressionReproduction(
   const messages: ChatMessages[] = [
     {
       role: "system",
-      content: `${TRUST_RULES}\nYou are RegressionAgent, separate from RepairAgent. Inspect the relevant implementation and existing test conventions first. Create exactly one NEW small test in an existing directory using write_regression_test. Use a supported .test/.spec JS/TS suffix, one standalone named test, repository-installed framework, real application behavior, and issue-grounded expected behavior. No focused/skipped tests, self-fulfilling mocks, unconditional synthetic failure, production/config/setup/package edits, second file, or shell. Provide exact issue and assertion quotes plus rationale with each write. Invalid test imports or compile errors permit one correction of the SAME file. Generated expected behavior remains an unapproved oracle and requires human review. Never decide verdict. If the reported behavior already works, do not invent a failure.`,
+      content: `${TRUST_RULES}\nYou are RegressionAgent, separate from RepairAgent. Inspect the relevant implementation and existing test conventions first. Create exactly one NEW small test in an existing directory using write_regression_test. Use a supported .test/.spec JS/TS suffix, one standalone named test, repository-installed framework, real application behavior, and issue-grounded expected behavior. If the issue states multiple tightly-related expected behaviors that can be exercised through the same production file, the single test should cover all of those explicit obligations rather than only the easiest one. No focused/skipped tests, self-fulfilling mocks, unconditional synthetic failure, production/config/setup/package edits, second file, or shell. Provide exact issue and assertion quotes plus rationale with each write. Invalid test imports or compile errors permit one correction of the SAME file. A passing generated candidate is not enough by itself to prove the issue absent: if it missed a distinct explicit behavior from the issue, you may revise the SAME file once to cover that missing behavior. Never merely invert an assertion or manufacture a failure. If, after inspecting source, the reported behavior really appears already satisfied, return ONLY grounded JSON {notReproducible:true,issueQuote,sourcePath,sourceQuote,reason}; issueQuote and sourceQuote must be exact text you inspected. Generated expected behavior remains an unapproved oracle and requires human review. Never decide verdict.`,
     },
     {
       role: "user",
@@ -402,7 +437,30 @@ export async function generateRegressionReproduction(
       regressionDefinition,
     ]);
     messages.push(message);
-    if (!message.toolCalls?.length) break;
+    if (!message.toolCalls?.length) {
+      const conclusion = groundedNoReproduction(
+        parse(messageContentToText(message.content)),
+        input.issue,
+        inspected,
+      );
+      if (conclusion) {
+        writer.freeze();
+        return finish({
+          reason:
+            "Repository evidence indicates the reported behavior is already satisfied on the selected base: " +
+            conclusion.reason,
+        });
+      }
+
+      messages.push({
+        role: "user",
+        content:
+          generatedPath === undefined
+            ? "No regression has been executed yet. Continue with repository read tools and write_regression_test, or return the grounded notReproducible JSON contract. Do not stop with prose."
+            : "The generated regression has not established the target. Reassess the explicit issue requirements using inspected source. Revise the SAME generated file only if a distinct issue-grounded behavior was missed, otherwise return the grounded notReproducible JSON contract. Do not stop with prose.",
+      });
+      continue;
+    }
     for (const call of message.toolCalls) {
       if (++toolCalls > MAX_TOOL_CALLS)
         return finish({
@@ -453,18 +511,32 @@ export async function generateRegressionReproduction(
               writer.freeze();
               return finish(verified);
             }
-            // A valid passing target already establishes that this proposed
-            // behavior works. Do not offer an oracle rewrite to manufacture a
-            // failure; revisions are for invalid test construction only.
+            // A generated passing candidate is not an authoritative oracle.
+            // It may simply have missed another explicit behavior in the issue.
+            // Permit one bounded revision of the SAME file, but only after
+            // feeding the actual result back to the model. Generated
+            // reproductions remain REVIEW_REQUIRED even when later accepted.
             if (verified.run?.execution === "COMPLETED") {
-              writer.freeze();
-              return finish({ reason: "The generated issue-specific test already passes on the selected base; no repair was attempted." });
+              if (writer.attempts >= 2) {
+                writer.freeze();
+                return finish({
+                  reason:
+                    "Two bounded issue-grounded generated candidates executed without reproducing the reported behavior on the selected base.",
+                });
+              }
+
+              result = {
+                ok: false,
+                error:
+                  "The generated candidate passed. Do not invert the assertion. Re-read the issue and inspected source; revise the SAME file only if the candidate missed a distinct explicit reported behavior. Otherwise return grounded notReproducible JSON.",
+              };
+            } else {
+              result = {
+                ok: false,
+                error: verified.reason,
+                ...("run" in verified ? {} : {}),
+              };
             }
-            result = {
-              ok: false,
-              error: verified.reason,
-              ...("run" in verified ? {} : {}),
-            };
             // Bounded actual diagnostics support one pre-freeze correction.
             messages.push({
               role: "tool",
