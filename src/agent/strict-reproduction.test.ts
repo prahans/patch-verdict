@@ -522,6 +522,42 @@ describe("separate regression agent", () => {
     );
   });
 
+  it("feeds TS2345 parameter-shape guidance to the correction turn", async () => {
+    mocks.send
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write()]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write(generated, source + "\n// corrected input shape")]]),
+      );
+    vi.mocked(input.adapter.run)
+      .mockResolvedValueOnce({
+        ...run(generated),
+        execution: "ERROR",
+        errorKind: "TEST_COMPILE_ERROR",
+        discovered: [],
+        failed: [],
+        evidence: {
+          ...run(generated).evidence,
+          stderr: "src/__tests__/builder.test.ts:16:41 - error TS2345: Argument of type 'Attachment' is not assignable to parameter of type '{ purpose: string; }'.",
+        },
+      })
+      .mockResolvedValue(run(generated));
+    const result = await generateRegressionReproduction(sandbox, input);
+    expect(result.frozen).toMatchObject({ origin: "GENERATED_REGRESSION", ...generated });
+    const messages = mocks.send.mock.calls[2]![0].chatRequest.messages;
+    const toolFeedback = messages.filter((entry: { role: string }) => entry.role === "tool");
+    const firstWriteFeedback = JSON.parse(toolFeedback.at(-1)!.content);
+    expect(firstWriteFeedback.evidence.errorKind).toBe("TEST_COMPILE_ERROR");
+    expect(firstWriteFeedback.evidence.correctionHint).toContain("declared parameter");
+    expect(firstWriteFeedback.evidence.correctionHint).toContain("plain");
+    expect(firstWriteFeedback.evidence.correctionHint).toContain("Do not edit production");
+    expect(mocks.write).toHaveBeenCalledTimes(2);
+  });
+
   it("never accepts two compile/parse/import errors as target reproduction", async () => {
     mocks.send
       .mockResolvedValueOnce(
