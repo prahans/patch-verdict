@@ -8,20 +8,20 @@ Work belongs on `feat/third-party-js-ts-flow`. It must not be merged or pushed a
 
 The main implementation boundaries are:
 
-| Area | Files and responsibility |
-| --- | --- |
-| Mission model and orchestration | `src/mission/third-party-types.ts`, `types.ts`, `third-party-runner.ts`, and `run-third-party-envelope.ts`: outcomes, frozen target, normalized runs, strict state transitions, bounded correction, and proof finalization. |
-| Safe launch | `src/mission/input-envelope.ts`, `src/real-mission-demo.ts`, `apps/web/lib/run-backend-mission.ts`: a fixed stdin protocol and legacy CLI dispatch. |
-| Preparation | `src/repository/clone.ts`, `detect-project.ts`, `prepare.ts`, `protected-paths.ts`, `errors.ts`, and `types.ts`: exact checkout, supported project analysis, protected setup dependencies, and typed preparation outcomes. |
-| Framework evidence | `src/verification/framework-adapter.ts`, `background.ts`: repository-local Vitest/Jest execution, structured reports, exact identities, and target/background comparison. |
-| Agent capabilities | `src/agent/strict-reproduction.ts`, `investigate.ts`, `patch.ts`, `src/tools/strict-policy.ts`: separate discovery/generation/repair tools and stateful path/write limits. |
-| Git integrity | `src/tools/strict-git-evidence.ts`: raw file integrity against the exact base and patch construction through a separate Git index. |
-| Verdict and proof | `src/proof/third-party-verdict.ts`, `bundle.ts`, `apps/web/lib/proof-v3.ts`, `load-proof-bundle.ts`, `mission-types.ts`, and `pull-request-types.ts`: deterministic policy, v3 serialization, compatibility, consistency, and eligibility. |
-| Branch selection | `apps/web/lib/github-branch-name.ts`, `github-branches.ts`, `github-issue.ts`, `github-public-api.ts`, `mission-input.ts`; `/api/github/branches`, `/api/github/issue`, and `/api/missions`; landing `branch-selector.tsx`, `issue-preview.tsx`, and `mission-launcher.tsx`. |
-| Mission Control | Mission page; `third-party-evidence.tsx`, `mission-header.tsx`, `mission-summary.tsx`, `proof-chain.tsx`, `verification-evidence.tsx`, `live-mission.tsx`, and `flight-recorder.tsx`; live status/types and `live-proof-chain.ts`. |
-| Publication | `apps/web/lib/github-fork-publication.ts`, `github-pull-request.ts`, and `exact-verified-patch.ts`: authenticated fork selection, exact Git objects, target-aware PR creation, and recovery. |
-| Runtime and documentation | `src/sandbox/e2b.ts`; root/web READMEs; `apps/web/.env.example`; architecture, flow, and implementation documents; `apps/web/scripts/smoke-third-party-ui.mjs`. |
-| Tests | New strict mission, preflight, protected-path, adapter, background, policy, reproduction, agent-boundary, Git-integrity, and fork-publication suites; expanded proof, branch/input, transport, live-state, and UI suites; shared `apps/web/tests/helpers/proof-v3-fixture.mjs`. |
+| Area                            | Files and responsibility                                                                                                                                                                                                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mission model and orchestration | `src/mission/third-party-types.ts`, `types.ts`, `third-party-runner.ts`, and `run-third-party-envelope.ts`: outcomes, frozen target, normalized runs, strict state transitions, bounded correction, and proof finalization.                                                     |
+| Safe launch                     | `src/mission/input-envelope.ts`, `src/real-mission-demo.ts`, `apps/web/lib/run-backend-mission.ts`: a fixed stdin protocol and legacy CLI dispatch.                                                                                                                             |
+| Preparation                     | `src/repository/clone.ts`, `detect-project.ts`, `prepare.ts`, `protected-paths.ts`, `errors.ts`, and `types.ts`: exact checkout, supported project analysis, protected setup dependencies, and typed preparation outcomes.                                                      |
+| Framework evidence              | `src/verification/framework-adapter.ts`, `background.ts`: repository-local Vitest/Jest execution, structured reports, exact identities, and target/background comparison.                                                                                                       |
+| Agent capabilities              | `src/agent/strict-reproduction.ts`, `investigate.ts`, `patch.ts`, `src/tools/strict-policy.ts`: separate discovery/generation/repair tools and stateful path/write limits.                                                                                                      |
+| Git integrity                   | `src/tools/strict-git-evidence.ts`: raw file integrity against the exact base and patch construction through a separate Git index.                                                                                                                                              |
+| Verdict and proof               | `src/proof/third-party-verdict.ts`, `bundle.ts`, `apps/web/lib/proof-v3.ts`, `load-proof-bundle.ts`, `mission-types.ts`, and `pull-request-types.ts`: deterministic policy, v3 serialization, compatibility, consistency, and eligibility.                                      |
+| Branch selection                | `apps/web/lib/github-branch-name.ts`, `github-branches.ts`, `github-issue.ts`, `github-public-api.ts`, `mission-input.ts`; `/api/github/branches`, `/api/github/issue`, and `/api/missions`; landing `branch-selector.tsx`, `issue-preview.tsx`, and `mission-launcher.tsx`.    |
+| Mission Control                 | Mission page; `third-party-evidence.tsx`, `mission-header.tsx`, `mission-summary.tsx`, `proof-chain.tsx`, `verification-evidence.tsx`, `live-mission.tsx`, and `flight-recorder.tsx`; live status/types and `live-proof-chain.ts`.                                              |
+| Publication                     | `apps/web/lib/github-fork-publication.ts`, `github-pull-request.ts`, and `exact-verified-patch.ts`: authenticated fork selection, exact Git objects, target-aware PR creation, and recovery.                                                                                    |
+| Runtime and documentation       | `src/sandbox/e2b.ts`; root/web READMEs; `apps/web/.env.example`; architecture, flow, and implementation documents; `apps/web/scripts/smoke-third-party-ui.mjs`.                                                                                                                 |
+| Tests                           | New strict mission, preflight, protected-path, adapter, background, policy, reproduction, agent-boundary, Git-integrity, and fork-publication suites; expanded proof, branch/input, transport, live-state, and UI suites; shared `apps/web/tests/helpers/proof-v3-fixture.mjs`. |
 
 The strict runner does not redefine legacy suite-wide reproduction or historical verdicts. Shared investigation and patch agents accept explicit strict capability hooks, while the existing manual route and v2 reader remain available. The architectural rationale is recorded in [the architecture note](THIRD_PARTY_JS_TS_ARCHITECTURE.md); [the flow guide](THIRD_PARTY_JS_TS_FLOW.md) describes normal use.
 
@@ -31,12 +31,12 @@ Supported repositories are public, single-package JavaScript/TypeScript projects
 
 Status describes execution. Outcome describes what the mission established. A verdict describes an evaluated repair. `COMPLETED` is not a synonym for `VERIFIED`.
 
-| Outcome | Verdict |
-| --- | --- |
-| `TARGET_NOT_REPRODUCED`, `UNSTABLE_REPRODUCTION` | `null` |
-| `UNSUPPORTED_REPOSITORY`, `UNSUPPORTED_REPAIR_SCOPE` | `null` |
-| `PREPARATION_FAILED`, `INVESTIGATION_FAILED`, `PATCH_FAILED`, `VERIFICATION_FAILED` | `null` |
-| `REPAIR_EVALUATED` | `VERIFIED`, `REVIEW_REQUIRED`, or `FAILED` |
+| Outcome                                                                             | Verdict                                    |
+| ----------------------------------------------------------------------------------- | ------------------------------------------ |
+| `TARGET_NOT_REPRODUCED`, `UNSTABLE_REPRODUCTION`                                    | `null`                                     |
+| `UNSUPPORTED_REPOSITORY`, `UNSUPPORTED_REPAIR_SCOPE`                                | `null`                                     |
+| `PREPARATION_FAILED`, `INVESTIGATION_FAILED`, `PATCH_FAILED`, `VERIFICATION_FAILED` | `null`                                     |
+| `REPAIR_EVALUATED`                                                                  | `VERIFIED`, `REVIEW_REQUIRED`, or `FAILED` |
 
 Non-repair outcomes and failed repairs cannot authorize a PR. A supported project is not a promise that a particular issue can be reproduced or repaired within these limits.
 
@@ -74,12 +74,12 @@ Trusted generated-test provenance and production-repair provenance are distinct.
 
 The deterministic policy requires stable target reproduction, a repair attempt, valid scope, unchanged frozen evidence, target success, comparable background evidence, and verification integrity. With those conditions:
 
-| Target origin and background | Verdict |
-| --- | --- |
-| Existing repository test; `CLEAN` | `VERIFIED` |
-| Generated regression; otherwise acceptable background | `REVIEW_REQUIRED` |
-| Existing test; stable pre-existing or improved background failures | `REVIEW_REQUIRED` |
-| Target still fails, integrity/scope failure, `REGRESSED`, `UNKNOWN`, or `UNSTABLE` | `FAILED` |
+| Target origin and background                                                       | Verdict           |
+| ---------------------------------------------------------------------------------- | ----------------- |
+| Existing repository test; `CLEAN`                                                  | `VERIFIED`        |
+| Generated regression; otherwise acceptable background                              | `REVIEW_REQUIRED` |
+| Existing test; stable pre-existing or improved background failures                 | `REVIEW_REQUIRED` |
+| Target still fails, integrity/scope failure, `REGRESSED`, `UNKNOWN`, or `UNSTABLE` | `FAILED`          |
 
 The full suite must also observe the target passing. A target that passes alone but fails in the suite cannot receive a positive verdict. Models never provide a trusted verdict or publication-eligibility input.
 
@@ -107,21 +107,21 @@ Repeated actions re-read local authority and validate remote state. Exact matchi
 
 Controls include fixed public GitHub origins and encoded API data, strict schemas, server-resolved authority, safe path containment, regular-file/link checks, bounded UTF-8 I/O, restricted agent tools, exact Git object checks, publication locks, sanitized API failures, and server-only credentials. Local publication Git uses an allowlisted environment without AI/publication keys, no shell, no inherited hooks/configuration, and no worktree execution.
 
-| Resource | Bound |
-| --- | --- |
-| Mission stdin | 64 KiB; 10-second read deadline |
-| Web process / route / sandbox | 18 / 20 / 20 minutes |
-| Sandbox command | 2 minutes |
-| Existing-target discovery / regression | 5 / 6 model iterations; 18 tool calls per phase |
-| Investigation / patch attempt | 8 iterations and 32 tool calls / 4 iterations and 20 tool calls |
-| Generated test / correction | 2 writes, one path, 32,768 bytes / one repair correction |
-| Repair file | 131,072 bytes |
-| Framework report | 4,000,000 bytes; 10,000 tests; retained stdout/stderr 32,000 characters each |
-| Strict raw-file integrity | 10,000 tracked files; 16 MiB per tracked file; 128 MiB total tracked bytes |
-| Proof / patch / command artifact | 16 MiB / 2 MiB / 256 KiB |
-| Branch browser | 30 names per page; at most 100 pages; exact lookup also available |
-| GitHub publication | Shared 2-minute deadline; bounded requests/JSON; 3 owned-repository pages; 20 fork candidates; 6 readiness checks |
-| Local publication Git | 20-second command deadline; 12 MiB combined output bound |
+| Resource                               | Bound                                                                                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Mission stdin                          | 64 KiB; 10-second read deadline                                                                                   |
+| Web process / route / sandbox          | 18 / 20 / 20 minutes                                                                                              |
+| Sandbox command                        | 2 minutes                                                                                                         |
+| Existing-target discovery / regression | 5 / 6 model iterations; 18 tool calls per phase                                                                   |
+| Investigation / patch attempt          | 8 iterations and 32 tool calls / 4 iterations and 20 tool calls                                                   |
+| Generated test / correction            | 2 writes, one path, 32,768 bytes / one repair correction                                                          |
+| Repair file                            | 131,072 bytes                                                                                                     |
+| Framework report                       | 4,000,000 bytes; 10,000 tests; retained stdout/stderr 32,000 characters each                                      |
+| Strict raw-file integrity              | 10,000 tracked files; 16 MiB per tracked file; 128 MiB total tracked bytes                                        |
+| Proof / patch / command artifact       | 16 MiB / 2 MiB / 256 KiB                                                                                          |
+| Branch browser                         | 30 names per page; at most 100 pages; exact lookup also available                                                 |
+| GitHub publication                     | Shared 2-minute deadline; bounded requests/JSON; 3 owned-repository pages; 20 fork candidates; 6 readiness checks |
+| Local publication Git                  | 20-second command deadline; 12 MiB combined output bound                                                          |
 
 These are safety and predictability limits, not guarantees that every supported installation completes in time. Installation and tests still execute repository code inside the disposable sandbox. Snapshot integrity and reporter checks are not formal attestation of arbitrary hostile code.
 
@@ -133,39 +133,52 @@ The token must resolve an authenticated user, read public upstream metadata/obje
 
 ## Test coverage and fixtures (items 40–41)
 
-| Coverage | Evidence |
-| --- | --- |
-| Policy and background | Pure tests for all outcomes/trust combinations, existing/generated targets, unchanged/new/resolved failures, missing identities, and previously passed/failed cases becoming skipped. |
-| Preparation and checkout | Exact default/release SHA, branch advancement binding, npm/Vitest and pnpm/Jest profiles, workspace/manager/service/script rejection, static config/setup protection. |
-| Frameworks | Structured Vitest/Jest reports and exact command selection; parse/compile/import/startup/timeouts; no-test and duplicate identities; stale/oversized/symlink reports. Real installed Vitest fixtures execute target and background failure/pass cases. |
-| Reproduction and capabilities | Existing issue-grounded target, generated target, no target despite unrelated failures, flaky reproduction, malformed regression, same-path revision, frozen writer, passing generated target, attempted tool escape. |
-| Repair orchestration | Clean existing target, generated review, multiple stable background failures, new regressions, unsupported multi-file scope, one correction, target-only pass/full-suite fail, candidate mutation during tests. |
-| Git and proof | Local Git repositories exercise exact byte/provenance capture and index/configuration tampering; v3 consistency and v2 compatibility; immutable/in-flight writer protection; bounded artifacts and exact hashes. |
-| Web and transport | Canonical issue/branch selection, forged authority rejection, fresh SHA resolution, stdin escaping and bounds, live states, server-rendered UI and hook behavior, null-outcome publication blocking. |
-| Publication | Local bare Git plus mocked GitHub exercise exact parent/tree/bytes, maintenance/default branch policy, fork creation/renaming/readiness, wrong identity/relation, branch advancement/deletion, deterministic conflicts, closed PR recovery, uncertain responses, canonical route validation, repeated clicks, persistence failure, proof mutation, and timestamp binding. |
+| Coverage                      | Evidence                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Policy and background         | Pure tests for all outcomes/trust combinations, existing/generated targets, unchanged/new/resolved failures, missing identities, and previously passed/failed cases becoming skipped.                                                                                                                                                                                     |
+| Preparation and checkout      | Exact default/release SHA, branch advancement binding, npm/Vitest and pnpm/Jest profiles, workspace/manager/service/script rejection, static config/setup protection.                                                                                                                                                                                                     |
+| Frameworks                    | Structured Vitest/Jest reports and exact command selection; parse/compile/import/startup/timeouts; no-test and duplicate identities; stale/oversized/symlink reports. Real installed Vitest fixtures execute target and background failure/pass cases.                                                                                                                    |
+| Reproduction and capabilities | Existing issue-grounded target, generated target, no target despite unrelated failures, flaky reproduction, malformed regression, same-path revision, frozen writer, passing generated target, attempted tool escape.                                                                                                                                                     |
+| Repair orchestration          | Clean existing target, generated review, multiple stable background failures, new regressions, unsupported multi-file scope, one correction, target-only pass/full-suite fail, candidate mutation during tests.                                                                                                                                                           |
+| Git and proof                 | Local Git repositories exercise exact byte/provenance capture and index/configuration tampering; v3 consistency and v2 compatibility; immutable/in-flight writer protection; bounded artifacts and exact hashes.                                                                                                                                                          |
+| Web and transport             | Canonical issue/branch selection, forged authority rejection, fresh SHA resolution, stdin escaping and bounds, live states, server-rendered UI and hook behavior, null-outcome publication blocking.                                                                                                                                                                      |
+| Publication                   | Local bare Git plus mocked GitHub exercise exact parent/tree/bytes, maintenance/default branch policy, fork creation/renaming/readiness, wrong identity/relation, branch advancement/deletion, deterministic conflicts, closed PR recovery, uncertain responses, canonical route validation, repeated clicks, persistence failure, proof mutation, and timestamp binding. |
 
 Automated tests do not depend on live external repositories. Mocked Jest normalization/commands are not a live installation run of every supported Jest version. Server-rendered UI/hook tests and HTTP smoke are distinct from visual browser inspection.
 
 ## Final gates, smoke, and commits (items 2, 42)
 
-The following records must be filled from the final validation run, after implementation changes settle:
+Validation recorded on October 19, 2026 (Asia/Katmandu):
 
 | Required command | Final result |
 | --- | --- |
-| Root `pnpm.cmd typecheck` | **PENDING FINAL RECORD** |
-| Root `pnpm.cmd test` | **PENDING FINAL RECORD — test/file counts** |
-| Web `node --test tests/*.test.mjs` | **PENDING FINAL RECORD — test count** |
-| Web `pnpm.cmd exec tsc --noEmit` | **PENDING FINAL RECORD** |
-| Web `pnpm.cmd lint` | **PENDING FINAL RECORD** |
-| Web `pnpm.cmd build` | **PENDING FINAL RECORD** |
-| Production HTTP smoke | **PENDING FINAL RECORD — server command, scenarios, result** |
-| Controlled actual mission smoke | **PENDING FINAL RECORD — repository/branch/SHA/outcome or precise limitation** |
-| Controlled live fork publication | **PENDING FINAL RECORD — do not imply success from mocked tests** |
-| Visual browser inspection | Not performed in the available environment; no browser surface was available. |
+| Root `pnpm.cmd typecheck` | Passed. |
+| Root `pnpm.cmd test` | 293 passed, 1 skipped, across 23 files. The executable-mode test is skipped on Windows and requires POSIX. |
+| Web `node --test tests/*.test.mjs` | 150 passed; no skipped tests. |
+| Web `pnpm.cmd exec tsc --noEmit` | Passed. |
+| Web `pnpm.cmd lint` | Passed. |
+| Web `pnpm.cmd build` | Passed. The restricted-network attempt could not fetch the existing Geist fonts; the network-enabled build succeeded. |
+| Production HTTP smoke | Passed landing and existing-clean, generated-background, and not-reproduced mission pages using `node scripts/smoke-third-party-ui.mjs http://127.0.0.1:4317`. Local fixtures were removed by the helper. |
+| Controlled actual mission smoke | Public issue preview and branch endpoints resolved `prahans/patchverdict-divide-by-zero#1`, default branch `main`. Production POST accepted the mission with HTTP 202; the exact SHA was `f2b1a27dbea7dec90dbb7d8c8ba04e00af536a98`. It recorded `PREPARATION_FAILED`, null verdict, and a readable HTTP 200 proof page. See runtime limitation below. |
+| Controlled live fork publication | Not performed. The smoke server explicitly blanked the publication token; no fork or PR was created. Local Git and mocked GitHub publication tests passed. |
+| Visual browser inspection | Not performed; no browser surface was available. |
 
-The HTTP helper creates clearly labeled local fixtures and cleans up its own artifacts. It does not run an AI mission or create a PR. Real controlled missions and controlled fork publication require their own results. Instructions for an external issue must wait until the requested controlled smoke sequence is completed; no external issue or automatic external PR is authorized by this report.
+The production server ran with `node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 4317` and was stopped after the smoke. Its public reads used GitHub, and the controlled mission used E2B. The synthetic HTTP helper did not invoke AI or publish anything.
 
-**Commit record:** `e16d853` — `Fail verification when background tests stop executing`. **PENDING FINAL RECORD:** final milestone commit SHA(s) and any session checkpoint commits since base `e8e2775`. Do not amend session checkpoints, merge, or push.
+Controlled mission `web-5c9f9b45-26b0-4ea5-8494-2602d1df26da` preserved its v3 proof under ignored runtime `output/`. Installation failed correctly with `EBADENGINE`: locked `vite@7.3.7` needs Node `^20.19.0 || >=22.12.0`, while the current E2B template supplies Node `v20.9.0` with npm `10.1.0`. No target, repair, or positive verdict was fabricated. This validates canonical launch, exact-base preparation, safe failure, proof finalization, and readable failure UI; it does **not** validate a successful live AI repair.
+
+The smoke also exposed two strict preparation messages omitted by the live-event allowlist. Both fixed messages are now accepted and covered by parser tests; arbitrary backend text remains excluded or sanitized.
+
+Before an external issue trial, use an E2B runtime compatible with the controlled repository's lockfile, rerun the controlled issue, and inspect the target/provenance/background proof. Exercise the release-branch, generated, absent-target, and background scenarios (automated fixtures already cover them). Then a human must explicitly publish an eligible proof against a controlled repository from a separate authenticated fork owner and verify repeated-action recovery. A strict publisher cannot fork its own upstream into the same account. The requested single external-issue instructions remain deferred until that controlled publication check succeeds; no external issue was run or PR created during this task.
+
+Commit record on `feat/third-party-js-ts-flow`:
+
+- `e16d853` ? `Fail verification when background tests stop executing`.
+- `60867bb` ? `Reject missing prerequisites as target reproduction`.
+- Session checkpoints preserved without amendment: `5f54607`, `73edffa`, `413a0b6`, `3d470a1`, `6e88a0d`, `cb832ed`, `aae10f2`, `7a726e8` (all titled `update`). These contain the staged implementation since base `e8e2775`.
+- Final documentation/live-progress commit: `Record third-party validation and preparation progress`; obtain its hash with `git log -1` after finalization.
+
+No merge or push was performed. The full changed-file inventory is available with `git diff --name-only e8e2775..HEAD`; the area map above groups those files for review.
 
 ## Remaining limits and merge considerations (items 43–44)
 

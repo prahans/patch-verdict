@@ -94,6 +94,8 @@ GitHub publication has a shared two-minute request deadline, per-request timeout
 
 E2B_API_KEY and OPENROUTER_API_KEY are needed to run actual missions. PATCHVERDICT_GITHUB_TOKEN is needed only for publication and stays server-side. Token ownership, cross-owner repository access, fork creation, Contents write, and Pull requests write must be permitted by GitHub. No OAuth or GitHub App is added. Git must be installed on the web server.
 
+The sandbox Node runtime must satisfy the locked dependencies. The October 19, 2026 controlled smoke encountered Node 20.9.0 in the current E2B template while its locked Vite required Node 20.19+ or 22.12+. It correctly stopped with PREPARATION_FAILED. A successful remote repair and human-controlled fork publication still need validation on a compatible template; see the [implementation report](THIRD_PARTY_JS_TS_IMPLEMENTATION.md).
+
 Issue-to-test semantic matching still uses a model proposal grounded in observed evidence; this milestone does not prove natural-language intent mathematically. Generated oracle validity always needs human review. Stable observed tests do not establish correctness for untested behavior or other branches/environments.
 
 ## Validation and controlled smoke
