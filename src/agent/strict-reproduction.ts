@@ -481,7 +481,22 @@ export async function generateRegressionReproduction(
       });
       continue;
     }
+    let attemptedWriteThisTurn = false;
     for (const call of message.toolCalls) {
+      // Reply to EVERY tool-call ID, even when a pending second write is
+      // blocked. OpenRouter requires each assistant tool call to have a
+      // matching tool result before the next model turn.
+      if (attemptedWriteThisTurn) {
+        messages.push({
+          role: "tool",
+          toolCallId: call.id,
+          content: JSON.stringify({
+            ok: false,
+            error: "Only one regression write may be attempted per model turn. Review the previous write feedback before trying again.",
+          }),
+        });
+        continue;
+      }
       if (++toolCalls > MAX_TOOL_CALLS)
         return finish({
           discoveryFailed: true,
@@ -516,6 +531,7 @@ export async function generateRegressionReproduction(
               "Read repository evidence first; provide an exact issue quote, assertion quote, rationale, and literal intended test name.",
           };
         else {
+          attemptedWriteThisTurn = true;
           result = await writer.write(sandbox, value);
           if (result.ok) {
             generatedPath = proposal.testPath;
@@ -589,8 +605,8 @@ export async function generateRegressionReproduction(
                   lastBlocker,
               });
             // A correction must see the first attempt's execution feedback.
-            // Do not execute an additional write queued in the same response.
-            break;
+            // Queued calls receive an explicit blocked result above.
+            continue;
           }
         }
       } else
