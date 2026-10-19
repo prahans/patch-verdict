@@ -539,10 +539,18 @@ describe("separate regression agent", () => {
       errorKind: "TEST_COMPILE_ERROR",
       discovered: [],
       failed: [],
+      evidence: {
+        ...run(generated).evidence,
+        stderr:
+          "src/__tests__/regression.test.ts:12:5 - error TS2339: Property 'missing' does not exist on type 'Vcon'.",
+      },
     });
     const result = await generateRegressionReproduction(sandbox, input);
     expect(result.frozen).toBeUndefined();
     expect(result.reason).toMatch(/two attempts/);
+    expect(result.reason).toContain("TEST_COMPILE_ERROR");
+    expect(result.reason).toContain("TS2339");
+    expect(result.reason).toContain("Property 'missing'");
     expect(mocks.write).toHaveBeenCalledTimes(2);
   });
 
