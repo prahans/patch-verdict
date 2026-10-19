@@ -11,6 +11,7 @@ import {
 } from "../verification/background.js";
 import { determineThirdPartyVerdict } from "../proof/third-party-verdict.js";
 import { discoverReproduction } from "../agent/strict-reproduction.js";
+import type { ReviewedRegressionInput } from "../agent/strict-reproduction.js";
 import { investigateIssue } from "../agent/investigate.js";
 import { patchIssue } from "../agent/patch.js";
 import { createInvestigationBaselineContext } from "../agent/investigation-context.js";
@@ -29,6 +30,7 @@ export type ThirdPartyMissionInput = {
   issue: string;
   prepared: PreparedRepository;
   targetBranch: string;
+  reviewedRegression?: ReviewedRegressionInput;
 };
 
 /** Strict orchestration never uses whole-suite exit status as issue reproduction. */
@@ -108,6 +110,7 @@ export async function runThirdPartyMission(
         baseline,
         targetBranch: input.targetBranch,
         baseCommit,
+        reviewedRegression: input.reviewedRegression,
       },
       (message) => record("REPRODUCING", message),
     );
