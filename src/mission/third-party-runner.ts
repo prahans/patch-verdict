@@ -259,7 +259,7 @@ export async function runThirdPartyMission(
           ? [discovery.generatedPath]
           : [];
       const provenanceValid =
-        frozen.origin === "GENERATED_REGRESSION"
+        (frozen.origin === "GENERATED_REGRESSION" || frozen.origin === "REVIEWED_REGRESSION")
           ? trusted.length === 1 && trusted[0] === frozen.testPath
           : trusted.length === 0;
       result.patch = {
