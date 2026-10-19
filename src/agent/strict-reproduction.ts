@@ -40,6 +40,8 @@ export type ReproductionDiscoveryResult = {
   frozen?: FrozenReproduction;
   generatedPath?: string;
   unstable?: boolean;
+  /** Agent/tool construction failure is not evidence that the target is absent. */
+  discoveryFailed?: boolean;
   reason: string;
 };
 type Proposal = TestIdentity & {
@@ -204,9 +206,16 @@ async function modelMessage(
       parameters: Record<string, unknown>;
     };
   }>,
+  toolChoice: "auto" | "required" = "auto",
 ) {
   const response = await openRouter.chat.send({
-    chatRequest: { model: AGENT_MODEL, messages, tools, stream: false },
+    chatRequest: {
+      model: AGENT_MODEL,
+      messages,
+      tools,
+      toolChoice,
+      stream: false,
+    },
   });
   if (!("choices" in response) || !response.choices[0]?.message)
     throw new Error("Reproduction agent returned no structured response.");
@@ -427,15 +436,17 @@ export async function generateRegressionReproduction(
   ];
   let toolCalls = 0;
   let generatedPath: string | undefined;
+  let passingGeneratedCandidates = 0;
   const finish = (result: ReproductionDiscoveryResult) => ({
     ...result,
     ...(generatedPath ? { generatedPath } : {}),
   });
   for (let iteration = 0; iteration < MAX_REGRESSION_ITERATIONS; iteration++) {
-    const message = await modelMessage(messages, [
-      ...readDefinitions,
-      regressionDefinition,
-    ]);
+    const message = await modelMessage(
+      messages,
+      [...readDefinitions, regressionDefinition],
+      generatedPath === undefined ? "required" : "auto",
+    );
     messages.push(message);
     if (!message.toolCalls?.length) {
       const conclusion = groundedNoReproduction(
@@ -443,11 +454,11 @@ export async function generateRegressionReproduction(
         input.issue,
         inspected,
       );
-      if (conclusion) {
+      if (conclusion && generatedPath !== undefined && passingGeneratedCandidates > 0) {
         writer.freeze();
         return finish({
           reason:
-            "Repository evidence indicates the reported behavior is already satisfied on the selected base: " +
+            "Repository evidence plus an executed passing candidate indicate the reported behavior was not reproduced on the selected base: " +
             conclusion.reason,
         });
       }
@@ -464,7 +475,9 @@ export async function generateRegressionReproduction(
     for (const call of message.toolCalls) {
       if (++toolCalls > MAX_TOOL_CALLS)
         return finish({
-          reason: "Regression discovery reached its bounded tool budget.",
+          discoveryFailed: true,
+          reason:
+            "Regression discovery reached its bounded tool budget before establishing a trustworthy target.",
         });
       const value = parse(call.function.arguments);
       let result: StrictToolResult;
@@ -517,6 +530,7 @@ export async function generateRegressionReproduction(
             // feeding the actual result back to the model. Generated
             // reproductions remain REVIEW_REQUIRED even when later accepted.
             if (verified.run?.execution === "COMPLETED") {
+              passingGeneratedCandidates++;
               if (writer.attempts >= 2) {
                 writer.freeze();
                 return finish({
@@ -558,8 +572,9 @@ export async function generateRegressionReproduction(
             });
             if (writer.attempts >= 2)
               return finish({
+                discoveryFailed: true,
                 reason:
-                  "The generated regression did not establish the target within two attempts.",
+                  "The generated regression could not be constructed as a valid target within two attempts.",
               });
             continue;
           }
@@ -579,8 +594,11 @@ export async function generateRegressionReproduction(
   }
   writer.freeze();
   return finish({
+    discoveryFailed: true,
     reason:
-      "The reported behavior could not be reliably reproduced on the selected target branch and commit.",
+      generatedPath === undefined
+        ? "RegressionAgent did not construct an executable issue-specific regression within its bounded iterations. This is not evidence that the target bug is absent."
+        : "RegressionAgent did not establish a trustworthy target within its bounded iterations. This is not evidence that the target bug is absent.",
   });
 }
 
