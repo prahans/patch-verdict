@@ -9,6 +9,7 @@
     "agent:demo": "tsx src/agent-demo.ts",
     "repo:demo": "tsx src/repository-demo.ts",
     "real:demo": "tsx src/real-mission-demo.ts",
+    "provider:check": "tsx src/ai/provider-check.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run src"
   },
