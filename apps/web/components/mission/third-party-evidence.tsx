@@ -28,6 +28,7 @@ export function MissionOutcomeNotice({ mission, details }: { mission: MissionRes
 
 export function ThirdPartyProofChain({ mission }: { mission: MissionResult }) {
   const target = mission.frozenReproduction;
+  const originNeedsReview = target?.origin === "GENERATED_REGRESSION" || target?.origin === "REVIEWED_REGRESSION";
   const repair = mission.repair;
   const suite = mission.suiteComparison;
   const verdictClass = mission.verdict === "VERIFIED" ? "is-verified" : mission.verdict === "REVIEW_REQUIRED" ? "is-review" : mission.verdict === "FAILED" ? "is-failed" : "is-unavailable";
@@ -37,7 +38,7 @@ export function ThirdPartyProofChain({ mission }: { mission: MissionResult }) {
     { label: "Production repair scope", value: repair ? `${repair.productionChangedFiles.length} production file(s)` : "No completed repair", state: repair ? repair.scopeValid ? "passed" : "failed" : "unavailable" },
     { label: "Same target after repair", value: mission.checks?.reproductionPassesAfterPatch === true ? "Target passes" : mission.targetAfter ? "Target did not pass" : "Not evaluated", state: mission.checks?.reproductionPassesAfterPatch === true ? "passed" : mission.targetAfter ? "failed" : "unavailable" },
     { label: "Non-target background", value: suite?.state.replaceAll("_", " ") ?? "Not compared", state: !suite ? "unavailable" : suite.state === "CLEAN" ? "passed" : ["REGRESSED", "UNKNOWN", "UNSTABLE"].includes(suite.state) ? "failed" : "review" },
-    { label: "Reproduction trust", value: target?.origin === "GENERATED_REGRESSION" ? "AI-generated oracle: human review required" : target ? "Repository-authored test" : "Unavailable", state: target?.origin === "GENERATED_REGRESSION" ? "review" : target ? "passed" : "unavailable" },
+    { label: "Reproduction trust", value: target?.origin === "GENERATED_REGRESSION" ? "AI-generated oracle: review required" : target?.origin === "REVIEWED_REGRESSION" ? "Supplied regression: review required" : target ? "Repository-authored test" : "Unavailable", state: originNeedsReview ? "review" : target ? "passed" : "unavailable" },
   ];
   return <section className="panel proof-panel" aria-labelledby="proof-title">
     <div className="panel-header"><div className="panel-heading"><Icon name="shield" /><h2 id="proof-title">Proof Chain</h2></div><span className="layer-label">TARGET / BACKGROUND</span></div>
@@ -46,7 +47,7 @@ export function ThirdPartyProofChain({ mission }: { mission: MissionResult }) {
       <div className="proof-content"><span className="proof-label">{check.label}</span><span className="proof-detail">{check.value}</span></div><span className="proof-index">0{index + 1}</span>
     </li>)}</ol>
       <div className={`verdict-result ${verdictClass}`}><div className="verdict-heading"><Icon name={mission.verdict === "VERIFIED" ? "shield" : mission.verdict === "REVIEW_REQUIRED" ? "warning" : mission.verdict === "FAILED" ? "x" : "minus"} width="40" height="40" /><div className="verdict-title"><span className="eyebrow">VERDICT</span><strong>{mission.verdict ?? "NOT ISSUED"}</strong></div></div></div>
-      {mission.verdict === "REVIEW_REQUIRED" && <p className="proof-note">Human review is required before approving this patch.{target?.origin === "GENERATED_REGRESSION" ? " A frozen generated test preserves its bytes; its expected behavior still needs review." : " Stable pre-existing background failures remain part of this repository's evidence."}</p>}
+      {mission.verdict === "REVIEW_REQUIRED" && <p className="proof-note">Human review is required before approving this patch.{originNeedsReview ? " A supplied or generated regression is frozen but its expected behavior still requires review." : " Stable pre-existing background failures remain part of this repository's evidence."}</p>}
       <p className="proof-note">AI proposes. Tools execute. Tests verify. Humans approve.</p>
     </div>
   </section>;
@@ -64,14 +65,14 @@ export function ThirdPartyEvidence({ mission }: { mission: MissionResult }) {
     <div className="proof-body">
       <p className="eyebrow amber">REPRODUCTION</p>
       <dl className="mission-facts">
-        <div><dt>Source</dt><dd>{target?.origin === "GENERATED_REGRESSION" ? "AI-generated regression" : target ? "Repository-authored test" : "Not established"}</dd></div>
+        <div><dt>Source</dt><dd>{target?.origin === "GENERATED_REGRESSION" ? "AI-generated regression" : target?.origin === "REVIEWED_REGRESSION" ? "Human-supplied regression" : target ? "Repository-authored test" : "Not established"}</dd></div>
         <div><dt>Framework</dt><dd>{target?.framework === "vitest" ? "Vitest" : target?.framework === "jest" ? "Jest" : "Unavailable"}</dd></div>
         <div><dt>Baseline</dt><dd>{target?.stable ? "TARGET FAILURE REPRODUCED" : "No stable target"}</dd></div>
         <div><dt>Frozen integrity</dt><dd>{mission.repair ? mission.repair.frozenIntegrity ? "Unchanged" : "COMPROMISED" : target ? "Frozen before repair" : "Unavailable"}</dd></div>
       </dl>
       {target && <><p><strong>Test</strong> <code>{target.testPath}</code></p><p><strong>Identity</strong> {target.testIdentity}</p><p><strong>Frozen SHA-256</strong> <code className="base-commit">{target.frozenSha256}</code></p></>}
       {target?.provenance && <details><summary>Issue grounding</summary><p><strong>Issue quote</strong>: {target.provenance.issueQuote}</p><p><strong>Assertion quote</strong>: <code>{target.provenance.assertionQuote}</code></p><p>{target.provenance.reason}</p></details>}
-      {target?.origin === "GENERATED_REGRESSION" && <p className="verdict-explanation">Trust policy: Human review required. Freezing prevents later changes; it does not establish that AI chose the correct expected behavior.</p>}
+      {(target?.origin === "GENERATED_REGRESSION" || target?.origin === "REVIEWED_REGRESSION") && <p className="verdict-explanation">Trust policy: Human review required. Freezing prevents later changes; it does not establish that the selected expected behavior is correct.</p>}
       <p className="eyebrow amber">REPAIR</p>
       <p>Production file: {mission.repair?.productionChangedFiles.length ? mission.repair.productionChangedFiles.join(", ") : "No completed repair"}</p>
       {mission.repair?.trustedRegressionChangedFiles.length ? <p>Trusted regression changes: {mission.repair.trustedRegressionChangedFiles.join(", ")}</p> : null}
