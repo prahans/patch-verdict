@@ -8,6 +8,7 @@ import {
   type LiveProofState,
 } from "@/lib/live-proof-chain";
 import { MissionHeader } from "./mission-header";
+import { GitHubIssueBody } from "./github-issue-body";
 import { FlightRecorder } from "./flight-recorder";
 import { Icon } from "./icon";
 import { parsePersistedGitHubIssue } from "@/lib/github-issue-url";
@@ -198,32 +199,52 @@ export function LiveMission({
                 ? "PROOF BUNDLE RECORDED"
                 : "MISSION IN PROGRESS")}
           </h1>
-          <p className={`live-summary-copy${status.githubIssue ? " issue-description" : ""}`}>
-            {status.githubIssue ? (status.githubIssue.body ?? status.issue.split(/\r?\n/).slice(1).join("\n").trim()) : failed
-              ? "The backend stopped before it could record a usable proof bundle."
-              : status.proofReady
-                ? "Opening the saved proof dashboard…"
-                : "PatchVerdict is building the evidence chain."}
-          </p>
-          <dl className="live-mission-facts">
-            <div>
-              <dt>Repository</dt>
-              <dd className="live-repository">
+          {status.githubIssue ? (
+            <GitHubIssueBody
+              body={status.githubIssue.body ?? status.issue.split(/\r?\n/).slice(1).join("\n").trim()}
+            />
+          ) : (
+            <p className="live-summary-copy">
+              {failed
+                ? "The backend stopped before it could record a usable proof bundle."
+                : status.proofReady
+                  ? "Opening the saved proof dashboard…"
+                  : "PatchVerdict is building the evidence chain."}
+            </p>
+          )}
+          {status.githubIssue ? (
+            <div className="mission-origin-list" aria-label="Mission source">
+              <div className="mission-origin-item">
                 <Icon name="branch" width="14" height="14" />
-                {status.githubIssue ? (
-                  <a href={status.repositoryUrl} target="_blank" rel="noopener noreferrer">{status.repositoryUrl} ↗</a>
-                ) : <span>{status.repositoryUrl}</span>}
-              </dd>
+                <span className="repository-label">Repository</span>
+                <a href={status.repositoryUrl} target="_blank" rel="noopener noreferrer">
+                  {status.repositoryUrl}<span className="external-link-mark" aria-hidden="true"> ↗</span>
+                </a>
+              </div>
+              <div className="mission-origin-item">
+                <Icon name="file" width="14" height="14" />
+                <span className="repository-label">Issue</span>
+                <a href={status.githubIssue.url} target="_blank" rel="noopener noreferrer">
+                  #{status.githubIssue.number} · View original issue
+                  <span className="external-link-mark" aria-hidden="true"> ↗</span>
+                </a>
+              </div>
             </div>
-            <div>
-              <dt>{status.githubIssue ? "Issue" : "Reported issue"}</dt>
-              <dd className="live-reported-issue">
-                {status.githubIssue ? (
-                  <a href={status.githubIssue.url} target="_blank" rel="noopener noreferrer">#{status.githubIssue.number} · View original issue ↗</a>
-                ) : status.issue}
-              </dd>
-            </div>
-          </dl>
+          ) : (
+            <dl className="live-mission-facts">
+              <div>
+                <dt>Repository</dt>
+                <dd className="live-repository">
+                  <Icon name="branch" width="14" height="14" />
+                  <span>{status.repositoryUrl}</span>
+                </dd>
+              </div>
+              <div>
+                <dt>Reported issue</dt>
+                <dd className="live-reported-issue">{status.issue}</dd>
+              </div>
+            </dl>
+          )}
           <div
             className={`live-phase ${failed ? "is-failed" : "amber"}`}
             role="status"
