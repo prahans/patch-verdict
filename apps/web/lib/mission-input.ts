@@ -35,22 +35,15 @@ function reviewedRegressionInput(value: unknown): ReviewedRegression {
   };
   if (Object.keys(values).some(key => !(key in limits)))
     throw new MissionInputError("Reviewed regression contains unsupported fields.");
-  const result = {} as Record<string, string>;
-  for (const [key, limit] of Object.entries(limits)) {
+  const result = {} as ReviewedRegression;
+  for (const key of Object.keys(limits) as (keyof ReviewedRegression)[]) {
     const val = values[key];
+    const limit = limits[key];
     if (typeof val !== "string" || !val.trim() || val.length > limit || val.includes("\0"))
       throw new MissionInputError("Reviewed regression " + key + " must be nonempty bounded text.");
     result[key] = val;
   }
-  const r: ReviewedRegression = {
-    path: result.path,
-    content: result.content,
-    testIdentity: result.testIdentity,
-    issueQuote: result.issueQuote,
-    assertionQuote: result.assertionQuote,
-    reason: result.reason,
-    sourcePath: result.sourcePath,
-  };
+  const r = result;
   const safePath = (s: string) =>
     s.length > 0 && s.length <= 500 &&
     !/[\\\x00-\x1f\x7f:]/.test(s) &&
