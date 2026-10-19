@@ -22,6 +22,7 @@ import {
 } from "../tools/strict-policy.js";
 import { investigationToolDefinitions } from "./tool-definitions.js";
 import { messageContentToText } from "./message-content.js";
+import { exactIssueQuoteOptions } from "./exact-issue-quotes.js";
 import { describeOpenRouterFailure } from "../ai/provider-errors.js";
 
 type Adapter = Pick<
@@ -505,6 +506,29 @@ export async function generateRegressionReproduction(
 ): Promise<ReproductionDiscoveryResult> {
   const writer = createRegressionWriter(input.projectRoot);
   const inspected = new Map<string, string>();
+  // Give the model bounded, literal quote choices. Validation still checks
+  // the selected text against the entire authoritative issue verbatim.
+  const quoteOptions = exactIssueQuoteOptions(input.issue);
+  const regressionWriteTool = quoteOptions.length
+    ? {
+        ...regressionDefinition,
+        function: {
+          ...regressionDefinition.function,
+          parameters: {
+            ...regressionDefinition.function.parameters,
+            properties: {
+              ...regressionDefinition.function.parameters.properties,
+              issueQuote: {
+                ...regressionDefinition.function.parameters.properties.issueQuote,
+                enum: quoteOptions,
+                description:
+                  "Select a verbatim issue excerpt from this exact enum, including markdown punctuation. Never paraphrase.",
+              },
+            },
+          },
+        },
+      }
+    : regressionDefinition;
   const messages: ChatMessages[] = [
     {
       role: "system",
@@ -537,7 +561,7 @@ export async function generateRegressionReproduction(
     const availableTools =
       inspected.size === 0
         ? readDefinitions
-        : [...readDefinitions, regressionDefinition];
+        : [...readDefinitions, regressionWriteTool];
     const message = await modelMessage(
       messages,
       availableTools,
@@ -622,7 +646,11 @@ export async function generateRegressionReproduction(
             error: !inspected.size
               ? "Read at least one real repository source or existing test file before proposing a regression."
               : !validation.ok
-                ? validation.error
+                ? validation.error +
+                  (validation.error.startsWith("issueQuote") && quoteOptions.length
+                    ? " Copy one of these exact issue excerpts: " +
+                      JSON.stringify(quoteOptions.slice(0, 6))
+                    : "")
                 : "testIdentity must occur literally in the proposed test content and name the intended runnable test.",
           };
         else {
