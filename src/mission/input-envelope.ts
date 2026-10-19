@@ -12,6 +12,17 @@ const githubIssueSchema = z
     body: z.string().max(12_000).optional(),
   })
   .strict();
+const reviewedRegressionSchema = z
+  .object({
+    path: z.string().min(1).max(500),
+    content: z.string().min(1).max(32_768),
+    testIdentity: z.string().min(1).max(2000),
+    issueQuote: z.string().min(8).max(1000),
+    assertionQuote: z.string().min(8).max(1000),
+    reason: z.string().min(20).max(2000),
+    sourcePath: z.string().min(1).max(500),
+  })
+  .strict();
 const envelopeSchema = z
   .object({
     version: z.literal(1),
@@ -19,6 +30,7 @@ const envelopeSchema = z
     repositoryUrl: z.string().max(2048),
     issue: z.string().min(1).max(16_000),
     githubIssue: githubIssueSchema.optional(),
+    reviewedRegression: reviewedRegressionSchema.optional(),
     targetBranch: z.string().min(1).max(1024).optional(),
     defaultBranch: z.string().min(1).max(1024).optional(),
     baseCommit: z
@@ -65,6 +77,8 @@ export function parseMissionEnvelope(text: string): MissionEnvelope {
     )
       throw new Error("Mission issue does not match its canonical source.");
   }
+  if (input.reviewedRegression && input.mode !== "THIRD_PARTY_JS_TS")
+    throw new Error("Reviewed regressions are supported only for strict GitHub issue missions.");
   if (input.mode === "THIRD_PARTY_JS_TS") {
     if (
       !input.githubIssue ||
