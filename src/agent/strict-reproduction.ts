@@ -71,7 +71,7 @@ const regressionDefinition = {
   function: {
     name: "write_regression_test",
     description:
-      "Write one NEW regression file and execute its exact intended target. At most two writes, same file only. Successful stable reproduction freezes the file. Invalid imports/parsing/startup are not reproduction.",
+      "Write one NEW regression file and execute its exact intended target. At most two writes, same file only. Copy issueQuote verbatim from issue and assertionQuote verbatim from content (exact contiguous substrings, 8-1000 chars each). testIdentity must literally occur in content and equal the runnable test full name. reason must be 20-2000 chars. Successful stable reproduction freezes the file. Invalid imports/parsing/startup are not reproduction.",
     parameters: {
       type: "object",
       properties: {
@@ -149,42 +149,70 @@ function groundedNoReproduction(
   return input as NoReproductionConclusion;
 }
 
-function groundedProposal(
+type ProposalValidation =
+  | { ok: true; proposal: Proposal }
+  | { ok: false; error: string };
+
+/** Exact, deterministic grounding checks. Rejections are feedback, not evidence. */
+function validateGroundedProposal(
   value: unknown,
   issue: string,
   inspected: Map<string, string>,
   identities?: TestIdentity[],
-): Proposal | undefined {
+): ProposalValidation {
   const input = object(value);
+  if (!input)
+    return { ok: false, error: "Regression proposal must be a JSON object." };
+  if (!safeRepositoryPath(input.testPath))
+    return {
+      ok: false,
+      error: "testPath must be a safe repository-relative file path.",
+    };
   if (
-    !input ||
-    !safeRepositoryPath(input.testPath) ||
     typeof input.testIdentity !== "string" ||
     !input.testIdentity.trim() ||
     input.testIdentity.length > 2000 ||
     /[\x00-\x1f]/.test(input.testIdentity)
   )
-    return;
+    return {
+      ok: false,
+      error: "testIdentity must be a nonempty literal test name without control characters.",
+    };
   if (
     typeof input.issueQuote !== "string" ||
     input.issueQuote.trim().length < 8 ||
     input.issueQuote.length > 1000 ||
     !issue.includes(input.issueQuote)
   )
-    return;
+    return {
+      ok: false,
+      error: "issueQuote must be an exact, contiguous 8-1000 character substring of the reported issue. Copy it verbatim, including case and punctuation.",
+    };
+  const testContent = inspected.get(input.testPath);
+  if (typeof testContent !== "string")
+    return {
+      ok: false,
+      error: "The target test file has not been read or supplied as a generated test candidate.",
+    };
   if (
     typeof input.assertionQuote !== "string" ||
     input.assertionQuote.trim().length < 8 ||
     input.assertionQuote.length > 1000 ||
-    !inspected.get(input.testPath)?.includes(input.assertionQuote)
+    !testContent.includes(input.assertionQuote)
   )
-    return;
+    return {
+      ok: false,
+      error: "assertionQuote must be an exact, contiguous 8-1000 character substring of the proposed test content. Copy a real assertion or application call verbatim.",
+    };
   if (
     typeof input.reason !== "string" ||
     input.reason.trim().length < 20 ||
     input.reason.length > 2000
   )
-    return;
+    return {
+      ok: false,
+      error: "reason must explain the connection to the quoted issue in 20-2000 characters.",
+    };
   const proposal = input as Proposal;
   if (
     identities &&
@@ -192,8 +220,26 @@ function groundedProposal(
       (identity) => identityKey(identity) === identityKey(proposal),
     )
   )
-    return;
-  return proposal;
+    return {
+      ok: false,
+      error: "testIdentity and testPath must exactly match one baseline-observed test.",
+    };
+  return { ok: true, proposal };
+}
+
+function groundedProposal(
+  value: unknown,
+  issue: string,
+  inspected: Map<string, string>,
+  identities?: TestIdentity[],
+): Proposal | undefined {
+  const validation = validateGroundedProposal(
+    value,
+    issue,
+    inspected,
+    identities,
+  );
+  return validation.ok ? validation.proposal : undefined;
 }
 
 async function modelMessage(
@@ -519,7 +565,12 @@ export async function generateRegressionReproduction(
         const proposed = data ? { ...data, testPath: data.path } : undefined;
         const prospective = new Map(inspected);
         if (typeof data?.path === "string") prospective.set(data.path, content);
-        const proposal = groundedProposal(proposed, input.issue, prospective);
+        const validation = validateGroundedProposal(
+          proposed,
+          input.issue,
+          prospective,
+        );
+        const proposal = validation.ok ? validation.proposal : undefined;
         if (
           !proposal ||
           !inspected.size ||
@@ -527,8 +578,11 @@ export async function generateRegressionReproduction(
         )
           result = {
             ok: false,
-            error:
-              "Read repository evidence first; provide an exact issue quote, assertion quote, rationale, and literal intended test name.",
+            error: !inspected.size
+              ? "Read at least one real repository source or existing test file before proposing a regression."
+              : !validation.ok
+                ? validation.error
+                : "testIdentity must occur literally in the proposed test content and name the intended runnable test.",
           };
         else {
           attemptedWriteThisTurn = true;
