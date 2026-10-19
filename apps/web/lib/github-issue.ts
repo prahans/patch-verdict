@@ -92,5 +92,6 @@ export async function resolveMissionInput(
     reproductionCommand: input.reproductionCommand,
     requiredOutput: input.requiredOutput,
     githubIssue,
+    ...(input.reviewedRegression && { reviewedRegression: input.reviewedRegression }),
   };
 }
