@@ -18,3 +18,24 @@ it("rejects oversized or invalid UTF8 stdin", async () => {
 it("keeps manual legacy fields", () => {
   expect(parseMissionEnvelope(JSON.stringify({ version: 1, mode: "LEGACY", repositoryUrl: input.repositoryUrl, issue: "manual", reproductionCommand: "pnpm test" })).mode).toBe("LEGACY");
 });
+
+it("accepts bounded reviewed regression only for canonical strict GitHub issues", () => {
+  const reviewedRegression = {
+    path: "src/__tests__/builder-regression.test.ts",
+    sourcePath: "src/vcon.ts",
+    content: "test('returns party index', () => { expect(1).toBe(0); });",
+    testIdentity: "returns party index",
+    issueQuote: "Unicode: 日本語 $()",
+    assertionQuote: "expect(1).toBe(0)",
+    reason: "A controlled regression for a reported builder method requirement.",
+  };
+  const parsed = parseMissionEnvelope(JSON.stringify({ ...input, reviewedRegression }));
+  expect(parsed.reviewedRegression).toEqual(reviewedRegression);
+  expect(() => parseMissionEnvelope(JSON.stringify({
+    version: 1, mode: "LEGACY",
+    repositoryUrl: input.repositoryUrl, issue: "manual", reviewedRegression,
+  }))).toThrow(/Reviewed regressions/);
+  expect(() => parseMissionEnvelope(JSON.stringify({
+    ...input, reviewedRegression: { ...reviewedRegression, arbitrary: true },
+  }))).toThrow();
+});
