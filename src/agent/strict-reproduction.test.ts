@@ -263,7 +263,7 @@ describe("separate regression agent", () => {
     const result = await generateRegressionReproduction(sandbox, input);
 
     expect(result.frozen).toBeUndefined();
-    expect(result.reason).toMatch(/already satisfied/);
+    expect(result.reason).toMatch(/reported behavior was not reproduced/);
     expect(mocks.write).toHaveBeenCalledOnce();
     expect(mocks.freeze).toHaveBeenCalledOnce();
   });
