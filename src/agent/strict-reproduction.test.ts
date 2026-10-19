@@ -301,6 +301,19 @@ describe("separate regression agent", () => {
     ).toEqual(["list_files", "read_file", "search_code", "write_regression_test"]);
   });
 
+  it("reports the final bounded read blocker without mislabeling the issue as absent", async () => {
+    mocks.send.mockResolvedValue(
+      message(null, [["read_file", { path: "src/nonexistent.ts" }]]),
+    );
+
+    const result = await generateRegressionReproduction(sandbox, input);
+
+    expect(result.discoveryFailed).toBe(true);
+    expect(result.reason).toContain("Last blocker: Unavailable read");
+    expect(result.reason).toContain("not evidence that the target bug is absent");
+    expect(mocks.write).not.toHaveBeenCalled();
+  });
+
   it("keeps read tools available during longer unfamiliar-repository exploration", async () => {
     mocks.send
       .mockResolvedValueOnce(
