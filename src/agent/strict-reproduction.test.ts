@@ -246,6 +246,30 @@ describe("read-only issue-specific discovery", () => {
   });
 });
 
+describe("AI provider failure handling", () => {
+  it("reports status and type without leaking provider request data", async () => {
+    mocks.send.mockRejectedValueOnce({
+      statusCode: 502,
+      message: "Provider returned error; sk-or-SECRET",
+      body: {
+        error: {
+          code: 502,
+          metadata: {
+            error_type: "provider_unavailable",
+            raw: { prompt: "private repository contents" },
+          },
+        },
+      },
+    });
+
+    await expect(generateRegressionReproduction(sandbox, input)).rejects.toThrow(
+      /OpenRouter AI request failed.*HTTP 502.*provider_unavailable/,
+    );
+    expect(mocks.read).not.toHaveBeenCalled();
+    expect(mocks.write).not.toHaveBeenCalled();
+  });
+});
+
 describe("separate regression agent", () => {
   it("requires grounded source evidence before a passing generated candidate can stop reproduction", async () => {
     mocks.send
