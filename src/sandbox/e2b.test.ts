@@ -7,11 +7,16 @@ import {
 } from "./e2b.js";
 
 function fakeSandbox() {
-  const run = vi.fn(async () => ({
-    exitCode: 0,
-    stdout: "ok\n",
-    stderr: "",
-  }));
+  const run = vi.fn(
+    async (
+      _command: string,
+      _options: { cwd: string; timeoutMs: number },
+    ) => ({
+      exitCode: 0,
+      stdout: "ok\n",
+      stderr: "",
+    }),
+  );
 
   return {
     sandbox: {
