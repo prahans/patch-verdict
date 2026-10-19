@@ -199,6 +199,17 @@ export async function collectProtectedPaths(
   const tracked = new Set(trackedPaths);
   const protectedPaths = new Set<string>();
   const pending: string[] = [];
+  const pkg = JSON.parse(packageJson) as Record<string, unknown>;
+  const asRecord = (value: unknown): Record<string, unknown> =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : {};
+  const declaredDependencies = {
+    ...asRecord(pkg.dependencies),
+    ...asRecord(pkg.devDependencies),
+  };
+  const supportsTsJestPreset =
+    typeof declaredDependencies["ts-jest"] === "string";
   const extensionCandidates = [
     "",
     ".ts",
@@ -244,6 +255,16 @@ export async function collectProtectedPaths(
   function inspectConfig(value: unknown) {
     if (!value || typeof value !== "object") return;
     for (const [key, nested] of Object.entries(value)) {
+      if (key === "preset") {
+        // A plain ts-jest preset is common in otherwise single-package Jest
+        // TypeScript repositories. It is installed from the lockfile and lives
+        // in node_modules, which the repair agent cannot edit. Keep arbitrary
+        // presets fail-closed because they may inherit unknown configuration.
+        if (nested === "ts-jest" && supportsTsJestPreset) continue;
+        unsupported(
+          "Only the repository-installed ts-jest preset is supported; arbitrary inherited Jest presets are not supported yet.",
+        );
+      }
       if (
         [
           "root",
@@ -252,7 +273,6 @@ export async function collectProtectedPaths(
           "workspace",
           "workspaces",
           "extends",
-          "preset",
         ].includes(key)
       )
         unsupported(
@@ -273,7 +293,6 @@ export async function collectProtectedPaths(
       } else inspectConfig(nested);
     }
   }
-  const pkg = JSON.parse(packageJson) as Record<string, unknown>;
   if (pkg.jest !== undefined) {
     if (!pkg.jest || typeof pkg.jest !== "object" || Array.isArray(pkg.jest)) unsupported("The package.json Jest configuration must be a declarative object.");
     inspectConfig(pkg.jest);
