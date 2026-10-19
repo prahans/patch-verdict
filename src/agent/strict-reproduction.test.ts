@@ -264,7 +264,7 @@ describe("human-reviewed regression fallback", () => {
 
     const result = await discoverReproduction(sandbox, input);
     expect(result.frozen).toMatchObject({
-      origin: "GENERATED_REGRESSION",
+      origin: "REVIEWED_REGRESSION",
       ...generated,
       stable: true,
     });
