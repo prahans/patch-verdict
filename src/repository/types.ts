@@ -20,12 +20,19 @@ export type RepositoryRequest = {
   ref?: string;
 };
 
+export type ProjectRuntime = {
+  nodeVersion: string;
+  npmVersion: string;
+  source: "PATCHVERDICT_PINNED_NODE_22";
+};
+
 export type ProjectProfile = {
   languageFamily?: "javascript-typescript";
   projectKind?: "single-package";
   targetBranch?: string;
   baseCommit?: string;
   protectedPaths?: string[];
+  runtime?: ProjectRuntime;
   packageManager: PackageManager;
 
   testFramework: TestFramework;
