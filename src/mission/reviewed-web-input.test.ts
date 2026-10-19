@@ -1,10 +1,19 @@
-import { describe, expect, it } from "vitest";
-import {
-  parseMissionInput,
-  parseBackendMissionInput,
-  serializeBackendMissionInput,
-} from "../../apps/web/lib/mission-input.js";
+import { describe, expect, it, vi } from "vitest";
 import { parseMissionEnvelope } from "./input-envelope.js";
+
+// Load the Next.js module through Vitest at runtime. Its own bundler tsconfig
+// checks its source types; the backend's NodeNext tsconfig must not reinterpret
+// those source files as CommonJS via a static cross-package import.
+async function loadWebInput() {
+  return vi.importActual<{
+    parseMissionInput: (value: Record<string, unknown>) => {
+      mode?: string;
+      reviewedRegression?: Record<string, string>;
+    };
+    parseBackendMissionInput: (value: Record<string, unknown>) => Record<string, unknown>;
+    serializeBackendMissionInput: (value: Record<string, unknown>) => string;
+  }>("../../apps/web/lib/mission-input.js");
+}
 
 const title = "addAttachment returns detached copy";
 const body = "The builder should return a stored object and addParty must return an index.";
@@ -27,7 +36,8 @@ const reviewed = {
 };
 
 describe("reviewed issue regression input boundaries", () => {
-  it("round-trips an optional reviewed test from browser fields to strict backend", () => {
+  it("round-trips an optional reviewed test from browser fields to strict backend", async () => {
+    const { parseMissionInput, parseBackendMissionInput, serializeBackendMissionInput } = await loadWebInput();
     const fromForm = parseMissionInput({
       mode: "issue",
       issueUrl: githubIssue.url,
@@ -48,13 +58,14 @@ describe("reviewed issue regression input boundaries", () => {
       baseCommit: "a".repeat(40),
       issue: title + "\n\n" + body,
       githubIssue,
-      reviewedRegression: fromForm.reviewedRegression,
+      ...(fromForm.reviewedRegression && { reviewedRegression: fromForm.reviewedRegression }),
     });
     const result = parseMissionEnvelope(serializeBackendMissionInput(input));
     expect(result.reviewedRegression).toEqual(reviewed);
   });
 
-  it("rejects unreviewed malformed test content or unexpected fields", () => {
+  it("rejects unreviewed malformed test content or unexpected fields", async () => {
+    const { parseMissionInput } = await loadWebInput();
     const form = {
       mode: "issue",
       issueUrl: githubIssue.url,
