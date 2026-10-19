@@ -34,7 +34,7 @@ export function isSafeMissionId(value: string): boolean {
 const knownMessages: Partial<Record<MissionState, readonly string[]>> = {
   PREPARING: ["Preparing repository...", "Repository preflight passed"],
   BASELINE: ["Running reproduction test before patch", "Reported bug reproduced", "Capturing untouched background suite", "Stable pre-existing failures recorded", "Untouched background suite is clean"],
-  REPRODUCING: ["Searching for issue-specific reproduction", "No existing target test found", "Generating bounded regression test", "Correcting generated regression before freeze", "Target reproduced and frozen"],
+  REPRODUCING: ["Searching for issue-specific reproduction", "No existing target test found", "Generating bounded regression test", "Correcting generated regression before freeze", "Target reproduced and frozen", "Validating supplied regression against canonical issue and sandbox source"],
   INVESTIGATING: ["AI investigation started", "AI investigation completed"],
   PATCHING: [
     "AI patch phase started", "Candidate patch applied", "Git diff captured",
