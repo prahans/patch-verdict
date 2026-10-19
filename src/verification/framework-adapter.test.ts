@@ -44,6 +44,23 @@ describe("framework result normalization", () => {
     expect(parseFrameworkReport(JSON.stringify(report([assertion("failed", identity.testIdentity, message)])), evidence(), projectRoot).errorKind).toBe(kind);
   });
   it.each([
+    "Error: connect ECONNREFUSED 127.0.0.1:5432",
+    "Error: getaddrinfo ENOTFOUND database.internal",
+    "Error: DNS lookup failed for required service",
+    "Error: EAI_AGAIN database.internal",
+    "Error: required service postgres is unavailable",
+    "Error: missing required database",
+    "Error: Redis is not running",
+    "Cannot connect to the Docker daemon at unix:///var/run/docker.sock",
+    "Error: Missing required environment variable DATABASE_URL",
+    "Error: environment variable DATABASE_URL must be set",
+    "Error: missing secret DATABASE_PASSWORD",
+    "Error: secret DATABASE_PASSWORD was not provided",
+    "Error: API key is required",
+  ])("does not accept an executed prerequisite failure as target reproduction: %s", (message) => {
+    expect(parseFrameworkReport(JSON.stringify(report([assertion("failed", identity.testIdentity, message)])), evidence(), projectRoot, identity)).toMatchObject({ execution: "ERROR", errorKind: "INFRASTRUCTURE_ERROR", discovered: [], passed: [], failed: [] });
+  });
+  it.each([
     ["SyntaxError: Unexpected token", "TEST_PARSE_ERROR"],
     ["transform failed TS1234", "TEST_COMPILE_ERROR"],
     ["Cannot find module x", "MODULE_RESOLUTION_ERROR"],

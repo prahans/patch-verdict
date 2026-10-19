@@ -26,7 +26,7 @@ function boundedEvidence(evidence: CommandEvidence): CommandEvidence {
   };
 }
 
-function classifyError(text: string): FrameworkErrorKind {
+function classifyError(text: string): FrameworkErrorKind | undefined {
   if (
     /\btimed?\s*out\b|\bTimeoutError\b|\btimeout(?:\s+of|\s*:)|\bETIMEDOUT\b/i.test(
       text,
@@ -61,16 +61,25 @@ function classifyError(text: string): FrameworkErrorKind {
     return "CONFIGURATION_ERROR";
   if (/startup error|failed to start|worker.*exited|worker.*crash/i.test(text))
     return "FRAMEWORK_STARTUP_ERROR";
-  return "INFRASTRUCTURE_ERROR";
+  if (
+    /\b(?:ECONNREFUSED|ENETUNREACH|EHOSTUNREACH|ENOTFOUND|EAI_AGAIN)\b|\bgetaddrinfo\b|\bDNS\s+(?:lookup\s+)?(?:failed|failure|error)\b/i.test(text) ||
+    /\b(?:missing|unavailable)\s+(?:(?:a|the)\s+)?(?:required\s+)?(?:database|service|docker\s+daemon)\b|\b(?:required\s+)?(?:database|service|redis|postgres(?:ql)?|mysql|mongodb|docker\s+daemon)\b[^\r\n]{0,120}\b(?:unavailable|unreachable|not\s+(?:running|available|configured))\b|cannot connect to the Docker daemon/i.test(text) ||
+    /\b(?:missing|unset|undefined|unavailable)\s+(?:(?:a|the)\s+)?(?:required\s+)?(?:environment\s+variables?|env\s+vars?|secrets?|credentials?|api[_ -]?keys?)\b/i.test(text) ||
+    /\b(?:environment\s+variables?|env\s+vars?|secrets?|credentials?|api[_ -]?keys?)\b[^\r\n]{0,120}\b(?:missing|unset|undefined|unavailable|not\s+(?:set|configured|provided|found)|must\s+be\s+(?:set|provided)|required)\b/i.test(text)
+  )
+    return "INFRASTRUCTURE_ERROR";
+  // An unclassified exception inside an executed assertion may be application
+  // behavior. Keep it distinct from a recognized unavailable prerequisite.
+  return undefined;
 }
 
 function errorRun(
   evidence: CommandEvidence,
-  errorKind: FrameworkErrorKind,
+  errorKind: FrameworkErrorKind | undefined,
 ): NormalizedRun {
   return {
     execution: "ERROR",
-    errorKind,
+    errorKind: errorKind ?? "INFRASTRUCTURE_ERROR",
     discovered: [],
     passed: [],
     failed: [],
@@ -200,7 +209,7 @@ export function parseFrameworkReport(
         // test may legitimately expose an application SyntaxError (JSON.parse,
         // for example); do not mistake that behavior for a malformed test.
         if (
-          failureKind !== "INFRASTRUCTURE_ERROR" &&
+          failureKind !== undefined &&
           failureKind !== "TEST_PARSE_ERROR"
         )
           return errorRun(evidence, failureKind);
