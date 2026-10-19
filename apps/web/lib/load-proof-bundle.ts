@@ -723,6 +723,7 @@ export async function loadProofBundle(
   if (proof.version === 3) {
     if (mission.patch?.diff !== undefined && createHash("sha256").update(mission.patch.diff, "utf8").digest("hex") !== mission.patch.sha256) invalid("patch.diff", "the recorded exact patch digest");
     if (mission.frozenReproduction && proof.reproduction.command !== mission.frozenReproduction.command) invalid("mission.reproduction.command", "the frozen target command");
+    if (mission.suiteComparison && proof.fullSuite?.command !== mission.suiteComparison.baseline.evidence.command) invalid("mission.fullSuite.command", "the captured background suite command");
     const pairs = [[mission.evidence?.baselineTest, mission.frozenReproduction?.targetBaselineResult.evidence], [mission.evidence?.postPatchTest, mission.targetAfter?.evidence], [mission.evidence?.fullSuite, mission.suiteComparison?.postPatch.evidence]];
     const positive = mission.verdict === "VERIFIED" || mission.verdict === "REVIEW_REQUIRED";
     for (const [artifact, recorded] of pairs) {

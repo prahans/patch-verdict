@@ -224,6 +224,59 @@ describe("proof bundle publication", () => {
     });
   });
 
+  it("prevents legacy writers from replacing an in-flight strict bundle", async () => {
+    const blocked = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    writes.before = async (filename) => {
+      if (path.basename(filename) === "events.json") {
+        blocked.resolve();
+        await release.promise;
+      }
+    };
+    const run = startBundle({
+      mode: "THIRD_PARTY_JS_TS",
+      repositoryUrl: "https://github.com/owner/repo",
+      baseCommit: "a".repeat(40),
+      targetBranch: "main",
+      defaultBranch: "main",
+    });
+    try {
+      await blocked.promise;
+      await expect(writeProofBundle({ missionId: run.missionId, input, result }))
+        .rejects.toMatchObject({ code: "EEXIST" });
+    } finally {
+      release.resolve();
+      await run.completion;
+    }
+    expect(JSON.parse(await readFile(path.join(run.directory, "proof.json"), "utf8")).version).toBe(3);
+  });
+
+  it("preserves interrupted strict artifacts when a legacy writer reuses the ID", async () => {
+    writes.before = async (filename) => {
+      if (path.basename(filename) === "full-suite.json") throw new Error("Interrupted strict write");
+    };
+    const run = startBundle({
+      mode: "THIRD_PARTY_JS_TS",
+      repositoryUrl: "https://github.com/owner/repo",
+      baseCommit: "a".repeat(40),
+      targetBranch: "main",
+      defaultBranch: "main",
+    });
+    await expect(run.completion).rejects.toThrow("Interrupted strict write");
+    writes.before = undefined;
+    const original = await readFile(path.join(run.directory, "patch.diff"));
+    await expect(writeProofBundle({ missionId: run.missionId, input, result }))
+      .rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(path.join(run.directory, "patch.diff"))).toEqual(original);
+  });
+
+  it("continues to replace finalized version 2 bundles", async () => {
+    const run = startBundle();
+    await run.completion;
+    await writeProofBundle({ missionId: run.missionId, input, result: { ...result, verdict: "FAILED" } });
+    expect(JSON.parse(await readFile(path.join(run.directory, "proof.json"), "utf8")).verdict).toBe("FAILED");
+  });
+
   it("binds exact patch artifact bytes with SHA-256 and preserves optional GitHub issue source", async () => {
     const githubIssue = {
       url: "https://github.com/owner/repo/issues/12",

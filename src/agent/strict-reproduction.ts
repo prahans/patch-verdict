@@ -278,6 +278,11 @@ async function verifyTarget(
       baseCommit: input.baseCommit,
       stable: true,
       targetBaselineResult: first,
+      provenance: {
+        issueQuote: proposal.issueQuote,
+        assertionQuote: proposal.assertionQuote,
+        reason: proposal.reason,
+      },
     },
     ...(generatedPath ? { generatedPath } : {}),
     reason:

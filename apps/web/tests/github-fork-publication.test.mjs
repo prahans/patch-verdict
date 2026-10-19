@@ -93,7 +93,7 @@ beforeEach(async () => {
     bundle: { warnings: [], details: { id: "mission-fork", title: "Division by zero", source: { mode: "THIRD_PARTY_JS_TS", repositoryUrl: `https://github.com/${upstreamName}`, targetBranch: "release/2.x", defaultBranch: "main", baseCommit,
       githubIssue: { owner: "upstream", repository: "project", number: 123, title: "Division by zero" } } },
       mission: { status: "COMPLETED", outcome: "REPAIR_EVALUATED", verdict: "VERIFIED", events: [{ timestamp: "2026-10-01T12:34:56.000Z" }], patch: { changedFiles: [] },
-        frozenReproduction: { origin: "EXISTING_TEST", framework: "vitest", testPath: "src/divide.test.ts", testIdentity: "division by zero", frozenSha256: digest(regression) },
+        frozenReproduction: { origin: "EXISTING_TEST", framework: "vitest", testPath: "src/divide.test.ts", testIdentity: "division by zero", frozenSha256: digest(regression), provenance: { issueQuote: "Division by zero", assertionQuote: "expect(divide(4, 0)).toBe(0)", reason: "Matches the reported zero-denominator behavior." } },
         repair: { frozenIntegrity: true, productionChangedFiles: ["src/divide.ts"] }, suiteComparison: { baseline: { failed: [] }, postPatch: { failed: [] }, state: "CLEAN", newBackgroundFailures: [] } } },
   };
   savePatch();
@@ -423,6 +423,15 @@ test("renamed fork is discovered by verified ownership and relation; wrong same-
   assert.equal(posts().length, 0);
 });
 
+test("unrelated private owned forks do not block discovery of the public upstream fork", async () => {
+  remote.fork = repository("publisher/renamed-project", 33, user.id, true);
+  remote.owned = [{ ...repository("publisher/private-project", 44, user.id, true), private: true }, remote.fork];
+  assert.equal((await publishFork(source, clients)).forkRepository, "publisher/renamed-project");
+  assert.ok(remote.calls.every(call => call.repository !== "publisher/private-project"));
+  assert.equal(posts("/forks").length, 0);
+  assert.equal(posts("/pulls").length, 1);
+});
+
 test("wrong parent relation, forged user identity, and incomplete fork discovery fail closed", async () => {
   remote.fork.parent.id = 999; remote.fork.source.id = 999;
   await assert.rejects(publishFork(source, clients), /fork relation/);
@@ -448,6 +457,17 @@ test("combined generated regression and production bytes publish exactly as a dr
   assert.equal(posts("/git/blobs").length, 2);
 });
 
+test("assertion provenance must occur in exact existing or generated test bytes before any write", async () => {
+  source.bundle.mission.frozenReproduction.provenance.assertionQuote = "expect(unrelatedBehavior()).toBe(true)";
+  await assert.rejects(publishFork(source, clients), /assertion quote is absent/);
+  put("src/generated.test.ts", regression);
+  Object.assign(source.bundle.mission.frozenReproduction, { origin: "GENERATED_REGRESSION", testPath: "src/generated.test.ts" });
+  source.draft = true;
+  savePatch();
+  await assert.rejects(publishFork(source, clients), /assertion quote is absent/);
+  assert.equal(posts().length, 0);
+});
+
 test("frozen existing/generated file digest mismatch is rejected before remote writes", async () => {
   source.bundle.mission.frozenReproduction.frozenSha256 = "0".repeat(64);
   await assert.rejects(publishFork(source, clients), /frozen test digest/);
@@ -455,6 +475,27 @@ test("frozen existing/generated file digest mismatch is rejected before remote w
   source.bundle.mission.frozenReproduction.origin = "GENERATED_REGRESSION";
   source.bundle.mission.frozenReproduction.testPath = "src/generated.test.ts";
   await assert.rejects(publishFork(source, clients), /published regression differs/);
+  assert.equal(posts().length, 0);
+});
+
+test("generated-regression provenance cannot relabel an existing base test as a new oracle", async () => {
+  const replacement = regression + "// Misrepresented as generated.\n";
+  put("src/divide.test.ts", replacement);
+  source.bundle.mission.frozenReproduction = { ...source.bundle.mission.frozenReproduction,
+    origin: "GENERATED_REGRESSION", frozenSha256: digest(replacement) };
+  source.bundle.mission.verdict = "REVIEW_REQUIRED";
+  source.draft = true;
+  savePatch();
+  await assert.rejects(publishFork(source, clients), /new file absent from the proof base/);
+  assert.equal(posts().length, 0);
+});
+
+test("repair provenance cannot authorize a production path that was absent from the proof base", async () => {
+  git(["read-tree", baseTree]);
+  put("src/added.ts", repaired);
+  source.bundle.mission.repair.productionChangedFiles = ["src/added.ts"];
+  savePatch();
+  await assert.rejects(publishFork(source, clients), /modify an existing regular source file/);
   assert.equal(posts().length, 0);
 });
 

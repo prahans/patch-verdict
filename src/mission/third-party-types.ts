@@ -28,6 +28,11 @@ export type FrozenReproduction = TestIdentity & {
   baseCommit: string;
   stable: boolean;
   targetBaselineResult: NormalizedRun;
+  provenance?: {
+    issueQuote: string;
+    assertionQuote: string;
+    reason: string;
+  };
 };
 export type BackgroundState = "CLEAN" | "UNCHANGED_PREEXISTING_FAILURES" | "REGRESSED"
   | "IMPROVED_WITH_BACKGROUND_FAILURES" | "UNSTABLE" | "UNKNOWN";

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { chmod, link, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
@@ -102,6 +102,9 @@ it("captures one registered generated test and production repair with exact fina
       .digest("hex"),
   );
   expect(git(root, ["rev-parse", "HEAD"])).toBe(base);
+  expect(git(root, ["diff", "--cached", "--name-only"])).toBe("");
+  expect(git(root, ["ls-files", "--", generated])).toBe("");
+  expect((await captureStrictGitEvidence(sandbox, root, base, generated)).diff).toBe(result.diff);
 });
 it("rejects unrelated untracked files, pre-repair modifications, and changed HEAD", async () => {
   const { root, base } = await repository();
@@ -126,4 +129,100 @@ it("hash detects frozen mutation and rejects path escapes", async () => {
     original,
   );
   await expect(frozenFileHash(sandbox, root, "../outside")).rejects.toThrow();
+});
+
+it.each(["--assume-unchanged", "--skip-worktree"])(
+  "rejects %s index flags even when ordinary Git diff hides an edited test",
+  async (flag) => {
+    const { root, base } = await repository();
+    git(root, ["update-index", flag, "--", "src/math.test.ts"]);
+    await writeFile(path.join(root, "src/math.test.ts"), "silently weakened test\n");
+    expect(git(root, ["diff", "HEAD", "--name-only"])).toBe("");
+    await expect(assertUntouchedRepository(sandbox, root, base)).rejects.toThrow("hidden");
+    await expect(captureStrictGitEvidence(sandbox, root, base)).rejects.toThrow("hidden");
+  },
+);
+
+it("rejects staged index changes instead of treating them as the trusted base", async () => {
+  const { root, base } = await repository();
+  await writeFile(path.join(root, "src/math.ts"), "export const value = 1;\n");
+  git(root, ["add", "src/math.ts"]);
+  await expect(captureStrictGitEvidence(sandbox, root, base)).rejects.toThrow("index changed");
+});
+
+it("detects and captures raw CRLF changes that Git text normalization hides", async () => {
+  const { root } = await repository();
+  await writeFile(path.join(root, ".gitattributes"), "*.ts text\n");
+  git(root, ["add", ".gitattributes"]);
+  git(root, ["commit", "-m", "text attributes"]);
+  const base = git(root, ["rev-parse", "HEAD"]);
+  await assertUntouchedRepository(sandbox, root, base);
+  const changed = "export const value = 0;\r\n";
+  await writeFile(path.join(root, "src/math.ts"), changed);
+  expect(git(root, ["diff", "HEAD", "--name-only"])).toBe("");
+  await expect(assertUntouchedRepository(sandbox, root, base)).rejects.toThrow("changed before repair");
+  const proof = await captureStrictGitEvidence(sandbox, root, base);
+  expect(proof.changedFiles).toEqual(["src/math.ts"]);
+  expect(proof.diff).toContain("+" + changed);
+  await writeFile(path.join(root, "src/math.ts"), "export const value = 0;\n");
+  execFileSync("git", ["apply", "--whitespace=nowarn", "-"], {
+    cwd: root,
+    input: proof.diff,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  expect(await readFile(path.join(root, "src/math.ts"), "utf8")).toBe(changed);
+});
+
+it.each([
+  ["core.ignoreStat", "true"],
+  ["core.fsmonitor", "echo filter-ran > filter-marker"],
+  ["diff.external", "echo filter-ran > filter-marker"],
+  ["filter.fixture.clean", "echo filter-ran > filter-marker"],
+  ["include.path", "../untrusted-config"],
+])("rejects local %s configuration without executing it", async (key, value) => {
+  const { root, base } = await repository();
+  git(root, ["config", key!, value!]);
+  await expect(captureStrictGitEvidence(sandbox, root, base)).rejects.toThrow("Unsupported Git configuration");
+  await expect(readFile(path.join(root, "filter-marker"))).rejects.toMatchObject({ code: "ENOENT" });
+});
+
+it.each(["filter=fixture", "working-tree-encoding=UTF-16", "ident"])(
+  "rejects transforming %s attributes before producing evidence",
+  async (attribute) => {
+    const { root, base } = await repository();
+    // Leave attributes untracked to avoid invoking an encoding or clean filter
+    // while constructing the adversarial fixture. The file is registered only
+    // so the untracked-file check cannot mask the attribute check under test.
+    await writeFile(path.join(root, ".gitattributes"), "*.ts " + attribute + "\n");
+    await expect(captureStrictGitEvidence(sandbox, root, base, ".gitattributes")).rejects.toThrow("Unsupported Git attribute");
+  },
+);
+
+it.each(["attributes", "exclude"])("rejects .git/info/%s overrides", async (name) => {
+  const { root, base } = await repository();
+  await writeFile(path.join(root, ".git", "info", name), "*.ts\n");
+  await expect(captureStrictGitEvidence(sandbox, root, base)).rejects.toThrow("Git info overrides");
+});
+
+it("rejects a registered generated path that existed at the selected base", async () => {
+  const { root, base } = await repository();
+  await expect(captureStrictGitEvidence(sandbox, root, base, "src/math.test.ts")).rejects.toThrow("must be a new safe path");
+});
+
+it("rejects hard-linked tracked files and non-text candidate bytes", async () => {
+  const { root, base } = await repository();
+  const linked = path.join(root, "linked.ts");
+  await link(path.join(root, "src/math.ts"), linked);
+  await expect(captureStrictGitEvidence(sandbox, root, base, "linked.ts")).rejects.toThrow("Unsupported tracked file");
+  await rm(linked);
+  await writeFile(path.join(root, "src/math.ts"), Buffer.from([0xff, 0xfe]));
+  await expect(captureStrictGitEvidence(sandbox, root, base)).rejects.toThrow("Unsupported changed file bytes");
+});
+
+it.skipIf(process.platform === "win32")("rejects executable-mode changes even when core.fileMode hides them", async () => {
+  const { root, base } = await repository();
+  git(root, ["config", "core.fileMode", "false"]);
+  await chmod(path.join(root, "src/math.ts"), 0o755);
+  expect(git(root, ["diff", "HEAD", "--name-only"])).toBe("");
+  await expect(captureStrictGitEvidence(sandbox, root, base)).rejects.toThrow("file mode changed");
 });

@@ -339,6 +339,9 @@ test("v3 UI separates generated target trust, production changes and unchanged b
   assert.match(html, /AI-generated regression/);
   assert.match(html, /Human review required/);
   assert.match(html, /Frozen SHA-256/);
+  assert.match(html, /Issue grounding/);
+  assert.match(html, /Return zero instead of/);
+  assert.match(html, /expect\(divide\(4, 0\)\)\.toBe\(0\)/);
   assert.match(html, /Unchanged/);
   assert.match(html, /1 existing failures/);
   assert.match(html, /UNCHANGED PREEXISTING FAILURES/);

@@ -31,7 +31,7 @@ Preflight checks root metadata, manager/lock consistency, supported layout and f
 7. Repair tools can edit only one allowed production file across the initial attempt and single correction. All tests, the frozen test, package/lock/config/setup/CI files, Git internals, symlinks, and ungrounded targets remain blocked in code.
 8. Recheck frozen bytes, exact HEAD, authorized changed-file provenance, target identity/command and pass result, then compare the full suite. Test execution itself cannot mutate the candidate into different verified bytes.
 
-The canonical patch includes only the authorized production repair and, when present, the registered frozen new test. Other untracked files are rejected. Generated tests are added to Git's diff using intent-to-add without making sandbox commits.
+The canonical patch includes only the authorized production repair and, when present, the registered frozen new test. Other untracked files are rejected. Integrity checks compare raw tracked bytes against the exact base, reject hidden index flags and unsupported Git configuration/attributes, and build the patch through a separate index from those bytes. The repository index stays at its base state; no sandbox commit is made.
 
 Freezing an AI-generated regression protects its bytes; it does not establish that its expected behavior is correct. Generated-oracle success always requires human review.
 
@@ -64,11 +64,11 @@ Background comparison excludes the exact target identity from both channels. A g
 | UNSTABLE | Repeated test populations or results differ |
 | UNKNOWN | Framework results or test populations cannot be compared safely |
 
-Example: target A changes from failing to passing while unrelated B/C remain failing. The repair is REVIEW_REQUIRED with unchanged background failures, not a failed repair solely because the suite exits 1. If a new failure D appears, the verdict is FAILED. Missing or skipped previously failing tests cannot masquerade as resolved failures.
+Example: target A changes from failing to passing while unrelated B/C remain failing. The repair is REVIEW_REQUIRED with unchanged background failures, not a failed repair solely because the suite exits 1. If a new failure D appears, the verdict is FAILED. Missing tests or previously passing tests becoming skipped make comparison unknown; skipped previously failing tests cannot masquerade as resolved failures.
 
 ## Proof and UI
 
-Version 3 adds canonical source mode/branch/default branch/base, outcome, frozen reproduction, normalized target-after evidence, untouched baseline/repeat evidence, background comparison, and separate trusted-regression/production provenance. It preserves fixed artifact paths and exact patch SHA-256. Strict finalized proof cannot be overwritten; publication metadata is separate.
+Version 3 adds canonical source mode/branch/default branch/base, immutable creation timestamp, outcome, frozen reproduction/provenance, normalized target-after evidence, untouched baseline/repeat evidence, background comparison, and separate trusted-regression/production provenance. It preserves fixed artifact paths and exact patch SHA-256. A shared exclusive writer lock prevents strict or legacy runs from overwriting a finalized v3 proof or incomplete bundle; only finalized v2 bundles retain legacy replacement behavior. Publication metadata is separate.
 
 The loader continues to read version 2 without applying new semantics retroactively. V3 readers reject contradictory source, target, background, provenance, or trust-policy evidence. Proof JSON is bounded at 16 MiB, patch bytes at 2 MiB, and command artifacts at 256 KiB. A corrupt or incomplete proof does not become publication authority.
 
@@ -88,7 +88,7 @@ Existing frozen tests are checked against base Git blob bytes. Generated tests a
 
 ## Bounds, credentials, and remaining limits
 
-The web process deadline is 18 minutes, Next route budget 20 minutes, E2B lifetime 20 minutes, and each sandbox command two minutes. Discovery/regression/repair iterations and tool counts are bounded; generation permits two writes and production repair one correction. Framework reports cap test counts and output; stale report files are removed outside the repository before execution.
+The web process deadline is 18 minutes, Next route budget 20 minutes, E2B lifetime 20 minutes, and each sandbox command two minutes. Discovery/regression/repair iterations and tool counts are bounded; generation permits two writes and production repair one correction. Framework reports cap test counts and output; stale report files are removed outside the repository before execution. Raw-byte integrity checks permit at most 10,000 tracked files, 16 MiB per tracked file, and 128 MiB total tracked bytes.
 
 GitHub publication has a shared two-minute request deadline, per-request timeouts, bounded JSON, at most three owned-repository pages and twenty candidate forks, and six readiness checks. Large repos or slow remote setup may produce controlled unsupported/preparation/publication errors.
 

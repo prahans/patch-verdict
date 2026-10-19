@@ -70,6 +70,7 @@ export function ThirdPartyEvidence({ mission }: { mission: MissionResult }) {
         <div><dt>Frozen integrity</dt><dd>{mission.repair ? mission.repair.frozenIntegrity ? "Unchanged" : "COMPROMISED" : target ? "Frozen before repair" : "Unavailable"}</dd></div>
       </dl>
       {target && <><p><strong>Test</strong> <code>{target.testPath}</code></p><p><strong>Identity</strong> {target.testIdentity}</p><p><strong>Frozen SHA-256</strong> <code className="base-commit">{target.frozenSha256}</code></p></>}
+      {target?.provenance && <details><summary>Issue grounding</summary><p><strong>Issue quote</strong>: {target.provenance.issueQuote}</p><p><strong>Assertion quote</strong>: <code>{target.provenance.assertionQuote}</code></p><p>{target.provenance.reason}</p></details>}
       {target?.origin === "GENERATED_REGRESSION" && <p className="verdict-explanation">Trust policy: Human review required. Freezing prevents later changes; it does not establish that AI chose the correct expected behavior.</p>}
       <p className="eyebrow amber">REPAIR</p>
       <p>Production file: {mission.repair?.productionChangedFiles.length ? mission.repair.productionChangedFiles.join(", ") : "No completed repair"}</p>

@@ -95,6 +95,12 @@ export async function publishFork(source: Canonical, clients: Clients): Promise<
   // Validate exact bytes before creating any fork or Git object.
   const exact = await prepareExactPatch(upstreamApi, source.baseCommit, source.bundle.mission.patch!.changedFiles, source.patch);
   const frozen = source.bundle.mission.frozenReproduction!;
+  const assertGroundedAssertion = (bytes: Buffer) => {
+    const quote = frozen.provenance?.assertionQuote;
+    if (!quote || !bytes.toString("utf8").includes(quote)) {
+      throw new PullRequestError("The frozen assertion quote is absent from the exact test bytes.");
+    }
+  };
   const production = source.bundle.mission.repair!.productionChangedFiles[0];
   const productionBase = exact.baseEntries.find(entry => entry.path === production);
   if (!productionBase || !["100644", "100755"].includes(productionBase.mode)) {
@@ -106,6 +112,7 @@ export async function publishFork(source: Canonical, clients: Clients): Promise<
     }
     const entry = exact.entries.find(entry => entry.path === frozen.testPath);
     if (!entry?.contents || patchDigest(entry.contents) !== frozen.frozenSha256) throw new PullRequestError("The published regression differs from the frozen verified bytes.");
+    assertGroundedAssertion(entry.contents);
   } else {
     const entry = exact.baseEntries.find(entry => entry.path === frozen.testPath);
     if (!entry || !["100644", "100755"].includes(entry.mode)) throw new PullRequestError("The frozen repository test is not a regular file at the proof base.");
@@ -114,6 +121,7 @@ export async function publishFork(source: Canonical, clients: Clients): Promise<
     const bytes = Buffer.from(blob.content, "base64");
     const objectSha = createHash("sha1").update(Buffer.from("blob " + bytes.length + "\0")).update(bytes).digest("hex");
     if (bytes.length > 512 * 1024 || objectSha !== entry.sha || patchDigest(bytes) !== frozen.frozenSha256) throw new PullRequestError("The frozen test digest does not match the exact repository base.");
+    assertGroundedAssertion(bytes);
   }
   const plan = forkCommitPlan(source, exact.treeSha, clients.title);
   let fork: Repository | undefined;
@@ -140,7 +148,7 @@ export async function publishFork(source: Canonical, clients: Clients): Promise<
         if (!Array.isArray(values) || values.length > 100) throw new PullRequestError("GitHub returned invalid owned-repository metadata.", 502);
         for (const value of values) {
           const candidate = record(value);
-          if (candidate.fork !== true) continue;
+          if (candidate.fork !== true || candidate.private === true) continue;
           const candidateOwner = record(candidate.owner);
           if (candidateOwner.id !== user.id || typeof candidate.full_name !== "string") continue;
           if (++examinedForks > 20) throw new PullRequestError("Fork discovery exceeded its bounded search. The existing fork must be resolved before publication.");

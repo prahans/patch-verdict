@@ -154,6 +154,11 @@ describe("read-only issue-specific discovery", () => {
       targetBranch: "release/2.x",
       baseCommit: input.baseCommit,
       frozenSha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+      provenance: {
+        issueQuote: proposal().issueQuote,
+        assertionQuote: proposal().assertionQuote,
+        reason: proposal().reason,
+      },
     });
     expect(input.adapter.run).toHaveBeenCalledTimes(2);
     expect(mocks.write).not.toHaveBeenCalled();
@@ -270,6 +275,11 @@ describe("separate regression agent", () => {
     expect(result.frozen).toMatchObject({
       origin: "GENERATED_REGRESSION",
       ...generated,
+      provenance: {
+        issueQuote: proposal(generated).issueQuote,
+        assertionQuote: proposal(generated).assertionQuote,
+        reason: proposal(generated).reason,
+      },
     });
     expect(result.generatedPath).toBe(generated.testPath);
     expect(mocks.write).toHaveBeenCalledTimes(2);

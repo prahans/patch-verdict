@@ -19,7 +19,7 @@ export function proofV3Fixture({ missionId = "fixture-divide-zero", generated = 
     createdAt: "2026-10-18T00:00:00.000Z",
     mission: { id: missionId, issue: `${source.githubIssue.title}\n\n${source.githubIssue.body}`, source, reproduction: { label: "Frozen target", command }, fullSuite: { label: "Repository full suite", command: suiteCommand }, verificationIntegrity: { status: "PRESERVED", preserved: true, violations: [], reviewFlags: [], protectedChangedFiles: [] } },
     status: "COMPLETED", outcome: "REPAIR_EVALUATED", verdict: generated || background ? "REVIEW_REQUIRED" : "VERIFIED",
-    frozenReproduction: { ...target, origin: generated ? "GENERATED_REGRESSION" : "EXISTING_TEST", framework: "vitest", command, frozenSha256: "c".repeat(64), targetBranch: source.targetBranch, baseCommit: source.baseCommit, stable: true, targetBaselineResult: targetBaseline },
+    frozenReproduction: { ...target, origin: generated ? "GENERATED_REGRESSION" : "EXISTING_TEST", framework: "vitest", command, frozenSha256: "c".repeat(64), targetBranch: source.targetBranch, baseCommit: source.baseCommit, stable: true, targetBaselineResult: targetBaseline, provenance: { issueQuote: "Return zero instead of", assertionQuote: "expect(divide(4, 0)).toBe(0)", reason: "The assertion checks the zero-denominator behavior described in the issue." } },
     targetAfter,
     backgroundBaseline: baseline,
     ...(baseline.failed.length && { backgroundBaselineRepeat: structuredClone(baseline) }),

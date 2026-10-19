@@ -80,6 +80,16 @@ export function parseProofV3Fields(proof: ObjectValue, source: MissionDetails["s
     if ((data.origin !== "EXISTING_TEST" && data.origin !== "GENERATED_REGRESSION") || (data.framework !== "vitest" && data.framework !== "jest")) fail("reproduction origin/framework");
     if (typeof data.frozenSha256 !== "string" || !/^[a-f0-9]{64}$/.test(data.frozenSha256) || data.targetBranch !== source.targetBranch || data.baseCommit !== source.baseCommit) fail("frozen source binding");
     const target: FrozenReproduction = { ...identity(data), origin: data.origin as FrozenReproduction["origin"], framework: data.framework as FrozenReproduction["framework"], command: text(data.command, "frozen command", 16000), frozenSha256: data.frozenSha256 as string, targetBranch: source.targetBranch!, baseCommit: source.baseCommit, stable: bool(data.stable, "reproduction stability"), targetBaselineResult: run(data.targetBaselineResult) };
+    if (data.provenance != null) {
+      const provenance = object(data.provenance, "reproduction provenance");
+      target.provenance = {
+        issueQuote: text(provenance.issueQuote, "issue grounding quote", 1000),
+        assertionQuote: text(provenance.assertionQuote, "assertion grounding quote", 1000),
+        reason: text(provenance.reason, "reproduction grounding reason", 2000),
+      };
+      const issue = `${source.githubIssue!.title}\n\n${source.githubIssue!.body}`;
+      if (target.provenance.issueQuote.trim().length < 8 || target.provenance.assertionQuote.trim().length < 8 || target.provenance.reason.trim().length < 20 || !issue.includes(target.provenance.issueQuote)) fail("reproduction issue grounding");
+    }
     const baseline = target.targetBaselineResult;
     if (baseline.evidence.command !== target.command || baseline.execution !== "COMPLETED" || baseline.errorKind !== "TARGET_TEST_FAILURE" || baseline.failed.length !== 1 || identityKey(baseline.failed[0]) !== identityKey(target) || baseline.passed.length) fail("target baseline failure");
     if (target.origin === "GENERATED_REGRESSION" && !/\.(test|spec)\.(js|jsx|ts|tsx)$/.test(target.testPath)) fail("generated regression path");
@@ -110,6 +120,7 @@ export function assertProofV3Consistency(mission: MissionResult, source: NonNull
   }
   if (suite) {
     if (!target) fail("background target exclusion");
+    if (suite.baseline.evidence.command !== suite.postPatch.evidence.command) fail("background command binding");
     const targetKey = identityKey(target!);
     const before = identitySet(suite.baseline.failed.filter(item => identityKey(item) !== targetKey));
     const after = identitySet(suite.postPatch.failed.filter(item => identityKey(item) !== targetKey));
@@ -129,6 +140,7 @@ export function assertProofV3Consistency(mission: MissionResult, source: NonNull
   }
   const positive = mission.verdict === "VERIFIED" || mission.verdict === "REVIEW_REQUIRED";
   if (!positive) return;
+  if (!target?.provenance) fail("reproduction provenance");
   if (mission.status !== "COMPLETED" || mission.error || !target?.stable || !targetAfter || !suite || !repair?.scopeValid || !repair.frozenIntegrity || !patch?.applied || !patch.sha256 || !patch.diff || !checks?.bugReproducedBeforePatch || !checks.reproductionPassesAfterPatch || !checks.verificationIntegrityPreserved || integrity?.status !== "PRESERVED" || !integrity.preserved || integrity.violations.length || integrity.protectedChangedFiles.length) fail("positive repair evidence");
   if (!mission.backgroundBaseline || JSON.stringify(mission.backgroundBaseline) !== JSON.stringify(suite!.baseline)) fail("untouched background baseline binding");
   if (mission.backgroundBaseline!.failed.length && (!mission.backgroundBaselineRepeat || !stableRunPartition(mission.backgroundBaseline!, mission.backgroundBaselineRepeat))) fail("background baseline stability");
