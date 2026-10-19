@@ -367,7 +367,7 @@ describe("separate regression agent", () => {
     const feedback = mocks.send.mock.calls[1]![0].chatRequest.messages.filter(
       (entry: { role: string }) => entry.role === "tool",
     );
-    expect(feedback.at(-1)?.content).toContain("Read at least one real repository");
+    expect(feedback[0]?.content).toContain("Read at least one real repository");
   });
 
   it("keeps read tools available during longer unfamiliar-repository exploration", async () => {
