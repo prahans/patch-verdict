@@ -42,7 +42,15 @@ function reviewedRegressionInput(value: unknown): ReviewedRegression {
       throw new MissionInputError("Reviewed regression " + key + " must be nonempty bounded text.");
     result[key] = val;
   }
-  const r = result as ReviewedRegression;
+  const r: ReviewedRegression = {
+    path: result.path,
+    content: result.content,
+    testIdentity: result.testIdentity,
+    issueQuote: result.issueQuote,
+    assertionQuote: result.assertionQuote,
+    reason: result.reason,
+    sourcePath: result.sourcePath,
+  };
   const safePath = (s: string) =>
     s.length > 0 && s.length <= 500 &&
     !/[\\\x00-\x1f\x7f:]/.test(s) &&
