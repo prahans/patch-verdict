@@ -29,6 +29,16 @@ type Adapter = Pick<
   ReturnType<typeof createFrameworkAdapter>,
   "command" | "run"
 >;
+export type ReviewedRegressionInput = {
+  path: string;
+  content: string;
+  testIdentity: string;
+  issueQuote: string;
+  assertionQuote: string;
+  reason: string;
+  sourcePath: string;
+};
+
 export type ReproductionDiscoveryInput = {
   issue: string;
   projectRoot: string;
@@ -37,6 +47,7 @@ export type ReproductionDiscoveryInput = {
   baseline: NormalizedRun;
   targetBranch: string;
   baseCommit: string;
+  reviewedRegression?: ReviewedRegressionInput;
 };
 export type ReproductionDiscoveryResult = {
   frozen?: FrozenReproduction;
@@ -759,11 +770,90 @@ export async function generateRegressionReproduction(
   });
 }
 
+/**
+ * Deterministic, opt-in alternative when an AI regression cannot compile.
+ * Human review is not a proof oracle: the same exact target, Git integrity,
+ * stable-failure and REVIEW_REQUIRED gates still apply.
+ */
+export async function reproduceReviewedRegression(
+  sandbox: Sandbox,
+  input: ReproductionDiscoveryInput,
+  reviewed: ReviewedRegressionInput,
+): Promise<ReproductionDiscoveryResult> {
+  if (!safeRepositoryPath(reviewed.sourcePath) || !reviewed.sourcePath.match(/\.(?:[cm]?[jt]s|jsx|tsx)$/)) {
+    return { discoveryFailed: true, reason: "Reviewed regression requires a safe, readable production source path." };
+  }
+
+  const inspected = new Map<string, string>();
+  const source = await observeRead(
+    sandbox,
+    input,
+    "read_file",
+    { path: reviewed.sourcePath },
+    inspected,
+  );
+  if (!source.ok || !inspected.has(reviewed.sourcePath))
+    return { discoveryFailed: true, reason: "The reviewed regression's declared production source was not readable." };
+
+  const prospective = new Map(inspected);
+  prospective.set(reviewed.path, reviewed.content);
+  const validation = validateGroundedProposal(
+    { ...reviewed, testPath: reviewed.path },
+    input.issue,
+    prospective,
+  );
+  if (!validation.ok)
+    return { discoveryFailed: true, reason: "Reviewed regression rejected: " + validation.error };
+  if (!reviewed.content.includes(reviewed.testIdentity))
+    return {
+      discoveryFailed: true,
+      reason: "Reviewed regression testIdentity must appear literally in the supplied test content.",
+    };
+
+  const writer = createRegressionWriter(input.projectRoot);
+  const result = await writer.write(sandbox, {
+    path: reviewed.path,
+    content: reviewed.content,
+  });
+  if (!result.ok) {
+    writer.freeze();
+    return {
+      discoveryFailed: true,
+      reason: "Reviewed regression rejected by the bounded test writer: " + result.error,
+    };
+  }
+
+  const verified = await verifyTarget(
+    sandbox,
+    input,
+    validation.proposal,
+    "GENERATED_REGRESSION",
+    reviewed.path,
+  );
+  writer.freeze();
+  return {
+    ...verified,
+    generatedPath: reviewed.path,
+    ...(verified.frozen
+      ? { reason: "Human-supplied regression reproduced a stable issue-specific application failure; mandatory review retained." }
+      : {
+          discoveryFailed: !verified.unstable,
+          reason:
+            "Reviewed regression did not establish an executable stable issue-specific target. " +
+            (verified.run ? regressionFailureSummary(verified.run) : verified.reason),
+        }),
+  };
+}
+
 export async function discoverReproduction(
   sandbox: Sandbox,
   input: ReproductionDiscoveryInput,
   onProgress?: (message: string) => void,
 ): Promise<ReproductionDiscoveryResult> {
+  if (input.reviewedRegression) {
+    onProgress?.("Validating supplied regression against canonical issue and sandbox source");
+    return reproduceReviewedRegression(sandbox, input, input.reviewedRegression);
+  }
   const existing = await discoverExistingReproduction(sandbox, input);
   if (existing.frozen || existing.unstable) return existing;
   await assertUntouchedRepository(sandbox, input.projectRoot, input.baseCommit);
