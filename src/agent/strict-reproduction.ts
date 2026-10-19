@@ -828,7 +828,7 @@ export async function reproduceReviewedRegression(
     sandbox,
     input,
     validation.proposal,
-    "GENERATED_REGRESSION",
+    "REVIEWED_REGRESSION",
     reviewed.path,
   );
   writer.freeze();
