@@ -3,7 +3,7 @@ import type { VerdictStatus } from "./verdict.js";
 
 export type ThirdPartyVerdictInputs = {
   outcome: MissionOutcome;
-  reproductionOrigin?: "EXISTING_TEST" | "GENERATED_REGRESSION";
+  reproductionOrigin?: "EXISTING_TEST" | "GENERATED_REGRESSION" | "REVIEWED_REGRESSION";
   targetReproduced: boolean;
   reproductionStable: boolean;
   frozenIntegrity: boolean;
@@ -21,6 +21,6 @@ export function determineThirdPartyVerdict(input: ThirdPartyVerdictInputs): Verd
     !input.frozenIntegrity || !input.repairScopeValid || !input.targetPassesAfterPatch ||
     !input.verificationIntegrity || ["REGRESSED", "UNKNOWN", "UNSTABLE"].includes(input.backgroundComparison)) return "FAILED";
   if (input.reproductionOrigin === "EXISTING_TEST" && input.backgroundComparison === "CLEAN") return "VERIFIED";
-  if (input.reproductionOrigin === "EXISTING_TEST" || input.reproductionOrigin === "GENERATED_REGRESSION") return "REVIEW_REQUIRED";
+  if (input.reproductionOrigin === "EXISTING_TEST" || (input.reproductionOrigin === "GENERATED_REGRESSION" || input.reproductionOrigin === "REVIEWED_REGRESSION")) return "REVIEW_REQUIRED";
   return "FAILED";
 }
