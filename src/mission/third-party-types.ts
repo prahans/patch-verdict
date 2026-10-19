@@ -20,7 +20,7 @@ export type NormalizedRun = {
   evidence: CommandEvidence;
 };
 export type FrozenReproduction = TestIdentity & {
-  origin: "EXISTING_TEST" | "GENERATED_REGRESSION";
+  origin: "EXISTING_TEST" | "GENERATED_REGRESSION" | "REVIEWED_REGRESSION";
   framework: "vitest" | "jest";
   command: string;
   frozenSha256: string;
