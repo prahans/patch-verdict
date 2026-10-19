@@ -1,8 +1,19 @@
 import type { Sandbox } from "e2b";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ run: vi.fn(), read: vi.fn() }));
-vi.mock("../sandbox/e2b.js", () => ({ runSandboxCommand: mocks.run, readSandboxFile: mocks.read }));
+const mocks = vi.hoisted(() => ({
+  run: vi.fn(),
+  read: vi.fn(),
+  ensureRuntime: vi.fn(),
+}));
+vi.mock("../sandbox/e2b.js", () => ({
+  runSandboxCommand: mocks.run,
+  readSandboxFile: mocks.read,
+}));
+vi.mock("../sandbox/node-runtime.js", () => ({
+  PATCHVERDICT_NODE_VERSION: "22.14.0",
+  ensureThirdPartyNodeRuntime: mocks.ensureRuntime,
+}));
 import { cloneRepository } from "./clone.js";
 import { prepareRepository } from "./prepare.js";
 
@@ -14,8 +25,28 @@ const tree = ["package.json", "package-lock.json", "src/divide.ts"].map((file) =
 
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.run.mockImplementation(async (_sandbox, command: string) => ok(command, command === "git rev-parse HEAD" ? sha : command.startsWith("git ls-tree") ? tree : ""));
-  mocks.read.mockResolvedValue(JSON.stringify({ packageManager: "npm@10", scripts: { test: "vitest run" }, devDependencies: { vitest: "3" } }));
+  mocks.ensureRuntime.mockResolvedValue({
+    nodeVersion: "v22.14.0",
+    npmVersion: "10.9.2",
+    source: "PATCHVERDICT_PINNED_NODE_22",
+  });
+  mocks.run.mockImplementation(async (_sandbox, command: string) =>
+    ok(
+      command,
+      command === "git rev-parse HEAD"
+        ? sha
+        : command.startsWith("git ls-tree")
+          ? tree
+          : "",
+    ),
+  );
+  mocks.read.mockResolvedValue(
+    JSON.stringify({
+      packageManager: "npm@10",
+      scripts: { test: "vitest run" },
+      devDependencies: { vitest: "3" },
+    }),
+  );
 });
 
 describe("canonical strict checkout", () => {
@@ -54,7 +85,10 @@ describe("strict preparation integrity", () => {
   it("revalidates HEAD and clean tracked/untracked state after dependency install", async () => {
     expect(await prepareRepository(sandbox, request)).toMatchObject({ mode: "THIRD_PARTY_JS_TS", targetBranch: request.targetBranch, project: { projectKind: "single-package" } });
     expect(mocks.run.mock.calls.filter((call) => call[1] === "git rev-parse HEAD")).toHaveLength(2);
-    expect(mocks.run.mock.calls.map((call) => call[1])).toContain("git status --porcelain --untracked-files=all");
+    expect(mocks.run.mock.calls.map((call) => call[1])).toContain(
+      "git status --porcelain --untracked-files=all",
+    );
+    expect(mocks.ensureRuntime).toHaveBeenCalledOnce();
   });
   it.each(["120000 blob", "160000 commit"])("rejects unsupported tree mode %s", async (mode) => {
     mocks.run.mockImplementation(async (_sandbox, command: string) => ok(command, command === "git rev-parse HEAD" ? sha : command.startsWith("git ls-tree") ? `${mode} ${sha}\tpackage.json\0` : command.includes("--untracked-files=all") ? "?? install-generated.js" : ""));
