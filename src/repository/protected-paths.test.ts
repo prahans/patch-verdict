@@ -14,6 +14,7 @@ describe("static verification configuration protection", () => {
       config: { test: { globals: true, setupFiles: ["./src/bootstrap.ts"] } },
     });
   });
+
   it("protects nonstandard setup plus transitive imports and static config imports", async () => {
     const files: Record<string, string> = {
       "vitest.config.ts":
@@ -41,6 +42,7 @@ describe("static verification configuration protection", () => {
       "vitest.config.ts",
     ]);
   });
+
   it("protects package.json Jest setup/global teardown and custom environment", async () => {
     const files = ["setup.ts", "teardown.js", "custom-environment.js"];
     const pkg = {
@@ -58,6 +60,7 @@ describe("static verification configuration protection", () => {
       ),
     ).toEqual([...files].sort());
   });
+
   it("supports CommonJS declarative Jest config and built-in environment", async () => {
     expect(
       await collectProtectedPaths(
@@ -81,48 +84,7 @@ describe("static verification configuration protection", () => {
         ["jest.config.js"],
         packageJson,
         async () =>
-          "module.exports = {preset:'ts-jest',testEnvironment:'node',testMatch:['**/__tests__/**/*.test.ts'],transform:{'^.+\\\\.ts
-  it.each([
-    "export default defineConfig(() => ({test:{}}));",
-    "export default {test:{setupFiles:process.env.SETUP}};",
-    "export default {...other};",
-    "export default {test:{['setup'+'Files']:['a.ts']}};",
-    "export default makeConfig({});",
-    "export default {test:{setupFiles:['one'],setupFiles:['two']}};",
-    "const setup = 'a'; export default {setupFiles:[setup]};",
-    "export default {test:{}}; changeConfig();",
-  ])("rejects unclassifiable dynamic config %#", (source) => {
-    expect(() => parseStaticVerificationConfig(source)).toThrow(
-      /configuration/i,
-    );
-  });
-  it.each([
-    ["export default {test:{setupFiles:['../outside.ts']}};", ""],
-    ["export default {test:{setupFiles:['missing.ts']}};", ""],
-    ["export default {root:'src',test:{}};", ""],
-    ["export default {test:{projects:[]}};", ""],
-    [
-      "export default {test:{setupFiles:['setup.ts']}};",
-      "require(process.env.SETUP);",
-    ],
-    [
-      "export default {test:{setupFiles:['setup.ts']}};",
-      "import('./helper.ts' + name);",
-    ],
-  ])(
-    "rejects unsafe setup or inherited project configuration %#",
-    async (config, setup) => {
-      await expect(
-        collectProtectedPaths(
-          ["vitest.config.ts", "setup.ts"],
-          "{}",
-          async (file) => (file === "vitest.config.ts" ? config : setup),
-        ),
-      ).rejects.toMatchObject({ outcome: "UNSUPPORTED_REPOSITORY" });
-    },
-  );
-});
-:'ts-jest'},moduleFileExtensions:['ts','js','json','node']};",
+          "module.exports = {preset:'ts-jest',testEnvironment:'node',testMatch:['**/__tests__/**/*.test.ts'],transform:{'^.+\\\\.ts$':'ts-jest'},moduleFileExtensions:['ts','js','json','node']};",
       ),
     ).toEqual(["jest.config.js"]);
   });
@@ -131,11 +93,14 @@ describe("static verification configuration protection", () => {
     await expect(
       collectProtectedPaths(
         ["jest.config.js"],
-        JSON.stringify({ devDependencies: { jest: "29", "custom-preset": "1" } }),
+        JSON.stringify({
+          devDependencies: { jest: "29", "custom-preset": "1" },
+        }),
         async () => "module.exports = {preset:'custom-preset'};",
       ),
     ).rejects.toMatchObject({ outcome: "UNSUPPORTED_REPOSITORY" });
   });
+
   it.each([
     "export default defineConfig(() => ({test:{}}));",
     "export default {test:{setupFiles:process.env.SETUP}};",
@@ -150,11 +115,13 @@ describe("static verification configuration protection", () => {
       /configuration/i,
     );
   });
+
   it.each([
     ["export default {test:{setupFiles:['../outside.ts']}};", ""],
     ["export default {test:{setupFiles:['missing.ts']}};", ""],
     ["export default {root:'src',test:{}};", ""],
     ["export default {test:{projects:[]}};", ""],
+    ["export default {preset:'arbitrary-preset'};", ""],
     [
       "export default {test:{setupFiles:['setup.ts']}};",
       "require(process.env.SETUP);",
