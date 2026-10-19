@@ -553,7 +553,7 @@ describe("separate regression agent", () => {
     const firstWriteFeedback = JSON.parse(toolFeedback.at(-1)!.content);
     expect(firstWriteFeedback.evidence.errorKind).toBe("TEST_COMPILE_ERROR");
     expect(firstWriteFeedback.evidence.correctionHint).toContain("declared parameter");
-    expect(firstWriteFeedback.evidence.correctionHint).toContain("plain");
+    expect(firstWriteFeedback.evidence.correctionHint).toContain("object literal");
     expect(firstWriteFeedback.evidence.correctionHint).toContain("Do not edit production");
     expect(mocks.write).toHaveBeenCalledTimes(2);
   });
