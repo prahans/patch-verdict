@@ -119,8 +119,13 @@ export async function runThirdPartyMission(
     );
     if (!discovery.frozen)
       return stop(
-        discovery.unstable ? "UNSTABLE_REPRODUCTION" : "TARGET_NOT_REPRODUCED",
+        discovery.unstable
+          ? "UNSTABLE_REPRODUCTION"
+          : discovery.discoveryFailed
+            ? "INVESTIGATION_FAILED"
+            : "TARGET_NOT_REPRODUCED",
         discovery.reason,
+        discovery.discoveryFailed === true,
       );
     const frozen = discovery.frozen;
     result.frozenReproduction = frozen;
