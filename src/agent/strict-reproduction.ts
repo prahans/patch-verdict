@@ -268,6 +268,28 @@ async function modelMessage(
   return response.choices[0].message;
 }
 
+/**
+ * Keep only a bounded, single relevant compiler diagnostic in the mission
+ * record. Raw model-controlled command output stays in tool feedback, not in
+ * permanent flight-recorder entries.
+ */
+function regressionFailureSummary(run: NormalizedRun): string {
+  const diagnostic = [run.evidence.stderr, run.evidence.stdout]
+    .join("\n")
+    .replace(/\x1b\[[0-9;]*m/g, "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[\x00-\x1f\x7f]/g, " ").trim())
+    .find(
+      (line) =>
+        /\b(?:error TS\d{4}|TS\d{4}|Cannot find module|SyntaxError|Transform failed|Failed to compile)\b/i.test(line) &&
+        !/\b(?:OPENROUTER_API_KEY|E2B_API_KEY|PATCHVERDICT_GITHUB_TOKEN|Authorization:)\b/i.test(line),
+    );
+  return [
+    "Generated test execution: " + (run.errorKind ?? "UNKNOWN") + ".",
+    ...(diagnostic ? ["Compiler diagnostic: " + diagnostic.slice(0, 240)] : []),
+  ].join(" ");
+}
+
 async function observeRead(
   sandbox: Sandbox,
   input: ReproductionDiscoveryInput,
@@ -467,7 +489,7 @@ export async function generateRegressionReproduction(
   const messages: ChatMessages[] = [
     {
       role: "system",
-      content: `${TRUST_RULES}\nYou are RegressionAgent, separate from RepairAgent. Inspect the relevant implementation and existing test conventions first. Create exactly one NEW small test in an existing directory using write_regression_test. Use a supported .test/.spec JS/TS suffix, one standalone named test, repository-installed framework, real application behavior, and issue-grounded expected behavior. If the issue states multiple tightly-related expected behaviors that can be exercised through the same production file, the single test should cover all of those explicit obligations rather than only the easiest one. No focused/skipped tests, self-fulfilling mocks, unconditional synthetic failure, production/config/setup/package edits, second file, or shell. Provide exact issue and assertion quotes plus rationale with each write. Invalid test imports or compile errors permit one correction of the SAME file. A passing generated candidate is not enough by itself to prove the issue absent: if it missed a distinct explicit behavior from the issue, you may revise the SAME file once to cover that missing behavior. Never merely invert an assertion or manufacture a failure. If, after inspecting source, the reported behavior really appears already satisfied, return ONLY grounded JSON {notReproducible:true,issueQuote,sourcePath,sourceQuote,reason}; issueQuote and sourceQuote must be exact text you inspected. Generated expected behavior remains an unapproved oracle and requires human review. Never decide verdict.`,
+      content: `${TRUST_RULES}\nYou are RegressionAgent, separate from RepairAgent. Inspect the production implementation, a neighboring passing test, and framework configuration (including Jest testMatch/ts-jest conventions) before writing. Match the actual test directory, import paths, and public TypeScript API signatures. For a regression against a currently missing return value, an expect(...).toBe(...) assertion can check it without calling methods on a void result. When compilation fails, use the exact compiler diagnostic returned by the tool to correct the SAME file, not a guess. Create exactly one NEW small test in an existing directory using write_regression_test. Use a supported .test/.spec JS/TS suffix, one standalone named test, repository-installed framework, real application behavior, and issue-grounded expected behavior. If the issue states multiple tightly-related expected behaviors that can be exercised through the same production file, the single test should cover all of those explicit obligations rather than only the easiest one. No focused/skipped tests, self-fulfilling mocks, unconditional synthetic failure, production/config/setup/package edits, second file, or shell. Provide exact issue and assertion quotes plus rationale with each write. Invalid test imports or compile errors permit one correction of the SAME file. A passing generated candidate is not enough by itself to prove the issue absent: if it missed a distinct explicit behavior from the issue, you may revise the SAME file once to cover that missing behavior. Never merely invert an assertion or manufacture a failure. If, after inspecting source, the reported behavior really appears already satisfied, return ONLY grounded JSON {notReproducible:true,issueQuote,sourcePath,sourceQuote,reason}; issueQuote and sourceQuote must be exact text you inspected. Generated expected behavior remains an unapproved oracle and requires human review. Never decide verdict.`,
     },
     {
       role: "user",
@@ -629,8 +651,8 @@ export async function generateRegressionReproduction(
                 error: verified.reason,
               };
             }
-            lastBlocker = verified.run?.errorKind
-              ? `Generated test execution: ${verified.run.errorKind}.`
+            lastBlocker = verified.run
+              ? regressionFailureSummary(verified.run)
               : verified.reason;
             // Bounded actual diagnostics support one pre-freeze correction.
             messages.push({
