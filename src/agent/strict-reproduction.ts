@@ -17,6 +17,7 @@ import { assertUntouchedRepository } from "../tools/strict-git-evidence.js";
 import {
   createRegressionWriter,
   createStrictRepositoryTools,
+  isProductionRepairPath,
   safeRepositoryPath,
   type StrictToolResult,
 } from "../tools/strict-policy.js";
@@ -780,7 +781,7 @@ export async function reproduceReviewedRegression(
   input: ReproductionDiscoveryInput,
   reviewed: ReviewedRegressionInput,
 ): Promise<ReproductionDiscoveryResult> {
-  if (!safeRepositoryPath(reviewed.sourcePath) || !reviewed.sourcePath.match(/\.(?:[cm]?[jt]s|jsx|tsx)$/)) {
+  if (!isProductionRepairPath(reviewed.sourcePath)) {
     return { discoveryFailed: true, reason: "Reviewed regression requires a safe, readable production source path." };
   }
 
