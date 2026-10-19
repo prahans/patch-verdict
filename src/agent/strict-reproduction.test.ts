@@ -288,6 +288,17 @@ describe("separate regression agent", () => {
     });
     expect(mocks.write).toHaveBeenCalledOnce();
     expect(mocks.send).toHaveBeenCalledTimes(3);
+    expect(mocks.send.mock.calls[0]![0].chatRequest.toolChoice).toBe(
+      "required",
+    );
+    expect(mocks.send.mock.calls[2]![0].chatRequest.toolChoice).toBe(
+      "required",
+    );
+    expect(
+      mocks.send.mock.calls[2]![0].chatRequest.tools.map(
+        (tool: { function: { name: string } }) => tool.function.name,
+      ),
+    ).toEqual(["write_regression_test"]);
   });
 
   it("permits one same-file revision when a passing candidate missed another explicit issue behavior", async () => {
