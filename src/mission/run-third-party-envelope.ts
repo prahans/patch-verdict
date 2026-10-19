@@ -78,7 +78,7 @@ export async function runThirdPartyEnvelope(
       prepared.project.fullSuiteCommand;
     result = await runThirdPartyMission(
       sandbox,
-      { issue: input.issue, prepared, targetBranch: input.targetBranch! },
+      { issue: input.issue, prepared, targetBranch: input.targetBranch!, reviewedRegression: input.reviewedRegression },
       { onEvent: emit },
     );
     result.events = [...initialEvents, ...result.events];
