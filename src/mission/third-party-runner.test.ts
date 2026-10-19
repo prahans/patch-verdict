@@ -237,6 +237,28 @@ it("requires review for a frozen generated regression on a clean repository", as
   ]);
   expect(result.suiteComparison?.state).toBe("CLEAN");
 });
+it("keeps reviewed regressions distinct and never auto-verifies their oracle", async () => {
+  const reviewed = { ...frozen, origin: "REVIEWED_REGRESSION" as const };
+  mocks.discover.mockResolvedValue({
+    frozen: reviewed,
+    generatedPath: reviewed.testPath,
+    reason: "Reviewed issue target",
+  });
+  mocks.capture.mockResolvedValue({
+    ...git,
+    changedFiles: ["src/math.ts", reviewed.testPath],
+  });
+  sequence(
+    run(["B"], []),
+    run(["A"], [], "target-command"),
+    run(["A", "B"], []),
+  );
+  const result = await runThirdPartyMission(sandbox, input);
+  expect(result.outcome).toBe("REPAIR_EVALUATED");
+  expect(result.verdict).toBe("REVIEW_REQUIRED");
+  expect(result.frozenReproduction?.origin).toBe("REVIEWED_REGRESSION");
+  expect(result.repair?.trustedRegressionChangedFiles).toEqual([reviewed.testPath]);
+});
 it("stops before AI repair on flaky untouched baseline", async () => {
   sequence(run(["B"], ["A"]), run(["A"], ["B"]));
   const result = await runThirdPartyMission(sandbox, input);
