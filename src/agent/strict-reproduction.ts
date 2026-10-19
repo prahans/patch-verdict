@@ -22,6 +22,7 @@ import {
 } from "../tools/strict-policy.js";
 import { investigationToolDefinitions } from "./tool-definitions.js";
 import { messageContentToText } from "./message-content.js";
+import { describeOpenRouterFailure } from "../ai/provider-errors.js";
 
 type Adapter = Pick<
   ReturnType<typeof createFrameworkAdapter>,
@@ -262,8 +263,14 @@ async function modelMessage(
       toolChoice,
       stream: false,
     },
+  }).catch((error: unknown) => {
+    // Never leak provider raw metadata, credentials or source content into
+    // proof bundles. Preserve only the status, typed category and model ID.
+    throw new Error(describeOpenRouterFailure(error, AGENT_MODEL));
   });
-  if (!("choices" in response) || !response.choices[0]?.message)
+  if (!("choices" in response))
+    throw new Error(describeOpenRouterFailure(response, AGENT_MODEL));
+  if (!response.choices[0]?.message)
     throw new Error("Reproduction agent returned no structured response.");
   return response.choices[0].message;
 }
