@@ -437,16 +437,26 @@ export async function generateRegressionReproduction(
   let toolCalls = 0;
   let generatedPath: string | undefined;
   let passingGeneratedCandidates = 0;
+  let forceRegressionRevision = false;
   const finish = (result: ReproductionDiscoveryResult) => ({
     ...result,
     ...(generatedPath ? { generatedPath } : {}),
   });
   for (let iteration = 0; iteration < MAX_REGRESSION_ITERATIONS; iteration++) {
+    const forceFirstWrite =
+      generatedPath === undefined && inspected.size > 0 && iteration >= 2;
+    const availableTools =
+      forceRegressionRevision || forceFirstWrite
+        ? [regressionDefinition]
+        : [...readDefinitions, regressionDefinition];
     const message = await modelMessage(
       messages,
-      [...readDefinitions, regressionDefinition],
-      generatedPath === undefined ? "required" : "auto",
+      availableTools,
+      generatedPath === undefined || forceRegressionRevision
+        ? "required"
+        : "auto",
     );
+    forceRegressionRevision = false;
     messages.push(message);
     if (!message.toolCalls?.length) {
       const conclusion = groundedNoReproduction(
@@ -539,10 +549,11 @@ export async function generateRegressionReproduction(
                 });
               }
 
+              forceRegressionRevision = true;
               result = {
                 ok: false,
                 error:
-                  "The generated candidate passed. Do not invert the assertion. Re-read the issue and inspected source; revise the SAME file only if the candidate missed a distinct explicit reported behavior. Otherwise return grounded notReproducible JSON.",
+                  "The generated candidate passed. Do not invert the assertion. The next turn MUST revise the SAME generated file to cover any distinct explicit issue behavior that this candidate missed. Keep the test small and issue-grounded.",
               };
             } else {
               result = {
