@@ -1,6 +1,10 @@
 import type { Sandbox } from "e2b";
 
 import { runSandboxCommand } from "../sandbox/e2b.js";
+import {
+  ensureThirdPartyNodeRuntime,
+  PATCHVERDICT_NODE_VERSION,
+} from "../sandbox/node-runtime.js";
 
 import { cloneRepository } from "./clone.js";
 
@@ -84,7 +88,9 @@ async function verifyTrackedFilesClean(
 ): Promise<void> {
   const status = await runSandboxCommand(
     sandbox,
-    strict ? "git status --porcelain --untracked-files=all" : "git status --porcelain --untracked-files=no",
+    strict
+      ? "git status --porcelain --untracked-files=all"
+      : "git status --porcelain --untracked-files=no",
     projectRoot,
   );
 
@@ -96,9 +102,46 @@ async function verifyTrackedFilesClean(
 
   if (status.stdout.trim()) {
     throw new Error(
-      `Dependency installation modified tracked repository files:\n${status.stdout.trim()}`,
+      `Dependency installation modified repository files:\n${status.stdout.trim()}`,
     );
   }
+}
+
+function boundedInstallFailure(stdout: string, stderr: string) {
+  return `${stderr}\n${stdout}`
+    .replace(/\/home\/[^\s/]+\/\.npm\/_logs\/[^\s]+/g, "[npm debug log]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 900);
+}
+
+function strictInstallFailure(
+  command: string,
+  stdout: string,
+  stderr: string,
+  nodeVersion: string,
+) {
+  const detail = boundedInstallFailure(stdout, stderr);
+  const engineMismatch =
+    /EBADENGINE|Unsupported engine|Not compatible with your version of node/i.test(
+      `${stderr}\n${stdout}`,
+    );
+
+  if (engineMismatch) {
+    return new RepositoryPreparationError(
+      "PREPARATION_FAILED",
+      `Repository dependencies are incompatible with PatchVerdict's pinned Node ${nodeVersion} runtime. PatchVerdict stopped before target reproduction.${
+        detail ? ` Package-manager detail: ${detail}` : ""
+      }`,
+    );
+  }
+
+  return new RepositoryPreparationError(
+    "PREPARATION_FAILED",
+    `Dependency installation failed using "${command}" under PatchVerdict Node ${nodeVersion}. PatchVerdict stopped before target reproduction.${
+      detail ? ` Package-manager detail: ${detail}` : ""
+    }`,
+  );
 }
 
 export async function prepareRepository(
@@ -106,49 +149,85 @@ export async function prepareRepository(
   request: RepositoryRequest,
 ): Promise<PreparedRepository> {
   try {
-  const checkout = await cloneRepository(sandbox, request);
+    const checkout = await cloneRepository(sandbox, request);
 
-  const project = await detectProject(sandbox, checkout.projectRoot, request);
+    let project = await detectProject(sandbox, checkout.projectRoot, request);
 
-  if (project.packageManager === "pnpm") {
-    await ensurePnpmAvailable(sandbox, checkout.projectRoot);
-  }
+    if (request.mode === "THIRD_PARTY_JS_TS") {
+      const runtime = await ensureThirdPartyNodeRuntime(sandbox);
+      project = {
+        ...project,
+        runtime,
+      };
+    }
 
-  const install = await runSandboxCommand(
-    sandbox,
-    project.installCommand,
-    checkout.projectRoot,
-  );
+    if (project.packageManager === "pnpm") {
+      await ensurePnpmAvailable(sandbox, checkout.projectRoot);
+    }
 
-  if (install.exitCode !== 0) {
-    throw new Error(
-      `Dependency installation failed using "${project.installCommand}": ${
-        install.stderr || install.stdout
-      }`,
+    const install = await runSandboxCommand(
+      sandbox,
+      project.installCommand,
+      checkout.projectRoot,
     );
-  }
 
-  await verifyHeadUnchanged(sandbox, checkout.projectRoot, checkout.baseCommit);
+    if (install.exitCode !== 0) {
+      if (request.mode === "THIRD_PARTY_JS_TS") {
+        throw strictInstallFailure(
+          project.installCommand,
+          install.stdout,
+          install.stderr,
+          project.runtime?.nodeVersion ?? `v${PATCHVERDICT_NODE_VERSION}`,
+        );
+      }
 
-  await verifyTrackedFilesClean(sandbox, checkout.projectRoot, request.mode === "THIRD_PARTY_JS_TS");
+      throw new Error(
+        `Dependency installation failed using "${project.installCommand}": ${
+          install.stderr || install.stdout
+        }`,
+      );
+    }
 
-  return {
-    repositoryUrl: checkout.repositoryUrl,
-    ...(checkout.mode && { mode: checkout.mode }),
-    ...(checkout.targetBranch && { targetBranch: checkout.targetBranch }),
+    await verifyHeadUnchanged(
+      sandbox,
+      checkout.projectRoot,
+      checkout.baseCommit,
+    );
 
-    ...(checkout.requestedRef && {
-      requestedRef: checkout.requestedRef,
-    }),
+    await verifyTrackedFilesClean(
+      sandbox,
+      checkout.projectRoot,
+      request.mode === "THIRD_PARTY_JS_TS",
+    );
 
-    baseCommit: checkout.baseCommit,
+    return {
+      repositoryUrl: checkout.repositoryUrl,
+      ...(checkout.mode && { mode: checkout.mode }),
+      ...(checkout.targetBranch && { targetBranch: checkout.targetBranch }),
 
-    projectRoot: checkout.projectRoot,
+      ...(checkout.requestedRef && {
+        requestedRef: checkout.requestedRef,
+      }),
 
-    project,
-  };
+      baseCommit: checkout.baseCommit,
+
+      projectRoot: checkout.projectRoot,
+
+      project,
+    };
   } catch (error) {
-    if (request.mode !== "THIRD_PARTY_JS_TS" || error instanceof RepositoryPreparationError) throw error;
-    throw new RepositoryPreparationError("PREPARATION_FAILED", error instanceof Error ? error.message : "Repository preparation failed.");
+    if (
+      request.mode !== "THIRD_PARTY_JS_TS" ||
+      error instanceof RepositoryPreparationError
+    ) {
+      throw error;
+    }
+
+    throw new RepositoryPreparationError(
+      "PREPARATION_FAILED",
+      error instanceof Error
+        ? error.message
+        : "Repository preparation failed.",
+    );
   }
 }
