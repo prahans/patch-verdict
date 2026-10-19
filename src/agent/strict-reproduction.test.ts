@@ -314,6 +314,62 @@ describe("separate regression agent", () => {
     expect(mocks.write).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["issue quote", { issueQuote: "this was never in the issue" }, "issueQuote"],
+    ["assertion quote", { assertionQuote: "expect(missing()).toBe(false)" }, "assertionQuote"],
+    ["literal test name", { testIdentity: "some invented test name" }, "testIdentity"],
+    ["short rationale", { reason: "short" }, "reason"],
+  ] as const)(
+    "gives actionable %s rejection feedback and accepts a corrected proposal",
+    async (_case, invalidFields, expectedMessage) => {
+      mocks.send
+        .mockResolvedValueOnce(
+          message(null, [["read_file", { path: "src/calc.ts" }]]),
+        )
+        .mockResolvedValueOnce(
+          message(null, [["write_regression_test", { ...write(), ...invalidFields }]]),
+        )
+        .mockResolvedValueOnce(
+          message(null, [["write_regression_test", write()]]),
+        );
+
+      vi.mocked(input.adapter.run).mockResolvedValue(run(generated));
+      const result = await generateRegressionReproduction(sandbox, input);
+
+      expect(result.frozen).toMatchObject({
+        origin: "GENERATED_REGRESSION",
+        ...generated,
+      });
+      expect(mocks.write).toHaveBeenCalledOnce();
+      const feedback = mocks.send.mock.calls[2]![0].chatRequest.messages.filter(
+        (entry: { role: string }) => entry.role === "tool",
+      );
+      expect(feedback.at(-1)?.content).toContain(expectedMessage);
+    },
+  );
+
+  it("requires real repository read evidence before accepting a generated test", async () => {
+    mocks.send
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write()]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write()]]),
+      );
+
+    vi.mocked(input.adapter.run).mockResolvedValue(run(generated));
+    const result = await generateRegressionReproduction(sandbox, input);
+    expect(result.frozen).toBeDefined();
+    expect(mocks.write).toHaveBeenCalledOnce();
+    const feedback = mocks.send.mock.calls[1]![0].chatRequest.messages.filter(
+      (entry: { role: string }) => entry.role === "tool",
+    );
+    expect(feedback.at(-1)?.content).toContain("Read at least one real repository");
+  });
+
   it("keeps read tools available during longer unfamiliar-repository exploration", async () => {
     mocks.send
       .mockResolvedValueOnce(
