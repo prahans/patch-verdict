@@ -292,13 +292,88 @@ describe("separate regression agent", () => {
       "required",
     );
     expect(mocks.send.mock.calls[2]![0].chatRequest.toolChoice).toBe(
-      "required",
+      "auto",
     );
     expect(
       mocks.send.mock.calls[2]![0].chatRequest.tools.map(
         (tool: { function: { name: string } }) => tool.function.name,
       ),
-    ).toEqual(["write_regression_test"]);
+    ).toEqual(["list_files", "read_file", "search_code", "write_regression_test"]);
+  });
+
+  it("keeps read tools available during longer unfamiliar-repository exploration", async () => {
+    mocks.send
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: target.testPath }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: target.testPath }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write()]]),
+      );
+    vi.mocked(input.adapter.run).mockResolvedValue(run(generated));
+
+    const result = await generateRegressionReproduction(sandbox, input);
+
+    expect(result.frozen).toMatchObject({
+      origin: "GENERATED_REGRESSION",
+      ...generated,
+    });
+    expect(mocks.send).toHaveBeenCalledTimes(5);
+    for (const turn of [2, 3, 4]) {
+      expect(
+        mocks.send.mock.calls[turn]![0].chatRequest.tools.map(
+          (tool: { function: { name: string } }) => tool.function.name,
+        ),
+      ).toContain("read_file");
+    }
+    expect(mocks.write).toHaveBeenCalledOnce();
+  });
+
+  it("waits for execution feedback before accepting a queued second regression write", async () => {
+    mocks.send
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [
+          ["write_regression_test", write()],
+          ["write_regression_test", write(generated, source + "\n// queued edit")],
+        ]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write(generated, source + "\n// corrected")]]),
+      );
+
+    vi.mocked(input.adapter.run)
+      .mockResolvedValueOnce({
+        ...run(generated),
+        execution: "ERROR",
+        errorKind: "MODULE_RESOLUTION_ERROR",
+        discovered: [],
+        failed: [],
+      })
+      .mockResolvedValue(run(generated));
+
+    const result = await generateRegressionReproduction(sandbox, input);
+
+    expect(result.frozen).toBeDefined();
+    expect(mocks.write).toHaveBeenCalledTimes(2);
+    const feedback = mocks.send.mock.calls[2]![0].chatRequest.messages.filter(
+      (entry: { role: string }) => entry.role === "tool",
+    );
+    expect(feedback.slice(-2)).toMatchObject([
+      { toolCallId: "call-0" },
+      { toolCallId: "call-1" },
+    ]);
+    expect(feedback.at(-1)?.content).toContain("one regression write");
   });
 
   it("permits one same-file revision when a passing candidate missed another explicit issue behavior", async () => {
