@@ -20,7 +20,7 @@ Verification checks the same frozen target and compares non-target failure ident
 
 ## Execution and evidence
 
-POST /api/missions accepts mode: "issue", issueUrl, and targetBranch for issue mode, or repositoryUrl and issue for manual mode. Canonical repository metadata and SHA come from GitHub, never the browser. Public reads use a fixed GitHub API host without the publication token.
+POST /api/missions accepts issueUrl and targetBranch for issue mode, or repositoryUrl and issue for manual mode. Canonical repository metadata and SHA come from GitHub, never the browser. Public reads use a fixed GitHub API host without the publication token.
 
 The web server launches the fixed CLI with --input-stdin and a 64 KiB bounded JSON envelope. Untrusted issue text is not an operating-system argument. The write token is explicitly blanked in the verification child; no shell is used for spawning it. Developer CLI positional arguments remain supported.
 

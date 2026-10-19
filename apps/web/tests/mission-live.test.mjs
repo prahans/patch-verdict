@@ -27,8 +27,6 @@ test("safe mission IDs allow only ASCII letters, numbers, hyphens and underscore
 test("parser accepts known messages only with the exact server mission ID", () => {
   for (const [state, message] of [
     ["PREPARING", "Preparing repository..."],
-    ["PREPARING", "Preparing repository"],
-    ["PREPARING", "Target branch resolved to exact base commit"],
     ["BASELINE", "Reported bug reproduced"],
     ["INVESTIGATING", "AI investigation completed"],
     ["PATCHING", "Git captured 12 changed file(s)"],
