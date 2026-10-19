@@ -20,6 +20,7 @@ export function MissionLauncher() {
   const [issueUrl, setIssueUrl] = useState("");
   const [repositoryUrl, setRepositoryUrl] = useState("");
   const [manualIssue, setManualIssue] = useState("");
+  const [reviewedRegressionJson, setReviewedRegressionJson] = useState("");
   const [preview, setPreview] = useState<ResolvedIssuePreview | null>(null);
   const [targetBranch, setTargetBranch] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -177,6 +178,7 @@ export function MissionLauncher() {
                     previewRequest.current = null;
                     setPreviewLoading(false);
                     setIssueUrl(event.target.value);
+                    setReviewedRegressionJson("");
                     setPreview(null);
                     setTargetBranch("");
                     setPreviewError(null);
@@ -195,6 +197,34 @@ export function MissionLauncher() {
                   </button>
                 </div>
               </div>
+              <details className="launch-advanced">
+                <summary>Advanced: use a reviewed regression test instead of AI generation</summary>
+                <div className="launch-advanced-fields">
+                  <div className="launch-field">
+                    <label htmlFor="reviewed-regression">Reviewed regression JSON (optional)</label>
+                    <textarea
+                      id="reviewed-regression"
+                      name="reviewedRegressionJson"
+                      className="launch-input launch-textarea"
+                      rows={8}
+                      maxLength={42000}
+                      value={reviewedRegressionJson}
+                      onChange={(event) => setReviewedRegressionJson(event.target.value)}
+                      placeholder={'{"path":"src/__tests__/issue-regression.test.ts","sourcePath":"src/vcon.ts","testIdentity":"...","content":"...","issueQuote":"...","assertionQuote":"...","reason":"..."}'}
+                      spellCheck={false}
+                    />
+                    <p className="launch-hint">
+                      For a manually reviewed JS/TS test. Provide the new test path, an
+                      existing production source path, the exact standalone test name,
+                      complete test content, an exact quote from the GitHub issue,
+                      an exact assertion from your test, and why it checks that issue.
+                      PatchVerdict validates the input against the canonical issue,
+                      runs the exact test twice in its sandbox, and still requires review.
+                      Never paste secrets. Leave blank for automatic generation.
+                    </p>
+                  </div>
+                </div>
+              </details>
               {preview && <IssuePreview issue={preview} />}
               {preview && <BranchSelector key={preview.issueUrl} issueUrl={preview.issueUrl} defaultBranch={preview.defaultBranch} value={targetBranch} onChange={setTargetBranch} />}
               {previewError && <p className="launch-error" role="alert">{previewError}</p>}
