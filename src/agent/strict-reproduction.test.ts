@@ -8,6 +8,7 @@ import {
   discoverExistingReproduction,
   discoverReproduction,
   generateRegressionReproduction,
+  reproduceReviewedRegression,
   type ReproductionDiscoveryInput,
 } from "./strict-reproduction.js";
 
@@ -243,6 +244,67 @@ describe("read-only issue-specific discovery", () => {
       unstable: true,
       reason: expect.stringMatching(/file changed/),
     });
+  });
+});
+
+describe("human-reviewed regression fallback", () => {
+  const reviewed = () => ({
+    path: generated.testPath,
+    content: source,
+    testIdentity: generated.testIdentity,
+    issueQuote: "return zero for zero denominator",
+    assertionQuote: "expect(divide(4, 0)).toBe(0)",
+    reason: "The supplied test checks the behavior expected in the reported issue.",
+    sourcePath: "src/calc.ts",
+  });
+
+  it("bypasses model generation but still freezes two stable application failures", async () => {
+    vi.mocked(input.adapter.run).mockResolvedValue(run(generated));
+    input.reviewedRegression = reviewed();
+
+    const result = await discoverReproduction(sandbox, input);
+    expect(result.frozen).toMatchObject({
+      origin: "GENERATED_REGRESSION",
+      ...generated,
+      stable: true,
+    });
+    expect(result.generatedPath).toBe(generated.testPath);
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(mocks.write).toHaveBeenCalledOnce();
+    expect(mocks.freeze).toHaveBeenCalledOnce();
+    expect(input.adapter.run).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses a quote that is not in the canonical issue before writing", async () => {
+    const result = await reproduceReviewedRegression(sandbox, input, {
+      ...reviewed(),
+      issueQuote: "some invented issue requirement",
+    });
+    expect(result.discoveryFailed).toBe(true);
+    expect(result.reason).toContain("issueQuote");
+    expect(mocks.write).not.toHaveBeenCalled();
+    expect(mocks.send).not.toHaveBeenCalled();
+    expect(input.adapter.run).not.toHaveBeenCalled();
+  });
+
+  it("does not accept a supplied test with a compilation failure as reproduction", async () => {
+    vi.mocked(input.adapter.run).mockResolvedValue({
+      ...run(generated),
+      execution: "ERROR",
+      errorKind: "TEST_COMPILE_ERROR",
+      discovered: [],
+      failed: [],
+      evidence: {
+        ...run(generated).evidence,
+        stderr: "error TS2538: Type 'void' cannot be used as an index type.",
+      },
+    });
+    const result = await reproduceReviewedRegression(sandbox, input, reviewed());
+    expect(result.frozen).toBeUndefined();
+    expect(result.discoveryFailed).toBe(true);
+    expect(result.reason).toContain("TS2538");
+    expect(mocks.write).toHaveBeenCalledOnce();
+    expect(mocks.freeze).toHaveBeenCalledOnce();
   });
 });
 
