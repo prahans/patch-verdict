@@ -202,6 +202,19 @@ it("never repairs background-only failures with no issue target", async () => {
   expect(result.verdict).toBeNull();
   expect(mocks.patch).not.toHaveBeenCalled();
 });
+it("does not mislabel reproduction-agent failure as target absence", async () => {
+  mocks.discover.mockResolvedValue({
+    discoveryFailed: true,
+    reason:
+      "RegressionAgent did not construct an executable issue-specific regression.",
+  });
+  sequence(run(["B"], []));
+  const result = await runThirdPartyMission(sandbox, input);
+  expect(result.outcome).toBe("INVESTIGATION_FAILED");
+  expect(result.status).toBe("FAILED");
+  expect(result.verdict).toBeNull();
+  expect(mocks.patch).not.toHaveBeenCalled();
+});
 it("requires review for a frozen generated regression on a clean repository", async () => {
   mocks.discover.mockResolvedValue({
     frozen: { ...frozen, origin: "GENERATED_REGRESSION" },
