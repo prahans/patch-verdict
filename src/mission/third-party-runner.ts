@@ -110,7 +110,7 @@ export async function runThirdPartyMission(
         baseline,
         targetBranch: input.targetBranch,
         baseCommit,
-        reviewedRegression: input.reviewedRegression,
+        ...(input.reviewedRegression && { reviewedRegression: input.reviewedRegression }),
       },
       (message) => record("REPRODUCING", message),
     );
