@@ -290,6 +290,18 @@ function regressionFailureSummary(run: NormalizedRun): string {
   ].join(" ");
 }
 
+function regressionCorrectionHint(run: NormalizedRun): string | undefined {
+  if (run.execution !== "ERROR") return undefined;
+  const output = run.evidence.stderr + "\n" + run.evidence.stdout;
+  if (run.errorKind === "TEST_COMPILE_ERROR" && /\bTS2345\b/.test(output))
+    return "TS2345 means a test call has an argument incompatible with the declared parameter. Read the called method's TypeScript signature and a passing test call. Correct ONLY the generated regression to pass the declared input shape (for example, an object literal when the parameter is an object), not an incompatible class instance. Do not edit production, cast to any, suppress type errors, or weaken assertions.";
+  if (run.errorKind === "TEST_COMPILE_ERROR")
+    return "Read the compiler error, the relevant production TypeScript declarations, and a neighboring working test. Fix the test's types or imports without editing production or suppressing compilation.";
+  if (run.errorKind === "MODULE_RESOLUTION_ERROR")
+    return "Check the import paths against actual repository files and a neighboring working test. Correct imports in the same generated regression only.";
+  return undefined;
+}
+
 async function observeRead(
   sandbox: Sandbox,
   input: ReproductionDiscoveryInput,
@@ -489,7 +501,7 @@ export async function generateRegressionReproduction(
   const messages: ChatMessages[] = [
     {
       role: "system",
-      content: `${TRUST_RULES}\nYou are RegressionAgent, separate from RepairAgent. Inspect the production implementation, a neighboring passing test, and framework configuration (including Jest testMatch/ts-jest conventions) before writing. Match the actual test directory, import paths, and public TypeScript API signatures. For a regression against a currently missing return value, an expect(...).toBe(...) assertion can check it without calling methods on a void result. When compilation fails, use the exact compiler diagnostic returned by the tool to correct the SAME file, not a guess. Create exactly one NEW small test in an existing directory using write_regression_test. Use a supported .test/.spec JS/TS suffix, one standalone named test, repository-installed framework, real application behavior, and issue-grounded expected behavior. If the issue states multiple tightly-related expected behaviors that can be exercised through the same production file, the single test should cover all of those explicit obligations rather than only the easiest one. No focused/skipped tests, self-fulfilling mocks, unconditional synthetic failure, production/config/setup/package edits, second file, or shell. Provide exact issue and assertion quotes plus rationale with each write. Invalid test imports or compile errors permit one correction of the SAME file. A passing generated candidate is not enough by itself to prove the issue absent: if it missed a distinct explicit behavior from the issue, you may revise the SAME file once to cover that missing behavior. Never merely invert an assertion or manufacture a failure. If, after inspecting source, the reported behavior really appears already satisfied, return ONLY grounded JSON {notReproducible:true,issueQuote,sourcePath,sourceQuote,reason}; issueQuote and sourceQuote must be exact text you inspected. Generated expected behavior remains an unapproved oracle and requires human review. Never decide verdict.`,
+      content: `${TRUST_RULES}\nYou are RegressionAgent, separate from RepairAgent. Inspect the production implementation, a neighboring passing test, and framework configuration (including Jest testMatch/ts-jest conventions) before writing. Match the actual test directory, import paths, and public TypeScript API signatures. Builder methods often accept plain parameter objects, even when their return type is a class: never assume an instance of the return type is a valid argument. Follow an existing passing call before generating the test. For a regression against a currently missing return value, an expect(...).toBe(...) assertion can check it without calling methods on a void result. When compilation fails, use the exact compiler diagnostic returned by the tool to correct the SAME file, not a guess. Create exactly one NEW small test in an existing directory using write_regression_test. Use a supported .test/.spec JS/TS suffix, one standalone named test, repository-installed framework, real application behavior, and issue-grounded expected behavior. If the issue states multiple tightly-related expected behaviors that can be exercised through the same production file, the single test should cover all of those explicit obligations rather than only the easiest one. No focused/skipped tests, self-fulfilling mocks, unconditional synthetic failure, production/config/setup/package edits, second file, or shell. Provide exact issue and assertion quotes plus rationale with each write. Invalid test imports or compile errors permit one correction of the SAME file. A passing generated candidate is not enough by itself to prove the issue absent: if it missed a distinct explicit behavior from the issue, you may revise the SAME file once to cover that missing behavior. Never merely invert an assertion or manufacture a failure. If, after inspecting source, the reported behavior really appears already satisfied, return ONLY grounded JSON {notReproducible:true,issueQuote,sourcePath,sourceQuote,reason}; issueQuote and sourceQuote must be exact text you inspected. Generated expected behavior remains an unapproved oracle and requires human review. Never decide verdict.`,
     },
     {
       role: "user",
@@ -669,6 +681,7 @@ export async function generateRegressionReproduction(
                       failed: verified.run.failed,
                       stdout: verified.run.evidence.stdout.slice(-6000),
                       stderr: verified.run.evidence.stderr.slice(-6000),
+                      correctionHint: regressionCorrectionHint(verified.run),
                     }
                   : undefined,
               }),
