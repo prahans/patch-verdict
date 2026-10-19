@@ -372,6 +372,55 @@ describe("separate regression agent", () => {
     },
   );
 
+  it("supplies exact issue quotes and recovers from a paraphrased quote without loosening grounding", async () => {
+    const attachmentQuote =
+      "- `addAttachment` returns a detached copy instead of the stored object.";
+    const partyQuote =
+      "- `addParty` should return the new party index.";
+    input.issue = [
+      "Builder API returns unexpected results",
+      "",
+      "## Problem",
+      "",
+      attachmentQuote,
+      partyQuote,
+    ].join("\n");
+
+    const corrected = { ...write(), issueQuote: attachmentQuote };
+    mocks.send
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [[
+          "write_regression_test",
+          { ...corrected, issueQuote: "Attachment behavior should be fixed" },
+        ]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", corrected]]),
+      );
+    vi.mocked(input.adapter.run).mockResolvedValue(run(generated));
+
+    const result = await generateRegressionReproduction(sandbox, input);
+    expect(result.frozen?.provenance?.issueQuote).toBe(attachmentQuote);
+    expect(mocks.write).toHaveBeenCalledOnce();
+    const tool = mocks.send.mock.calls[1]![0].chatRequest.tools.find(
+      (entry: { function: { name: string } }) =>
+        entry.function.name === "write_regression_test",
+    );
+    const options: string[] = tool.function.parameters.properties.issueQuote.enum;
+    expect(options).toContain(attachmentQuote);
+    expect(options).toContain(partyQuote);
+    expect(options.every((quote) => input.issue.includes(quote))).toBe(true);
+
+    const feedback = mocks.send.mock.calls[2]![0].chatRequest.messages.filter(
+      (entry: { role: string }) => entry.role === "tool",
+    );
+    expect(feedback.at(-1)?.content).toContain("Copy one of these exact issue excerpts");
+    expect(feedback.at(-1)?.content).toContain(attachmentQuote);
+  });
+
   it("requires real repository read evidence before accepting a generated test", async () => {
     mocks.send
       .mockResolvedValueOnce(
