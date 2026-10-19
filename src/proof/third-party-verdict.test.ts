@@ -9,6 +9,16 @@ describe("strict deterministic verdict", () => {
   it.each(["CLEAN", "UNCHANGED_PREEXISTING_FAILURES", "IMPROVED_WITH_BACKGROUND_FAILURES"] as const)("never verifies a generated oracle with %s", backgroundComparison => {
     expect(determineThirdPartyVerdict({ ...clean, reproductionOrigin: "GENERATED_REGRESSION", backgroundComparison })).toBe("REVIEW_REQUIRED");
   });
+  it.each(["CLEAN", "UNCHANGED_PREEXISTING_FAILURES"] as const)(
+    "never automatically verifies a user-reviewed regression with %s background",
+    backgroundComparison => {
+      expect(determineThirdPartyVerdict({
+        ...clean,
+        reproductionOrigin: "REVIEWED_REGRESSION",
+        backgroundComparison,
+      })).toBe("REVIEW_REQUIRED");
+    },
+  );
   it("permits target fix with unchanged failures only for review", () => expect(determineThirdPartyVerdict({ ...clean, backgroundComparison: "UNCHANGED_PREEXISTING_FAILURES" })).toBe("REVIEW_REQUIRED"));
   it.each(["REGRESSED", "UNKNOWN", "UNSTABLE"] as const)("fails %s verification", backgroundComparison => expect(determineThirdPartyVerdict({ ...clean, backgroundComparison })).toBe("FAILED"));
   it.each(["targetReproduced", "reproductionStable", "frozenIntegrity", "repairAttempted", "repairScopeValid", "targetPassesAfterPatch", "verificationIntegrity"] as const)("fails when %s is absent", field => expect(determineThirdPartyVerdict({ ...clean, [field]: false })).toBe("FAILED"));
