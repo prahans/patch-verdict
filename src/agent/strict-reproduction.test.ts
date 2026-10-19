@@ -104,6 +104,17 @@ function write(identity = generated, content = source) {
   return { path: identity.testPath, content, ...proposal(identity) };
 }
 
+function noReproduction() {
+  return {
+    notReproducible: true,
+    issueQuote: "return zero for zero denominator",
+    sourcePath: "src/calc.ts",
+    sourceQuote: "export const divide = (a,b) => a / b;",
+    reason:
+      "The inspected implementation already returns the issue-requested value for the quoted behavior.",
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.attempts = 0;
@@ -236,14 +247,78 @@ describe("read-only issue-specific discovery", () => {
 });
 
 describe("separate regression agent", () => {
-  it("does not revise a valid passing oracle merely to manufacture a target failure", async () => {
-    mocks.send.mockResolvedValueOnce(message(null, [["read_file", { path: "src/calc.ts" }]]))
-      .mockResolvedValueOnce(message(null, [["write_regression_test", write()], ["write_regression_test", write(generated, `${source}\n// fake failure`)]]));
+  it("requires grounded source evidence before a passing generated candidate can stop reproduction", async () => {
+    mocks.send
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write()]]),
+      )
+      .mockResolvedValueOnce(
+        message(JSON.stringify(noReproduction())),
+      );
     vi.mocked(input.adapter.run).mockResolvedValue(run(generated, true));
+
     const result = await generateRegressionReproduction(sandbox, input);
+
     expect(result.frozen).toBeUndefined();
-    expect(result.reason).toMatch(/already passes/);
+    expect(result.reason).toMatch(/already satisfied/);
     expect(mocks.write).toHaveBeenCalledOnce();
+    expect(mocks.freeze).toHaveBeenCalledOnce();
+  });
+
+  it("does not treat a tool-less prose response as target-not-reproduced", async () => {
+    mocks.send
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(message("I think the issue may already be fixed."))
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write()]]),
+      );
+
+    vi.mocked(input.adapter.run).mockResolvedValue(run(generated));
+
+    const result = await generateRegressionReproduction(sandbox, input);
+
+    expect(result.frozen).toMatchObject({
+      origin: "GENERATED_REGRESSION",
+      ...generated,
+    });
+    expect(mocks.write).toHaveBeenCalledOnce();
+    expect(mocks.send).toHaveBeenCalledTimes(3);
+  });
+
+  it("permits one same-file revision when a passing candidate missed another explicit issue behavior", async () => {
+    mocks.send
+      .mockResolvedValueOnce(
+        message(null, [["read_file", { path: "src/calc.ts" }]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [["write_regression_test", write()]]),
+      )
+      .mockResolvedValueOnce(
+        message(null, [
+          [
+            "write_regression_test",
+            write(generated, `${source}\n// second issue-grounded behavior`),
+          ],
+        ]),
+      );
+
+    vi.mocked(input.adapter.run)
+      .mockResolvedValueOnce(run(generated, true))
+      .mockResolvedValueOnce(run(generated))
+      .mockResolvedValueOnce(run(generated));
+
+    const result = await generateRegressionReproduction(sandbox, input);
+
+    expect(result.frozen).toMatchObject({
+      origin: "GENERATED_REGRESSION",
+      ...generated,
+    });
+    expect(mocks.write).toHaveBeenCalledTimes(2);
     expect(mocks.freeze).toHaveBeenCalledOnce();
   });
   it("corrects one invalid generated import on the same file before freezing", async () => {
