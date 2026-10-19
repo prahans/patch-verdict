@@ -18,7 +18,7 @@ Branch names are URL-encoded for GitHub requests. The branch is metadata in the 
 
 The web child receives a fixed-schema JSON stdin envelope with a 64 KiB byte bound. Issue text is not in argv or executable shell text. Positional developer CLI arguments remain supported for legacy work. The publication token is blanked in the verification child and is never forwarded to agents or sandbox commands.
 
-Preflight checks root metadata, manager/lock consistency, supported layout and framework, installs dependencies, and verifies the exact HEAD and clean repository state. Installation, compilation, import, framework startup, infrastructure, and timeout errors do not establish target reproduction.
+Preflight checks root metadata, manager/lock consistency, supported layout and framework, installs dependencies, and verifies the exact HEAD and clean repository state. Strict missions do not inherit the E2B base image's Node version: PatchVerdict provisions checksum-pinned Node v22.14.0 from the official nodejs.org release archive into a PatchVerdict-owned `/tmp` runtime and places that runtime first in PATH for dependency installation and every later verification command. The archive is selected only for supported x86_64/arm64 sandbox architectures and its SHA-256 is verified before extraction. This fixes host-template drift such as an older E2B Node runtime being unable to install a modern locked Vite dependency without weakening `--engine-strict`. Repositories whose dependencies are still incompatible with this pinned runtime stop as PREPARATION_FAILED before reproduction. Installation, compilation, import, framework startup, infrastructure, and timeout errors do not establish target reproduction.
 
 ## Reproduction and repair
 
@@ -88,7 +88,7 @@ Existing frozen tests are checked against base Git blob bytes. Generated tests a
 
 ## Bounds, credentials, and remaining limits
 
-The web process deadline is 18 minutes, Next route budget 20 minutes, E2B lifetime 20 minutes, and each sandbox command two minutes. Discovery/regression/repair iterations and tool counts are bounded; generation permits two writes and production repair one correction. Framework reports cap test counts and output; stale report files are removed outside the repository before execution. Raw-byte integrity checks permit at most 10,000 tracked files, 16 MiB per tracked file, and 128 MiB total tracked bytes.
+The web process deadline is 18 minutes, Next route budget 20 minutes, E2B lifetime 20 minutes, and each normal sandbox command two minutes. The one-time checksum-verified Node runtime bootstrap is allowed up to three minutes. Discovery/regression/repair iterations and tool counts are bounded; generation permits two writes and production repair one correction. Framework reports cap test counts and output; stale report files are removed outside the repository before execution. Raw-byte integrity checks permit at most 10,000 tracked files, 16 MiB per tracked file, and 128 MiB total tracked bytes.
 
 GitHub publication has a shared two-minute request deadline, per-request timeouts, bounded JSON, at most three owned-repository pages and twenty candidate forks, and six readiness checks. Large repos or slow remote setup may produce controlled unsupported/preparation/publication errors.
 
