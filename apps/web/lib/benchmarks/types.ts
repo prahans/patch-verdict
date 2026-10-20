@@ -1,4 +1,7 @@
-import type { MissionResult, VerificationIntegrityStatus } from "../mission-types";
+import type {
+  MissionResult,
+  VerificationIntegrityStatus,
+} from "../mission-types";
 
 export type BenchmarkScenario = {
   id: string;
@@ -30,7 +33,11 @@ export type BenchmarkRow = {
   iterations: number | null;
   testDurationMs: number | null;
   timedCommandCount: number;
-  commandDurations: { baseline: number | null; postPatch: number | null; fullSuite: number | null };
+  commandDurations: {
+    baseline: number | null;
+    postPatch: number | null;
+    fullSuite: number | null;
+  };
   missionDurationMs: number | null;
   evidenceUrl: string | null;
   evidenceWarnings: boolean;
