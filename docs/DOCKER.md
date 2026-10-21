@@ -104,6 +104,6 @@ A healthy container should serve the landing page and `/benchmarks`.
 Test a mission through the web interface only after confirming that the
 required API keys are set. Do not run a paid AI mission as part of CI.
 
-The separate Docker image-build GitHub Actions workflow checks that the
-image can be built, but it does not start the app, use credentials, or publish
-images to a registry.
+The separate Docker GitHub Actions workflow builds the image and
+smoke-tests the landing page and `/benchmarks` in a temporary container.
+It does not use credentials, run missions, or publish images to a registry.
