@@ -36,4 +36,21 @@ jobs:
       - name: Build Docker image without credentials
         run: docker build --tag patchverdict:ci .
 
-      # This job intentionally does not push or run paid AI/E2B missions.
+      - name: Smoke test web and benchmark pages
+        run: |
+          docker run --detach --name patchverdict-smoke -p 127.0.0.1:3000:3000 patchverdict:ci
+          trap 'docker rm --force patchverdict-smoke >/dev/null 2>&1 || true' EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:3000/ &&
+               curl --fail --silent --output /dev/null http://127.0.0.1:3000/benchmarks; then
+              echo "Docker startup and both routes passed."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs patchverdict-smoke
+          exit 1
+
+      # No credentials, published images, or paid AI/E2B missions.
