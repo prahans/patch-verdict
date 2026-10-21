@@ -6,7 +6,7 @@ import path from "node:path";
 
 import { resolveRepositoryRoot } from "./repository-root";
 
-export const MAX_SAVED_WEB_MISSIONS = 20;
+export const MAX_SAVED_WEB_MISSIONS = 30;
 
 export const STALE_WEB_ARTIFACT_MS = 24 * 60 * 60 * 1000; // 24 hours
 
