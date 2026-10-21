@@ -75,7 +75,7 @@ cd apps/web
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Keep this process running throughout the mission. The UI submits to the local Next.js server, which starts the TypeScript backend; repository installation, tests, and repair experiments run in E2B.
+Open [http://localhost:3000](http://localhost:3000). Keep this process running throughout the mission. The UI submits to the local Next.js server, which starts the TypeScript backend; repository installation, tests, and candidate edits run in E2B.
 
 ### Submit a GitHub issue
 
@@ -171,6 +171,7 @@ The mission route declares a five-minute maximum, and the backend bridge enforce
 | Frozen install fails on this checkout | Use the documented `--no-frozen-lockfile` install, matching CI. Do not confuse this with target repository installation: investigated pnpm repositories use a frozen install in E2B. |
 | Web tests fail on module hooks or TypeScript imports | Check that the terminal is running Node 24. Installing web dependencies does not change the active Node runtime. |
 | Frontend typecheck cannot find generated route types | Run `pnpm exec next typegen` in `apps/web`, then rerun `pnpm exec tsc --noEmit`. |
+| Production build cannot fetch Geist fonts | The existing Next.js layout downloads Geist and Geist Mono through Google Fonts during the build. Check permitted network access to Google Fonts; this is independent of OpenRouter and E2B credentials. |
 | Provider authentication or startup failure | Check root/server `OPENROUTER_API_KEY`, `E2B_API_KEY`, provider access, and network connectivity. Keep secret values out of screenshots and reports. |
 | Issue preview is rejected | Use the exact issue URL format above. Check repository visibility, issue size, and GitHub's unauthenticated rate limit; manual input is available when appropriate. |
 | Repository preparation fails | Check the root manifest, test script, supported lockfile, and dependency installation. Current support does not cover every public repository. |

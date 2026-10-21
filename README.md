@@ -4,7 +4,7 @@
 
 PatchVerdict is an AI-assisted repository debugging and repair system built for **Leapfrog Frogtoberfest — Build with AI**. Give it a public GitHub issue or a repository and bug description. It attempts to reproduce the failure, investigates with an external model and repository tools, applies a candidate repair, and records the checks behind its verdict.
 
-The result is an inspectable mission: a base commit, investigation report, patch diff, command evidence, and a recorded outcome. A human can then request a pull request for an eligible repair.
+Inspect the recorded base commit, investigation report, patch diff, command evidence, and verdict. A human can request a pull request for an eligible repair.
 
 ## Why evidence matters
 

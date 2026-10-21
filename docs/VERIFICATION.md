@@ -9,7 +9,7 @@ This guide explains the current rules and their limits. The [system design](SYST
 ```mermaid
 flowchart TD
     Baseline[Execute baseline reproduction] --> Match{Failure expectation matches?}
-    Match -->|No| Stop[Execution FAILED; no repair verdict]
+    Match -->|No| Stop["Execution FAILED; no repair verdict"]
     Match -->|Yes| Investigate[Investigate observed failure]
     Investigate --> Patch[Apply candidate and capture Git diff]
     Patch --> Integrity[Analyze verification integrity]
