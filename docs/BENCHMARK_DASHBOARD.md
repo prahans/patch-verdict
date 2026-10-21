@@ -177,7 +177,7 @@ No database is used or required: saved proof bundles supply the recorded results
 
 A deployment must retain a readable repository checkout with the existing root markers and persist its repository-level `output/` directory. An ephemeral or static-only deployment will not acquire the developer's local evidence automatically. Mount or provision the genuine saved bundles persistently, retain their fixed file layout, and provide filesystem permissions to read them. Do not copy secrets into published evidence.
 
-Catalog registration does not change the application's existing retention policy. In particular, selecting a `web-` mission does not exempt its bundle from normal cleanup when later missions run. Preserve benchmark evidence through your existing backup process; if a selected bundle is removed, its configured row becomes unavailable and remains in the verification-rate denominator.
+PatchVerdict retains the 30 newest completed `web-` mission bundles by default. Catalog registration does not exempt a selected `web-` mission from normal cleanup when later missions run. Preserve benchmark evidence through your existing backup process; if a selected bundle is removed, its configured row becomes unavailable and remains in the verification-rate denominator.
 
 ## Non-destructive private backup procedure
 
