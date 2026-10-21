@@ -83,6 +83,9 @@ jobs:
       - name: Run frontend tests
         run: node --test tests/*.test.mjs
 
+      - name: Generate Next.js route and layout types
+        run: pnpm exec next typegen
+
       - name: Typecheck frontend
         run: pnpm exec tsc --noEmit
 
