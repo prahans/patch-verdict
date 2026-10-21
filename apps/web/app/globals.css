@@ -3433,3 +3433,6 @@ summary,
 @media (prefers-reduced-motion: reduce) {
   .benchmark-other-chevron { transition: none; }
 }
+
+.benchmark-mission-id { display: block; margin-top: 4px; color: #b6bdc3; font-family: var(--font-geist-mono), monospace; font-size: 9px; line-height: 1.8; overflow-wrap: anywhere; }
+.benchmark-recorded-at { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; font-weight: 400; line-height: 1.8; }

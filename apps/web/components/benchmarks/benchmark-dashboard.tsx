@@ -4,10 +4,12 @@ import type { BenchmarkDashboardData } from "@/lib/benchmarks/types";
 import { BenchmarkSummary } from "./benchmark-summary";
 import { VerdictDistribution } from "./verdict-distribution";
 import { BenchmarkTable } from "./benchmark-table";
+import { BenchmarkRefresh } from "./benchmark-refresh";
 
 export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
   return (
     <>
+      <BenchmarkRefresh />
       <a className="skip-link" href="#benchmarks">
         Skip to benchmarks
       </a>
@@ -99,10 +101,10 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
           <div className="benchmark-results-heading">
             <div>
               <p className="eyebrow">Controlled cohort</p>
-              <h2 id="benchmark-results-title">Benchmark results</h2>
+              <h2 id="benchmark-results-title">Controlled Benchmarks</h2>
               <p>
-                Exact selected missions, with their recorded verdicts and
-                verification checks.
+                Pinned missions with their recorded verdicts and verification
+                checks. New attempts do not replace these selections.
               </p>
             </div>
             <span className="benchmark-count-label">
@@ -161,25 +163,27 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
           )}
         </section>
 
-        <details className="panel benchmark-other">
-          <summary>
-            <span className="benchmark-other-chevron" aria-hidden="true">
-              ›
-            </span>
-            <span>
-              <strong>Other locally recorded missions</strong>
-              <span>Excluded from all controlled benchmark metrics</span>
-            </span>
+        <section
+          className="panel benchmark-other"
+          aria-labelledby="recorded-missions-title"
+        >
+          <div className="benchmark-results-heading">
+            <div>
+              <p className="eyebrow">Saved attempt history</p>
+              <h2 id="recorded-missions-title">All Recorded Missions</h2>
+              <p>Every discovered attempt, including pinned benchmark missions.</p>
+            </div>
             <span className="benchmark-count-label">
-              {data.otherMissions.length} missions
+              {data.recordedMissions.length} missions
             </span>
-          </summary>
-          <div className="benchmark-other-intro">
-            These finalized local records are not selected in the benchmark
-            catalog. Multiple runs for a repository remain separate records.
           </div>
-          <BenchmarkTable rows={data.otherMissions} cohort="other" />
-        </details>
+          <div className="benchmark-other-intro">
+            Refreshes every 30 seconds while this page is visible. New missions
+            appear here without changing controlled benchmark metrics. Multiple
+            runs for a repository remain separate records.
+          </div>
+          <BenchmarkTable rows={data.recordedMissions} cohort="recorded" />
+        </section>
 
         <footer className="benchmark-footer">
           <p>

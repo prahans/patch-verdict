@@ -4,6 +4,8 @@ export type BenchmarkVerdictFilter = "all" | RecordedVerdict | "none";
 export type BenchmarkSort =
   | "scenario-asc"
   | "scenario-desc"
+  | "recorded-desc"
+  | "recorded-asc"
   | "duration-asc"
   | "duration-desc"
   | "verdict-asc";
@@ -27,6 +29,11 @@ export function formatRate(rate: number | null): string {
   return rate === null ? "Unavailable" : `${Number(rate.toFixed(1))}%`;
 }
 
+export function formatRecordedAt(value: string | null): string {
+  if (value === null || !Number.isFinite(Date.parse(value))) return "Unavailable";
+  return new Date(value).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC");
+}
+
 const verdictOrder: Record<RecordedVerdict, number> = {
   VERIFIED: 0,
   REVIEW_REQUIRED: 1,
@@ -34,7 +41,7 @@ const verdictOrder: Record<RecordedVerdict, number> = {
 };
 
 // Work on a fresh array. The recorded cohort and its summary never change when
-// a reader filters or sorts the table. Missing durations always sort last.
+// a reader filters or sorts the table. Missing durations and dates sort last.
 export function selectBenchmarkRows(
   rows: readonly BenchmarkRow[],
   {
@@ -48,7 +55,7 @@ export function selectBenchmarkRows(
     .filter(
       (row) =>
         (!query ||
-          `${row.scenario} ${row.repository ?? ""}`
+          `${row.scenario} ${row.repository ?? ""} ${row.missionId}`
             .toLocaleLowerCase("en")
             .includes(query)) &&
         (verdict === "all" ||
@@ -61,6 +68,17 @@ export function selectBenchmarkRows(
         left.scenario.localeCompare(right.scenario, "en") ||
         left.id.localeCompare(right.id, "en");
       if (sort === "scenario-desc") return -byScenario;
+      if (sort === "recorded-asc" || sort === "recorded-desc") {
+        const leftTime = left.recordedAt === null ? NaN : Date.parse(left.recordedAt);
+        const rightTime = right.recordedAt === null ? NaN : Date.parse(right.recordedAt);
+        if (!Number.isFinite(leftTime))
+          return !Number.isFinite(rightTime) ? byScenario : 1;
+        if (!Number.isFinite(rightTime)) return -1;
+        return (
+          (leftTime - rightTime) * (sort === "recorded-desc" ? -1 : 1) ||
+          byScenario
+        );
+      }
       if (sort === "duration-asc" || sort === "duration-desc") {
         if (left.testDurationMs === null)
           return right.testDurationMs === null ? byScenario : 1;

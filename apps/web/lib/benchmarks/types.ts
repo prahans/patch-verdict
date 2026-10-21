@@ -39,6 +39,8 @@ export type BenchmarkRow = {
     fullSuite: number | null;
   };
   missionDurationMs: number | null;
+  recordedAt: string | null;
+  recordedAtSource: "event" | "artifact" | null;
   evidenceUrl: string | null;
   evidenceWarnings: boolean;
 };
@@ -61,7 +63,7 @@ export type BenchmarkSummary = {
 
 export type BenchmarkDashboardData = {
   benchmarks: BenchmarkRow[];
-  otherMissions: BenchmarkRow[];
+  recordedMissions: BenchmarkRow[];
   summary: BenchmarkSummary;
   notices: string[];
   outputState: "available" | "missing" | "unavailable";

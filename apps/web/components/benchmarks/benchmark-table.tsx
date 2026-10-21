@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Icon } from "@/components/mission/icon";
 import {
   formatDuration,
+  formatRecordedAt,
   selectBenchmarkRows,
 } from "@/lib/benchmarks/presentation";
 import type {
@@ -101,11 +102,13 @@ export function BenchmarkTable({
   cohort = "benchmarks",
 }: {
   rows: BenchmarkRow[];
-  cohort?: "benchmarks" | "other";
+  cohort?: "benchmarks" | "recorded";
 }) {
   const [search, setSearch] = useState("");
   const [verdict, setVerdict] = useState<BenchmarkVerdictFilter>("all");
-  const [sort, setSort] = useState<BenchmarkSort>("scenario-asc");
+  const [sort, setSort] = useState<BenchmarkSort>(
+    cohort === "recorded" ? "recorded-desc" : "scenario-asc",
+  );
   const filteredRows = selectBenchmarkRows(rows, { search, verdict, sort });
   const hasFilters = search !== "" || verdict !== "all";
 
@@ -114,12 +117,12 @@ export function BenchmarkTable({
       <div className="benchmark-table-controls">
         <div className="benchmark-search">
           <label htmlFor={`${cohort}-search`}>
-            Search scenario or repository
+            Search scenario, repository or mission ID
           </label>
           <input
             id={`${cohort}-search`}
             type="search"
-            placeholder="Find a scenario or repository…"
+            placeholder="Find a scenario, repository or mission…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -147,6 +150,8 @@ export function BenchmarkTable({
             value={sort}
             onChange={(event) => setSort(event.target.value as BenchmarkSort)}
           >
+            <option value="recorded-desc">Recorded · newest first</option>
+            <option value="recorded-asc">Recorded · oldest first</option>
             <option value="scenario-asc">Scenario · A–Z</option>
             <option value="scenario-desc">Scenario · Z–A</option>
             <option value="duration-asc">Measured duration · shortest</option>
@@ -160,7 +165,7 @@ export function BenchmarkTable({
           Showing {filteredRows.length} of {rows.length}{" "}
           {cohort === "benchmarks"
             ? "configured scenarios"
-            : "other recorded missions"}
+            : "recorded missions"}
         </p>
         {hasFilters && (
           <button
@@ -186,7 +191,7 @@ export function BenchmarkTable({
           <p>
             {rows.length === 0
               ? "Finalized local proof bundles will appear here when available."
-              : "Try another scenario, repository, or verdict filter."}
+              : "Try another scenario, repository, mission ID or verdict filter."}
           </p>
         </div>
       ) : (
@@ -196,7 +201,7 @@ export function BenchmarkTable({
           aria-label={
             cohort === "benchmarks"
               ? "Controlled benchmark results"
-              : "Other recorded mission results"
+              : "All recorded mission results"
           }
           tabIndex={0}
         >
@@ -204,7 +209,7 @@ export function BenchmarkTable({
             <caption className="benchmark-sr-only">
               {cohort === "benchmarks"
                 ? "Configured benchmark evidence"
-                : "Other local missions, excluded from benchmark metrics"}
+                : "All saved mission attempts; new runs do not change benchmark metrics"}
               . Measured duration is the sum of available baseline, post-patch
               and full-suite command durations.
             </caption>
@@ -247,6 +252,23 @@ export function BenchmarkTable({
                       </span>
                       <span className="benchmark-repository">
                         {row.repository ?? "Unavailable"}
+                      </span>
+                      {cohort === "recorded" && (
+                        <span className="benchmark-mission-id">
+                          {row.missionId}
+                        </span>
+                      )}
+                      <span className="benchmark-recorded-at">
+                        {row.recordedAtSource === "artifact"
+                          ? "Artifact saved: "
+                          : "Recorded: "}
+                        {row.recordedAt ? (
+                          <time dateTime={row.recordedAt}>
+                            {formatRecordedAt(row.recordedAt)}
+                          </time>
+                        ) : (
+                          "Unavailable"
+                        )}
                       </span>
                       {row.unavailableReason && (
                         <p className="benchmark-row-notice">
@@ -299,7 +321,7 @@ export function BenchmarkTable({
                       </span>
                     </td>
                     <td>
-                      {row.evidenceUrl ? (
+                      {row.availability === "valid" && row.evidenceUrl ? (
                         <Link
                           prefetch={false}
                           className="benchmark-evidence-link"

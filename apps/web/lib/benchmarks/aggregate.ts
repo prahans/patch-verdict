@@ -17,7 +17,7 @@ import type {
 export const BENCHMARK_LIMITS = {
   catalog: 100,
   scannedEntries: 500,
-  otherMissions: 100,
+  recordedMissions: 100,
   artifactBytes: 2 * 1024 * 1024,
   bundleBytes: 8 * 1024 * 1024,
 } as const;
@@ -91,6 +91,7 @@ async function inspectBundle(output: string, missionId: string) {
     fingerprints.push("no-evidence-directory");
   }
   let total = 0;
+  let savedAt: string | null = null;
   for (const filename of artifactFiles) {
     try {
       // Runtime evidence is provisioned separately, never bundled at build time.
@@ -107,6 +108,9 @@ async function inspectBundle(output: string, missionId: string) {
           "A proof artifact is outside the allowed location.",
         );
       total += metadata.size;
+      if (filename === "proof.json" && Number.isFinite(metadata.mtime.getTime())) {
+        savedAt = metadata.mtime.toISOString();
+      }
       if (
         metadata.size > BENCHMARK_LIMITS.artifactBytes ||
         total > BENCHMARK_LIMITS.bundleBytes
@@ -129,7 +133,7 @@ async function inspectBundle(output: string, missionId: string) {
       fingerprints.push(`${filename}:missing`);
     }
   }
-  return fingerprints.join("\n");
+  return { fingerprint: fingerprints.join("\n"), savedAt };
 }
 
 function repositoryIdentity(url: string) {
@@ -180,18 +184,17 @@ function emptyRow(
     timedCommandCount: 0,
     commandDurations: { baseline: null, postPatch: null, fullSuite: null },
     missionDurationMs: null,
-    evidenceUrl: isBenchmarkMissionId(missionId)
-      ? `/missions/${missionId}`
-      : null,
+    recordedAt: null,
+    recordedAtSource: null,
+    evidenceUrl: null,
     evidenceWarnings: false,
   };
 }
 
-function missionDuration(mission: MissionResult): number | null {
+function recordedCompletion(mission: MissionResult): string | null {
   const { events } = mission;
   if (
-    events.length < 2 ||
-    events[0].state !== "PREPARING" ||
+    events.length === 0 ||
     events.at(-1)?.state !== mission.status
   )
     return null;
@@ -208,7 +211,13 @@ function missionDuration(mission: MissionResult): number | null {
     )
   )
     return null;
-  return times[times.length - 1] - times[0];
+  return new Date(times[times.length - 1]).toISOString();
+}
+
+function missionDuration(mission: MissionResult): number | null {
+  if (mission.events.length < 2 || mission.events[0].state !== "PREPARING") return null;
+  const end = recordedCompletion(mission);
+  return end === null ? null : Date.parse(end) - Date.parse(mission.events[0].timestamp);
 }
 
 function projectBundle(
@@ -226,6 +235,7 @@ function projectBundle(
     (value): value is number => value !== null,
   );
   const measured = durations.reduce((sum, value) => sum + value, 0);
+  const completedAt = recordedCompletion(mission);
   return {
     ...row,
     repository: details.source
@@ -261,6 +271,9 @@ function projectBundle(
     testDurationMs:
       durations.length && Number.isFinite(measured) ? measured : null,
     missionDurationMs: missionDuration(mission),
+    recordedAt: completedAt ?? row.recordedAt,
+    recordedAtSource: completedAt ? "event" : row.recordedAtSource,
+    evidenceUrl: `/missions/${row.missionId}`,
     evidenceWarnings: bundle.warnings.length > 0,
   };
 }
@@ -272,9 +285,11 @@ async function loadRow(
 ): Promise<BenchmarkRow> {
   try {
     const before = await inspectBundle(output, row.missionId);
+    // Filesystem time describes the saved artifact, never inferred mission time.
+    row = { ...row, recordedAt: before.savedAt, recordedAtSource: before.savedAt ? "artifact" : null };
     // All proof/schema/command validation is owned by the existing viewer.
     const bundle = await loadProofBundle(row.missionId);
-    if (before !== (await inspectBundle(output, row.missionId))) {
+    if (before.fingerprint !== (await inspectBundle(output, row.missionId)).fingerprint) {
       throw new Unavailable(
         "Saved artifacts changed during reading. Reload after the run has finalized.",
       );
@@ -332,7 +347,7 @@ export async function aggregateBenchmarks(
   if (catalog.length > BENCHMARK_LIMITS.catalog) {
     return {
       benchmarks: [],
-      otherMissions: [],
+      recordedMissions: [],
       summary: summarize([]),
       outputState: "unavailable",
       discoveryTruncated: false,
@@ -404,7 +419,7 @@ export async function aggregateBenchmarks(
     else benchmarks.push(await loadRow(output, row, expectedRepository));
   }
 
-  const otherMissions: BenchmarkRow[] = [];
+  const recordedMissions: BenchmarkRow[] = [];
   let discoveryTruncated = false;
   if (output) {
     // Stream the directory and cap entries examined, including ignored files.
@@ -413,7 +428,7 @@ export async function aggregateBenchmarks(
       const directory = await opendir(output);
       let examined = 0;
       let unreadableEntries = false;
-      const candidates: string[] = [];
+      const candidates: { missionId: string; savedAt: number }[] = [];
       for await (const entry of directory) {
         if (examined++ >= BENCHMARK_LIMITS.scannedEntries) {
           discoveryTruncated = true;
@@ -422,8 +437,7 @@ export async function aggregateBenchmarks(
         if (
           !entry.isDirectory() ||
           entry.isSymbolicLink() ||
-          !isBenchmarkMissionId(entry.name) ||
-          configuredMissions.has(entry.name)
+          !isBenchmarkMissionId(entry.name)
         )
           continue;
         try {
@@ -433,26 +447,32 @@ export async function aggregateBenchmarks(
           );
           // Ignore live-only and temporary bundles. Malformed published manifests
           // remain visible as unavailable instead of quietly disappearing.
-          await lstat(path.join(bundleDirectory, "proof.json"));
+          const metadata = await lstat(path.join(bundleDirectory, "proof.json"));
+          if (metadata.isSymbolicLink() || !metadata.isFile()) {
+            unreadableEntries = true;
+            continue;
+          }
+          // Rank the bounded discovery set by saved-manifest time before the
+          // load cap, so new finalized runs are not displaced by alphabetical IDs.
+          candidates.push({ missionId: entry.name, savedAt: Number.isFinite(metadata.mtimeMs) ? metadata.mtimeMs : 0 });
         } catch (error) {
           if (hasCode(error, "ENOENT")) continue;
           unreadableEntries = true;
           continue;
         }
-        candidates.push(entry.name);
       }
       if (unreadableEntries)
         notices.push(
-          "Some other local recordings could not be inspected safely and were omitted from discovery.",
+          "Some local recordings could not be inspected safely and were omitted from discovery.",
         );
-      candidates.sort();
-      if (candidates.length > BENCHMARK_LIMITS.otherMissions)
+      candidates.sort((a, b) => b.savedAt - a.savedAt || a.missionId.localeCompare(b.missionId, "en"));
+      if (candidates.length > BENCHMARK_LIMITS.recordedMissions)
         discoveryTruncated = true;
-      for (const missionId of candidates.slice(
+      for (const { missionId } of candidates.slice(
         0,
-        BENCHMARK_LIMITS.otherMissions,
+        BENCHMARK_LIMITS.recordedMissions,
       )) {
-        otherMissions.push(
+        recordedMissions.push(
           await loadRow(
             output,
             emptyRow(`recorded-${missionId}`, missionId, missionId, null),
@@ -467,11 +487,13 @@ export async function aggregateBenchmarks(
   }
   if (discoveryTruncated)
     notices.push(
-      "Local discovery is limited to 500 directory entries and 100 other recordings. Configured benchmarks are loaded directly.",
+      "Local discovery is limited to 500 directory entries and the 100 most recently saved manifests within that scan. Configured benchmarks are loaded directly.",
     );
   return {
     benchmarks,
-    otherMissions,
+    recordedMissions: recordedMissions.sort((a, b) =>
+      (b.recordedAt ? Date.parse(b.recordedAt) : -Infinity) - (a.recordedAt ? Date.parse(a.recordedAt) : -Infinity) ||
+      a.missionId.localeCompare(b.missionId, "en")),
     summary: summarize(benchmarks),
     notices,
     outputState,

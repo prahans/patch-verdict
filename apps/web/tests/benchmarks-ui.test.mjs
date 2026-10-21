@@ -3,13 +3,14 @@ import { test } from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import "./helpers/ui-loader.mjs";
-import { createHarness, nodes, textContent } from "./helpers/ui-harness.mjs";
+import { createHarness, navigation, nodes, textContent } from "./helpers/ui-harness.mjs";
 
 const { BenchmarkDashboard } = await import("../components/benchmarks/benchmark-dashboard.tsx");
 const { BenchmarkSummary } = await import("../components/benchmarks/benchmark-summary.tsx");
 const { VerdictDistribution } = await import("../components/benchmarks/verdict-distribution.tsx");
 const { BenchmarkTable } = await import("../components/benchmarks/benchmark-table.tsx?interactive");
-const { formatDuration, formatRate, selectBenchmarkRows } = await import("../lib/benchmarks/presentation.ts");
+const { BenchmarkRefresh } = await import("../components/benchmarks/benchmark-refresh.tsx?interactive");
+const { formatDuration, formatRate, formatRecordedAt, selectBenchmarkRows } = await import("../lib/benchmarks/presentation.ts");
 
 const render = (Component, props) => renderToStaticMarkup(createElement(Component, props));
 const byId = (tree, id) => nodes(tree, (node) => node.props.id === id)[0];
@@ -24,6 +25,7 @@ function row(id, overrides = {}) {
     changedFiles: 1, baseCommit: "a".repeat(40), iterations: 2, testDurationMs: 100,
     timedCommandCount: 1, commandDurations: { baseline: 100, postPatch: null, fullSuite: null },
     missionDurationMs: null, evidenceUrl: `/missions/mission-${id}`, evidenceWarnings: false,
+    recordedAt: "2026-03-01T12:30:45.000Z", recordedAtSource: "event",
     ...overrides,
   };
 }
@@ -45,17 +47,22 @@ const emptySummary = {
   testDurationMs: null, timedCommandCount: 0, timedMissionCount: 0,
 };
 const dashboardData = (overrides = {}) => ({
-  benchmarks: rows, otherMissions: [row("unselected")], summary,
+  benchmarks: rows, recordedMissions: [...rows, row("unselected")], summary,
   notices: [], outputState: "available", discoveryTruncated: false, ...overrides,
 });
 
-test("dashboard states its controlled scope, uses truthful labels, and separates other recordings", () => {
+test("dashboard states its controlled scope and exposes separate complete recorded history", () => {
   const html = render(BenchmarkDashboard, { data: dashboardData() });
   assert.match(html, /<h1[^>]*>Benchmark Dashboard<\/h1>/);
   assert.ok(html.includes("Measured outcomes from recorded PatchVerdict verification missions."));
   assert.ok(html.includes("Controlled benchmark results. Not a measure of general-purpose repair accuracy."));
-  assert.match(html, /Other locally recorded missions/);
-  assert.match(html, /Excluded from all controlled benchmark metrics/);
+  assert.match(html, /Controlled Benchmarks/);
+  assert.match(html, /<section[^>]*aria-labelledby="recorded-missions-title"/);
+  assert.match(html, /All Recorded Missions/);
+  assert.match(html, /Every discovered attempt, including pinned benchmark missions/);
+  assert.match(html, /New attempts do not replace these selections/);
+  assert.match(html, /Refreshes every 30 seconds while this page is visible/);
+  assert.match(html, /without changing controlled benchmark metrics/);
   const currentPageLink = nodes(BenchmarkDashboard({ data: dashboardData() }), (node) => node.props.href === "/benchmarks")[0];
   assert.equal(currentPageLink.props["aria-current"], "page");
   assert.match(html, /href="\/#verify"/);
@@ -86,7 +93,7 @@ test("summary rate and distribution share the configured denominator, including 
 
 test("empty catalog and missing output show setup guidance and unavailable rate instead of invented success", () => {
   const html = render(BenchmarkDashboard, { data: dashboardData({
-    benchmarks: [], otherMissions: [], summary: emptySummary, outputState: "missing",
+    benchmarks: [], recordedMissions: [], summary: emptySummary, outputState: "missing",
     notices: ["No local output directory is available."],
   }) });
   assert.match(html, /No benchmark scenarios are configured/);
@@ -147,11 +154,18 @@ test("scenario, measured-duration and verdict sorting preserve inputs and always
   assert.deepEqual(selected.map((value) => value.scenario), ["Bravo"]);
 });
 
-test("evidence links route to saved Mission Control and invalid identifiers render no link", () => {
-  const view = createHarness(BenchmarkTable, { rows: [row("valid-id"), row("invalid-id", { missionId: "../secret", evidenceUrl: null })] });
+test("only valid proof rows link to saved Mission Control, even if an unavailable row has a URL", () => {
+  const view = createHarness(BenchmarkTable, { rows: [
+    row("valid-id"),
+    row("invalid-id", { missionId: "../secret", evidenceUrl: null }),
+    row("unsupported", { availability: "unavailable", unavailableReason: "Saved proof uses an unsupported proof version.", verdict: null }),
+    row("missing", { availability: "unavailable", unavailableReason: "Saved proof is missing.", verdict: null }),
+  ] });
   const html = renderToStaticMarkup(view.render());
   assert.match(html, /href="\/missions\/mission-valid-id"/);
   assert.match(html, /aria-label="View Evidence for valid-id"/);
+  assert.match(html, /unsupported proof version/);
+  assert.match(html, /Saved proof is missing/);
   assert.equal((html.match(/href="\/missions\//g) ?? []).length, 1);
   assert.doesNotMatch(html, /href="[^\"]*\.\.\//);
 });
@@ -168,17 +182,17 @@ test("repository, scenario and unavailable messages render as escaped untrusted 
   assert.doesNotMatch(html, /<script>|<img|<svg onload/);
 });
 
-test("other-mission controls use unique accessible labels and announce filtered results", () => {
-  const view = createHarness(BenchmarkTable, { rows, cohort: "other" });
+test("recorded-mission controls use unique accessible labels and announce filtered results", () => {
+  const view = createHarness(BenchmarkTable, { rows, cohort: "recorded" });
   const tree = view.render();
-  for (const id of ["other-search", "other-verdict", "other-sort"]) {
+  for (const id of ["recorded-search", "recorded-verdict", "recorded-sort"]) {
     assert.ok(byId(tree, id));
     assert.ok(nodes(tree, (node) => node.type === "label" && node.props.htmlFor === id)[0]);
   }
-  assert.match(textContent(nodes(tree, (node) => node.props.role === "status")[0]), /5 of 5 other recorded missions/);
+  assert.match(textContent(nodes(tree, (node) => node.props.role === "status")[0]), /5 of 5 recorded missions/);
   const region = nodes(tree, (node) => node.props.role === "region")[0];
   assert.equal(region.props.tabIndex, 0);
-  assert.equal(region.props["aria-label"], "Other recorded mission results");
+  assert.equal(region.props["aria-label"], "All recorded mission results");
 });
 
 test("duration and rate formatting retain missing data and genuine zero without mis-scaling percentages", () => {
@@ -190,4 +204,153 @@ test("duration and rate formatting retain missing data and genuine zero without 
   assert.match(formatRate(0), /^0(?:\.0)?%$/);
   assert.match(formatRate(50), /^50(?:\.0)?%$/);
   assert.match(formatRate(100), /^100(?:\.0)?%$/);
+});
+
+test("recorded history defaults newest-first, labels timestamp provenance and keeps missing dates last", () => {
+  const attempts = [
+    row("earlier", { missionId: "attempt-01", recordedAt: "2026-03-01T08:00:00.000Z" }),
+    row("later", { missionId: "attempt-02", recordedAt: "2026-03-02T08:00:00.000Z", recordedAtSource: "artifact" }),
+    row("unknown", { recordedAt: null, recordedAtSource: null }),
+  ];
+  const view = createHarness(BenchmarkTable, { rows: attempts, cohort: "recorded" });
+  assert.deepEqual(displayedScenarios(view.render()), ["later", "earlier", "unknown"]);
+  assert.equal(byId(view.render(), "recorded-sort").props.value, "recorded-desc");
+  const html = renderToStaticMarkup(view.render());
+  assert.match(html, /class="benchmark-mission-id">attempt-02</);
+  assert.match(html, /Artifact saved: <time dateTime="2026-03-02T08:00:00.000Z">2026-03-02 08:00:00 UTC<\/time>/);
+  assert.match(html, /Recorded: <time dateTime="2026-03-01T08:00:00.000Z">2026-03-01 08:00:00 UTC<\/time>/);
+  assert.match(html, /Recorded: Unavailable/);
+  change(view, "recorded-sort", "recorded-asc");
+  assert.deepEqual(displayedScenarios(view.render()), ["earlier", "later", "unknown"]);
+  change(view, "recorded-search", "attempt-02");
+  assert.deepEqual(displayedScenarios(view.render()), ["later"]);
+  assert.equal(formatRecordedAt("invalid"), "Unavailable");
+  assert.equal(formatRecordedAt(null), "Unavailable");
+});
+
+test("refreshed data appears in history while search, verdict and sorting remain selected", () => {
+  const original = [
+    row("older", { repository: "fixture/target", recordedAt: "2026-03-01T00:00:00.000Z" }),
+    row("review", { repository: "fixture/target", verdict: "REVIEW_REQUIRED" }),
+  ];
+  const view = createHarness(BenchmarkTable, { rows: original, cohort: "recorded" });
+  change(view, "recorded-search", "fixture/target");
+  change(view, "recorded-verdict", "VERIFIED");
+  change(view, "recorded-sort", "recorded-asc");
+  const fresh = row("newer", { repository: "fixture/target", recordedAt: "2026-03-03T00:00:00.000Z" });
+  const refreshed = view.render({ rows: [...original, fresh, row("unrelated")], cohort: "recorded" });
+  assert.deepEqual(displayedScenarios(refreshed), ["older", "newer"]);
+  assert.equal(byId(refreshed, "recorded-search").props.value, "fixture/target");
+  assert.equal(byId(refreshed, "recorded-verdict").props.value, "VERIFIED");
+  assert.equal(byId(refreshed, "recorded-sort").props.value, "recorded-asc");
+  assert.match(textContent(refreshed), /Showing 2 of 4 recorded missions/);
+  assert.equal(original.length, 2);
+});
+
+function refreshEnvironment(t, visibilityState = "visible") {
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  const listeners = new Set();
+  const timers = new Map();
+  let nextTimer = 0;
+  const document = {
+    visibilityState,
+    addEventListener(name, callback) {
+      assert.equal(name, "visibilitychange");
+      listeners.add(callback);
+    },
+    removeEventListener(name, callback) {
+      assert.equal(name, "visibilitychange");
+      listeners.delete(callback);
+    },
+  };
+  Object.defineProperty(globalThis, "document", { configurable: true, value: document });
+  t.mock.method(globalThis, "setInterval", (callback, delay) => {
+    assert.equal(delay, 30_000);
+    timers.set(++nextTimer, callback);
+    return nextTimer;
+  });
+  t.mock.method(globalThis, "clearInterval", (id) => timers.delete(id));
+  t.mock.method(globalThis, "fetch", () => { throw new Error("Refresh must not call a mission endpoint"); });
+  navigation.pathname = "/benchmarks";
+  navigation.refreshes = 0;
+  t.after(() => {
+    if (previousDocument) Object.defineProperty(globalThis, "document", previousDocument);
+    else delete globalThis.document;
+    navigation.pathname = "/benchmarks";
+    navigation.refreshes = 0;
+  });
+  return {
+    timers, listeners,
+    setVisibility(value) {
+      document.visibilityState = value;
+      for (const listener of listeners) listener();
+    },
+    tick() {
+      for (const callback of timers.values()) callback();
+    },
+  };
+}
+
+test("automatic refresh runs only on visible benchmarks, preserves one timer and cleans up on route/unmount", (t) => {
+  const browser = refreshEnvironment(t);
+  const view = createHarness(BenchmarkRefresh, {}, { effects: true });
+  assert.equal(view.render(), null);
+  assert.equal(browser.timers.size, 1);
+  assert.equal(browser.listeners.size, 1);
+  assert.equal(navigation.refreshes, 0);
+  browser.tick();
+  assert.equal(navigation.refreshes, 1);
+  view.render();
+  assert.equal(browser.timers.size, 1);
+  browser.setVisibility("visible");
+  assert.equal(browser.timers.size, 1);
+  const queuedBeforeHide = [...browser.timers.values()][0];
+  browser.setVisibility("hidden");
+  assert.equal(browser.timers.size, 0);
+  queuedBeforeHide();
+  assert.equal(navigation.refreshes, 1);
+  browser.setVisibility("visible");
+  assert.equal(browser.timers.size, 1);
+  browser.tick();
+  assert.equal(navigation.refreshes, 2);
+  const queuedBeforeNavigation = [...browser.timers.values()][0];
+  navigation.pathname = "/missions/fixture";
+  view.render();
+  assert.equal(browser.timers.size, 0);
+  assert.equal(browser.listeners.size, 0);
+  queuedBeforeNavigation();
+  assert.equal(navigation.refreshes, 2);
+  browser.setVisibility("visible");
+  assert.equal(browser.timers.size, 0);
+  navigation.pathname = "/benchmarks";
+  view.render();
+  assert.equal(browser.timers.size, 1);
+  view.unmount();
+  assert.equal(browser.timers.size, 0);
+  assert.equal(browser.listeners.size, 0);
+  // Strict Mode's setup/cleanup/setup sequence must not leave old timers behind.
+  view.render();
+  assert.equal(browser.timers.size, 1);
+  assert.equal(browser.listeners.size, 1);
+  view.unmount();
+  assert.equal(browser.timers.size, 0);
+  assert.equal(browser.listeners.size, 0);
+  assert.equal(globalThis.fetch.mock.callCount(), 0);
+});
+
+test("automatic refresh does not start in an inactive tab or on another route", (t) => {
+  const browser = refreshEnvironment(t, "hidden");
+  const view = createHarness(BenchmarkRefresh, {}, { effects: true });
+  view.render();
+  assert.equal(browser.timers.size, 0);
+  browser.tick();
+  assert.equal(navigation.refreshes, 0);
+  browser.setVisibility("visible");
+  assert.equal(browser.timers.size, 1);
+  view.unmount();
+  navigation.pathname = "/";
+  view.render();
+  assert.equal(browser.timers.size, 0);
+  assert.equal(browser.listeners.size, 0);
+  view.unmount();
 });

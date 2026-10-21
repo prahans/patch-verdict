@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, beforeEach, test } from "node:test";
 import { registerHooks } from "node:module";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, rm, rmdir, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, rmdir, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -62,12 +62,17 @@ async function bundle(missionId = "controlled-run", overrides = {}, events = com
     artifact(missionId, "events.json", events),
   ]);
 }
+async function artifactTime(missionId, timestamp) {
+  const date = new Date(timestamp);
+  await utimes(path.join(fixtureRoot, "output", missionId, "proof.json"), date, date);
+}
 function assertUnavailable(result, index = 0) {
   const row = result.benchmarks[index];
   assert.equal(row.availability, "unavailable");
   assert.equal(row.verdict, null);
   assert.equal(row.executionStatus, null);
   assert.equal(row.testDurationMs, null);
+  assert.equal(row.evidenceUrl, null);
   assert.ok(row.unavailableReason);
   assert.doesNotMatch(row.unavailableReason, /PRIVATE_|[A-Z]:\\|\.proof-loader-|\.benchmarks-/);
   return row;
@@ -108,7 +113,7 @@ test("empty output and an empty catalog have no fabricated results or verificati
   const result = await aggregateBenchmarks([]);
   assert.equal(result.outputState, "available");
   assert.deepEqual(result.benchmarks, []);
-  assert.deepEqual(result.otherMissions, []);
+  assert.deepEqual(result.recordedMissions, []);
   assert.deepEqual(result.summary, {
     configured: 0, valid: 0, verified: 0, reviewRequired: 0, failed: 0, noVerdict: 0,
     unavailable: 0, validWithoutVerdict: 0, verificationRate: null,
@@ -153,6 +158,8 @@ test("valid VERIFIED proof projects trusted metadata and keeps command time dist
   assert.equal(row.timedCommandCount, 3);
   assert.deepEqual(row.commandDurations, { baseline: 100, postPatch: 200, fullSuite: 300 });
   assert.equal(row.missionDurationMs, 10_000);
+  assert.equal(row.recordedAt, "2026-10-01T00:00:10.000Z");
+  assert.equal(row.recordedAtSource, "event");
   assert.equal(row.evidenceUrl, "/missions/controlled-run");
   assert.equal(result.summary.verified, 1);
   assert.equal(result.summary.verificationRate, 100);
@@ -177,6 +184,47 @@ test("REVIEW_REQUIRED and completed FAILED verdicts retain recorded execution st
   assert.equal(result.summary.verificationRate, 0);
 });
 
+test("seven distinct controlled repositories report six VERIFIED and one saved REVIEW_REQUIRED result", async () => {
+  const catalog = Array.from({ length: 7 }, (_, index) => {
+    const missionId = `controlled-${index + 1}`;
+    return scenario(missionId, { repositoryUrl: `https://github.com/fixture/controlled-${index + 1}` });
+  });
+  await Promise.all(catalog.map((entry, index) => bundle(entry.missionId, {
+    mission: { ...proof(entry.missionId).mission, source: { repositoryUrl: entry.repositoryUrl, baseCommit } },
+    verdict: index === 6 ? "REVIEW_REQUIRED" : "VERIFIED",
+    verificationIntegrity: index === 6
+      ? { status: "REVIEW_REQUIRED", preserved: false, violations: [], reviewFlags: ["PRIVATE_REVIEW_REASON"], protectedChangedFiles: ["tests/state.test.ts"] }
+      : { status: "PRESERVED", preserved: true, violations: [], reviewFlags: [], protectedChangedFiles: [] },
+  })));
+  await Promise.all([
+    artifact("controlled-7", "evidence/baseline-test.json", evidence(10, 1)),
+    artifact("controlled-7", "evidence/post-patch-test.json", evidence(20, 0)),
+    artifact("controlled-7", "evidence/full-suite.json", evidence(30, 0)),
+  ]);
+  const result = await aggregateBenchmarks(catalog);
+  assert.equal(result.benchmarks.length, 7);
+  assert.equal(new Set(result.benchmarks.map((row) => row.repository)).size, 7);
+  assert.equal(result.summary.configured, 7);
+  assert.equal(result.summary.valid, 7);
+  assert.equal(result.summary.verified, 6);
+  assert.equal(result.summary.reviewRequired, 1);
+  assert.equal(result.summary.failed, 0);
+  assert.equal(result.summary.unavailable, 0);
+  assert.equal(result.summary.noVerdict, 0);
+  assert.equal(result.summary.verificationRate, 6 / 7 * 100);
+  assert.equal(formatRate(result.summary.verificationRate), "85.7%");
+  const review = result.benchmarks[6];
+  assert.equal(review.verdict, "REVIEW_REQUIRED");
+  assert.equal(review.integrity, "REVIEW_REQUIRED");
+  assert.equal(review.baselineReproduced, true);
+  assert.equal(review.postPatchPassed, true);
+  assert.equal(review.fullSuitePassed, true);
+  assert.equal(review.testDurationMs, 60);
+  assert.equal(review.evidenceUrl, "/missions/controlled-7");
+  assert.equal(result.recordedMissions.length, 7);
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_REVIEW_REASON/);
+});
+
 test("failed execution with null verdict is valid evidence, not a FAILED repair verdict", async () => {
   await bundle("setup-failure", { status: "FAILED", verdict: null, patch: null, checks: null, investigation: null, error: "PRIVATE_ERROR" }, [
     completeEvents[0], event("FAILED", "2026-10-01T00:00:05.000Z"),
@@ -187,6 +235,9 @@ test("failed execution with null verdict is valid evidence, not a FAILED repair 
   assert.equal(row.executionStatus, "FAILED");
   assert.equal(row.verdict, null);
   assert.equal(row.missionDurationMs, 5000);
+  assert.equal(row.recordedAt, "2026-10-01T00:00:05.000Z");
+  assert.equal(row.recordedAtSource, "event");
+  assert.equal(row.evidenceUrl, "/missions/setup-failure");
   for (const key of ["changedFiles", "iterations", "baselineReproduced", "testDurationMs"]) assert.equal(row[key], null);
   assert.equal(row.baseCommit, baseCommit);
   assert.equal(result.summary.validWithoutVerdict, 1);
@@ -216,6 +267,14 @@ test("corrupt JSON and unsupported proof versions never count a raw VERIFIED str
   assert.equal(result.summary.verified, 0);
   assert.equal(result.summary.valid, 0);
   assert.equal(result.summary.noVerdict, 3);
+  assert.equal(result.recordedMissions.length, 3);
+  for (const row of result.recordedMissions) {
+    assert.equal(row.availability, "unavailable");
+    assert.equal(row.evidenceUrl, null);
+    assert.equal(row.verdict, null);
+    assert.equal(row.executionStatus, null);
+  }
+  assert.match(result.benchmarks[2].unavailableReason, /Unsupported proof version/);
 });
 
 test("missing configured mission, proof, and required events each remain unavailable", async () => {
@@ -224,7 +283,12 @@ test("missing configured mission, proof, and required events each remain unavail
   const result = await aggregateBenchmarks([scenario("missing"), scenario("no-proof"), scenario("no-events")]);
   result.benchmarks.forEach((_, index) => assertUnavailable(result, index));
   assert.equal(result.summary.unavailable, 3);
-  assert.deepEqual(result.benchmarks.map((row) => row.evidenceUrl), ["/missions/missing", "/missions/no-proof", "/missions/no-events"]);
+  assert.deepEqual(result.benchmarks.map((row) => row.evidenceUrl), [null, null, null]);
+  assert.equal(result.benchmarks[0].recordedAt, null);
+  assert.equal(result.benchmarks[0].recordedAtSource, null);
+  assert.equal(result.benchmarks[1].recordedAt, null);
+  assert.equal(result.benchmarks[1].recordedAtSource, null);
+  assert.deepEqual(result.recordedMissions.map((row) => row.missionId), ["no-events"]);
 });
 
 test("invalid required metadata and live-only or temporary records are never successful benchmarks", async () => {
@@ -235,7 +299,8 @@ test("invalid required metadata and live-only or temporary records are never suc
   const result = await aggregateBenchmarks([scenario("wrong-id"), scenario("running"), scenario("live-only"), scenario("temporary")]);
   result.benchmarks.forEach((_, index) => assertUnavailable(result, index));
   assert.equal(result.summary.verified, 0);
-  assert.deepEqual(result.otherMissions, []);
+  assert.deepEqual(result.recordedMissions.map((row) => row.missionId).sort(), ["running", "wrong-id"]);
+  assert.ok(result.recordedMissions.every((row) => row.availability === "unavailable" && row.evidenceUrl === null));
 });
 
 test("exact configured mission IDs select controlled runs without inflating metrics from another run", async () => {
@@ -245,12 +310,38 @@ test("exact configured mission IDs select controlled runs without inflating metr
   assert.equal(result.benchmarks.length, 1);
   assert.equal(result.benchmarks[0].missionId, "first-run");
   assert.equal(result.benchmarks[0].verdict, "FAILED");
-  assert.deepEqual(result.otherMissions.map((row) => row.missionId), ["second-run"]);
+  assert.deepEqual(result.recordedMissions.map((row) => row.missionId).sort(), ["first-run", "second-run"]);
+  assert.equal(result.recordedMissions.find((row) => row.missionId === "first-run").verdict, "FAILED");
   assert.equal(result.summary.verified, 0);
   assert.equal(result.summary.verificationRate, 0);
   const both = await aggregateBenchmarks([scenario("first-run"), scenario("second-run")]);
   assert.equal(both.summary.valid, 2);
   assert.equal(both.summary.verified, 1);
+});
+
+test("a newly finalized rerun appears on the next read without replacing the pinned controlled attempt", async () => {
+  await bundle("pinned-run", { verdict: "FAILED" }, [
+    event("PREPARING", "2026-10-01T00:00:00.000Z"), event("COMPLETED", "2026-10-01T00:00:01.000Z"),
+  ]);
+  await artifact("new-run", "status.json", { status: "RUNNING" });
+  const catalog = [scenario("pinned-run")];
+  const initial = await aggregateBenchmarks(catalog);
+  assert.deepEqual(initial.recordedMissions.map((row) => row.missionId), ["pinned-run"]);
+
+  await bundle("new-run", {}, [
+    event("PREPARING", "2026-10-02T00:00:00.000Z"), event("COMPLETED", "2026-10-02T00:00:02.000Z"),
+  ]);
+  const refreshed = await aggregateBenchmarks(catalog);
+  assert.deepEqual(refreshed.benchmarks, initial.benchmarks);
+  assert.deepEqual(refreshed.summary, initial.summary);
+  assert.deepEqual(refreshed.recordedMissions.map((row) => [row.missionId, row.verdict]), [
+    ["new-run", "VERIFIED"], ["pinned-run", "FAILED"],
+  ]);
+  assert.equal(refreshed.recordedMissions[0].repository, refreshed.recordedMissions[1].repository);
+  assert.equal(refreshed.recordedMissions[0].evidenceUrl, "/missions/new-run");
+  assert.equal(refreshed.recordedMissions[1].evidenceUrl, "/missions/pinned-run");
+  assert.equal(refreshed.summary.configured, 1);
+  assert.equal(refreshed.summary.verified, 0);
 });
 
 test("repository mismatch or missing repository identity excludes a configured proof", async () => {
@@ -340,6 +431,61 @@ test("overall duration requires a full ordered timeline with a matching terminal
   }
 });
 
+test("recorded times use reliable terminal events and normalize explicit timezone offsets", async () => {
+  await bundle("full-timeline");
+  await bundle("terminal-only", {}, [event("COMPLETED", "2026-10-02T05:45:00.000+05:45")]);
+  await bundle("failed-timeline", { status: "FAILED", verdict: null }, [
+    event("PREPARING", "2026-10-03T00:00:00.000Z"), event("FAILED", "2026-10-03T00:00:03.000Z"),
+  ]);
+  for (const id of ["full-timeline", "terminal-only", "failed-timeline"]) {
+    await artifactTime(id, "2026-10-10T00:00:00.000Z");
+  }
+  const result = await aggregateBenchmarks(["full-timeline", "terminal-only", "failed-timeline"].map((id) => scenario(id)));
+  assert.deepEqual(result.benchmarks.map((row) => [row.recordedAt, row.recordedAtSource]), [
+    ["2026-10-01T00:00:10.000Z", "event"],
+    ["2026-10-02T00:00:00.000Z", "event"],
+    ["2026-10-03T00:00:03.000Z", "event"],
+  ]);
+  assert.equal(result.benchmarks[1].missionDurationMs, null);
+  assert.deepEqual(result.recordedMissions.map((row) => row.missionId), ["failed-timeline", "terminal-only", "full-timeline"]);
+});
+
+test("absent or unreliable completion timelines use the artifact save time without inventing duration", async () => {
+  const timelines = [
+    [],
+    completeEvents.slice(0, 2),
+    [completeEvents[0], event("FAILED", "2026-10-01T00:00:10.000Z")],
+    [event("PREPARING", "2026-10-01T00:00:00"), event("COMPLETED", "2026-10-01T00:00:10")],
+    [completeEvents[0], event("BASELINE", "2026-10-01T00:00:11.000Z"), completeEvents[2]],
+  ];
+  const timestamp = "2026-09-30T12:00:00.000Z";
+  for (let index = 0; index < timelines.length; index += 1) {
+    await bundle(`fallback-${index}`, {}, timelines[index]);
+    await artifactTime(`fallback-${index}`, timestamp);
+  }
+  const result = await aggregateBenchmarks(timelines.map((_, index) => scenario(`fallback-${index}`)));
+  for (const row of result.benchmarks) {
+    assert.equal(row.availability, "valid");
+    assert.equal(row.recordedAt, timestamp);
+    assert.equal(row.recordedAtSource, "artifact");
+    assert.equal(row.missionDurationMs, null);
+  }
+});
+
+test("unsupported proof timestamps remain artifact metadata and do not grant evidence links or verdicts", async () => {
+  await bundle("unsupported", { version: 3 });
+  const timestamp = "2026-10-04T12:34:56.000Z";
+  await artifactTime("unsupported", timestamp);
+  const result = await aggregateBenchmarks([scenario("unsupported")]);
+  const row = assertUnavailable(result);
+  assert.equal(row.recordedAt, timestamp);
+  assert.equal(row.recordedAtSource, "artifact");
+  assert.match(row.unavailableReason, /Unsupported proof version/);
+  assert.equal(result.recordedMissions[0].recordedAt, timestamp);
+  assert.equal(result.recordedMissions[0].recordedAtSource, "artifact");
+  assert.equal(result.recordedMissions[0].evidenceUrl, null);
+});
+
 test("invalid and path-traversal mission IDs cannot create evidence links or valid records", async () => {
   const ids = ["../outside", "../../secret", "a/b", "a\\b", ".", "", "id%2fsecret", "bad?token=secret"];
   const result = await aggregateBenchmarks(ids.map((id, index) => scenario(id, { id: `invalid-${index}` })));
@@ -424,7 +570,7 @@ test("discovery is bounded even when output contains many unrelated directory en
   await Promise.all(Array.from({ length: BENCHMARK_LIMITS.scannedEntries + 2 }, (_, index) => artifact(`unfinalized-${index}`, "status.json", { status: "RUNNING" })));
   const result = await aggregateBenchmarks([]);
   assert.equal(result.discoveryTruncated, true);
-  assert.deepEqual(result.otherMissions, []);
+  assert.deepEqual(result.recordedMissions, []);
   assert.equal(result.summary.configured, 0);
   assert.ok(result.notices.length > 0);
 });
@@ -437,11 +583,50 @@ test("oversized catalogs fail closed instead of reporting a rate for a truncated
   assert.ok(result.notices.length > 0);
 });
 
-test("other recordings are capped and never added to controlled summary metrics", async () => {
-  await Promise.all(Array.from({ length: BENCHMARK_LIMITS.otherMissions + 1 }, (_, index) => bundle(`recording-${index}`)));
-  const result = await aggregateBenchmarks([]);
-  assert.equal(result.otherMissions.length, BENCHMARK_LIMITS.otherMissions);
+test("recorded history selects newest saved manifests before capping and still loads pinned older evidence", async () => {
+  const ids = ["aaa-oldest-pinned", ...Array.from({ length: BENCHMARK_LIMITS.recordedMissions }, (_, index) => `recording-${String(index).padStart(3, "0")}`)];
+  const start = Date.parse("2026-10-01T00:00:00.000Z");
+  await Promise.all(ids.map(async (id, index) => {
+    await bundle(id, {}, []);
+    await artifactTime(id, new Date(start + index * 1000).toISOString());
+  }));
+  // A directory named proof.json is not a saved manifest and cannot crowd out
+  // a valid run merely because its filesystem timestamp is newer.
+  await mkdir(path.join(fixtureRoot, "output", "zzz-non-file", "proof.json"), { recursive: true });
+  await artifactTime("zzz-non-file", "2030-01-01T00:00:00.000Z");
+  const result = await aggregateBenchmarks([scenario("aaa-oldest-pinned")]);
+  assert.equal(result.recordedMissions.length, BENCHMARK_LIMITS.recordedMissions);
   assert.equal(result.discoveryTruncated, true);
+  assert.ok(result.notices.some((notice) => /could not be inspected safely/.test(notice)));
+  assert.deepEqual(result.recordedMissions.map((row) => row.missionId), ids.slice(1).reverse());
+  assert.equal(result.benchmarks[0].missionId, "aaa-oldest-pinned");
+  assert.equal(result.benchmarks[0].availability, "valid");
+  assert.equal(result.summary.configured, 1);
+  assert.equal(result.summary.verified, 1);
+  assert.equal(result.summary.verificationRate, 100);
+  const unconfigured = await aggregateBenchmarks([]);
+  assert.equal(unconfigured.recordedMissions.length, BENCHMARK_LIMITS.recordedMissions);
+  assert.equal(unconfigured.summary.configured, 0);
+  assert.equal(unconfigured.summary.verified, 0);
+  assert.equal(unconfigured.summary.verificationRate, null);
+});
+
+test("all recorded outcomes remain independent attempts without entering an empty controlled cohort", async () => {
+  await Promise.all([
+    bundle("verified"),
+    bundle("review", { verdict: "REVIEW_REQUIRED" }),
+    bundle("repair-failed", { verdict: "FAILED" }),
+    bundle("execution-failed", { status: "FAILED", verdict: null }, [event("FAILED", "2026-10-01T00:00:00.000Z")]),
+  ]);
+  const result = await aggregateBenchmarks([]);
+  assert.equal(result.recordedMissions.length, 4);
+  const byMission = new Map(result.recordedMissions.map((row) => [row.missionId, row]));
+  assert.equal(byMission.get("verified").verdict, "VERIFIED");
+  assert.equal(byMission.get("review").verdict, "REVIEW_REQUIRED");
+  assert.equal(byMission.get("repair-failed").verdict, "FAILED");
+  assert.equal(byMission.get("execution-failed").verdict, null);
+  assert.equal(byMission.get("execution-failed").executionStatus, "FAILED");
+  assert.equal(byMission.get("execution-failed").evidenceUrl, "/missions/execution-failed");
   assert.equal(result.summary.configured, 0);
   assert.equal(result.summary.verified, 0);
   assert.equal(result.summary.verificationRate, null);

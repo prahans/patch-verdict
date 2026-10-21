@@ -1,12 +1,13 @@
 // Exercise the real component callbacks without adding a browser/DOM dependency.
 // Rendering still uses React's JSX runtime and react-dom/server; only the root
-// component's state/ref hooks are supplied here. Effects (including live polling)
-// are intentionally outside this event harness's scope.
+// component's state/ref hooks are supplied here. Effect lifecycle execution is
+// opt-in for tests that supply browser globals and deterministic timers.
 let active;
 
 export const navigation = {
   pushes: [],
   refreshes: 0,
+  pathname: "/benchmarks",
   push(value) {
     this.pushes.push(value);
   },
@@ -37,21 +38,45 @@ export function useRef(initial) {
   return ref;
 }
 
-export function useEffect() {
-  active.cursor += 1;
+export function useEffect(effect, dependencies) {
+  const instance = active;
+  const index = instance.cursor++;
+  if (!instance.effects) return;
+  const previous = instance.slots[index];
+  if (
+    !previous ||
+    !dependencies ||
+    dependencies.length !== previous.dependencies?.length ||
+    dependencies.some((value, position) => !Object.is(value, previous.dependencies[position]))
+  ) {
+    instance.pending.push(() => {
+      previous?.cleanup?.();
+      instance.slots[index] = { dependencies, cleanup: effect() };
+    });
+  }
 }
 
-export function createHarness(Component, props = {}) {
-  const instance = { slots: [], cursor: 0 };
+export function createHarness(Component, props = {}, { effects = false } = {}) {
+  const instance = { slots: [], cursor: 0, effects, pending: [] };
   return {
-    render() {
+    render(nextProps = props) {
+      props = nextProps;
       instance.cursor = 0;
       active = instance;
+      let tree;
       try {
-        return Component(props);
+        tree = Component(props);
       } finally {
         active = undefined;
       }
+      for (const run of instance.pending.splice(0)) run();
+      return tree;
+    },
+    unmount() {
+      if (effects) {
+        for (const slot of instance.slots) slot?.cleanup?.();
+      }
+      instance.slots = [];
     },
   };
 }
