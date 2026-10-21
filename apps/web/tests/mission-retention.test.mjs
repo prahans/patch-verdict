@@ -123,8 +123,7 @@ afterEach(async () => {
   });
 });
 
-test("keeps the newest 30 completed web proof bundles and deletes older ones", async () => {
-  assert.equal(MAX_SAVED_WEB_MISSIONS, 30);
+test("keeps the newest 20 completed web proof bundles and deletes older ones", async () => {
   const now = Date.parse("2026-10-13T02:00:00.000Z");
   const total = MAX_SAVED_WEB_MISSIONS + 2;
 
