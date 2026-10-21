@@ -1,93 +1,148 @@
-# GitHub issue and pull request flow — implementation report
+# GitHub issue and pull request flow
 
-Implementation remains on `feat/github-issue-pr-flow`. No merges or pushes to `main` or `feat/live-mission-flow` were performed.
+PatchVerdict can turn a public GitHub issue into a verification mission and, after a separate user action, publish an eligible recorded repair. Issue loading, verification, and publication have different credentials and trust boundaries. This guide describes the checked-in implementation, replacing the earlier feature-branch implementation report.
 
-## Input and verification
+For installation, see [Getting started](GETTING_STARTED.md). For evidence semantics, see [Verification](VERIFICATION.md). For access-control limitations, see [Security and limitations](SECURITY_AND_LIMITATIONS.md).
 
-The landing form defaults to a GitHub issue URL and provides a compact plain-text preview. A subtle action switches to repository URL plus manual bug description; users can switch back. Both modes retain the existing optional reproduction command and required failure marker. Manual descriptions still require at least 20 characters. Title-only GitHub issues can be shorter.
+## Public issue input
 
-`github-issue-url.ts` contains pure strict URL and persisted-source validation. `github-issue.ts` is server-only and uses native fetch against the fixed `https://api.github.com` origin, with redirects disabled, timeouts, response bounds, and controlled errors. Public issue reads are always unauthenticated. The issues endpoint's `pull_request` field is rejected even when null.
+The landing form opens in issue mode. Supply an exact URL such as:
 
-The preview route returns only owner, repository, issue number, title, bounded body preview, and canonical issue URL. `POST /api/missions` resolves the issue again, discards browser-supplied repository/title/body/metadata, and normalizes canonical title and body into the repository-oriented backend input. The engine, sandbox execution, investigation, verification rules, and verdict generation are unchanged.
+```text
+https://github.com/prahans/patchverdict-divide-by-zero/issues/1
+```
 
-The process bridge passes canonical issue metadata separately from the issue context and explicitly blanks `PATCHVERDICT_GITHUB_TOKEN` in the verification child's environment. An empty value also prevents dotenv from restoring a write token from a root environment file. Process arguments remain separate values with `shell: false`.
+The supported shape is `https://github.com/<owner>/<repository>/issues/<positive-integer>`. HTTP, other hosts, embedded credentials, ports, queries, fragments, extra path segments, and a trailing slash after the issue number are rejected. The number must be a safe positive integer. Pull-request URLs are unsupported; an issue-shaped URL is also rejected if GitHub's issues API identifies its response as a pull request.
 
-## Proof and Mission Control
+The preview calls `GET /api/github/issue?url=<encoded-url>`. The server validates the URL before fetching a fixed `https://api.github.com/repos/.../issues/...` endpoint. It disables redirects, uses a 15-second request timeout, and limits the response to 256 KiB. Reads are always unauthenticated, even when a publication token is configured. Private issues are unsupported, and GitHub's unauthenticated rate limits apply.
 
-Proof version 2 gains optional `mission.source.githubIssue` metadata: URL, number, title, owner, repository, and body. Source repository URL and base commit remain canonical. New proofs record `patch.sha256`, computed from exactly the bytes written to `patch.diff`, including its final newline. All additions are made before the proof manifest is published. PR publication never edits the manifest or patch.
+The preview returns the repository, issue number, title, canonical URL, and up to 500 body characters. It renders text rather than issue-supplied HTML. Preview truncation affects presentation only: verification uses the full accepted title/body. The combined context must fit 10,000 characters, the title is limited to 1,024 characters, and serialized issue metadata must fit 24,000 characters for the process boundary. Oversized context is rejected rather than silently shortened. An empty body is accepted when the title is usable.
 
-Older and manual proofs continue loading without issue metadata or a digest. Older proofs without a digest remain viewable but require a new verification mission before PR publication.
+Sources: [URL validation](../apps/web/lib/github-issue-url.ts), [issue resolver](../apps/web/lib/github-issue.ts), [preview route](../apps/web/app/api/github/issue/route.ts), [preview component](../apps/web/components/landing/issue-preview.tsx).
 
-Live and completed Mission Control show the canonical issue title/body and safe external issue/repository links. Manual display is preserved. Status, base commit, changed files, investigation iterations, Flight Recorder, Proof Chain, Diff Viewer, Investigation Report, Verification Evidence, and Export evidence remain available.
+## Manual reports and advanced settings
 
-## Exact patch publication
+**No GitHub issue? Use a repository and manual bug description** switches to manual input. The HTTPS GitHub repository URL must identify the repository directly; this form accepts an optional `.git` suffix or trailing slash. The description must contain 20–10,000 characters after trimming. Issue titles do not inherit the manual description's 20-character minimum.
 
-`POST /api/missions/<missionId>/pull-request` accepts no request body. It validates the mission ID, canonical readable proof, completed execution, verdict, applied patch, nonempty changed-file set, matching source/patch base commits, and exact diff digest. Contradictory recorded evidence is rejected without modifying the verdict. Browser cross-site writes are rejected.
+Both modes expose the same optional advanced settings:
 
-The publisher reads the base commit and tree through GitHub REST. A temporary bare Git repository and index reconstruct that tree and verify its SHA. Only affected base blobs are downloaded and their Git hashes verified. `git apply --cached --check` and `git apply --cached` use the exact recorded diff. The resulting file set, content, modes, and tree SHA are checked. No working tree, repository commands, hooks, filters, clone credentials, or AI are used.
+| Field | Behavior |
+| --- | --- |
+| Reproduction command | Up to 2,000 characters. If omitted, the CLI uses the detected `npm test` or `pnpm test` command. |
+| Required failure marker | Up to 1,000 characters. If provided, the baseline must contain that text. No marker is invented when absent. |
 
-The server creates GitHub blobs and a tree, verifies their returned hashes, and creates a commit whose sole parent is the exact proof base commit. A deterministic `patchverdict/<missionId>` branch points to it. The PR targets the repository's current default branch. An advanced default branch never triggers rebase, patch regeneration, or another verification run.
+These are execution inputs, not verdict overrides. Commands run in the remote sandbox. The [verification guide](VERIFICATION.md) describes baseline exit-code and output checks.
 
-| Recorded outcome                                               | Human action                                            |
-| -------------------------------------------------------------- | ------------------------------------------------------- |
-| COMPLETED + VERIFIED with eligible proof                       | Create pull request                                     |
-| COMPLETED + REVIEW_REQUIRED with eligible proof                | Create draft PR, with an amber human-review explanation |
-| FAILED verdict, execution failure, or invalid/missing evidence | No publication                                          |
+## Canonical submission and Mission Control
 
-PR titles come from the issue title or manual report. The body includes the verdict, base commit, changed files, baseline/post-patch/full-suite results, integrity state, and review reasons. `Fixes #N` is included only for a validated issue belonging to the same repository. No automatic creation or merge occurs.
+`POST /api/missions` accepts JSON in either form:
 
-## Idempotency and recovery
+```json
+{
+  "mode": "issue",
+  "issueUrl": "https://github.com/owner/repository/issues/12",
+  "reproductionCommand": "npm test",
+  "requiredOutput": "expected failure text"
+}
+```
 
-In-process deduplication and a per-mission filesystem lock protect concurrent requests. Validated publication metadata is written atomically to `output/<missionId>/pull-request.json`, separately from proof. It binds the repository, deterministic branch, PR number/URL, draft state, head/tree/base SHAs, exact patch digest, and full proof digest. Page refresh shows the saved View PR link without requiring a token or contacting GitHub.
+```json
+{
+  "mode": "manual",
+  "repositoryUrl": "https://github.com/owner/repository",
+  "issue": "Describe the observed failure and the expected behavior."
+}
+```
 
-Retries search all PR states for the deterministic branch. Recovery verifies repository, head, draft policy, commit parent, and exact tree. It can recover an existing branch, a PR created before local persistence failed, uncertain API success, and a closed matching PR whose branch was deleted. Conflicting branches or PRs are rejected. The existing retention policy retains/removes PR metadata with its mission directory.
+The advanced fields are optional in both forms. The route requires JSON and enforces a 64 KiB body limit. For issue mode it fetches the issue again and derives the repository and title/body on the server. Browser-supplied title, body, repository, or metadata cannot replace those canonical values. If the issue changes after preview, the fresh server response supplies the mission context.
 
-## Configuration
+After initial status persistence and process launch, the server returns HTTP `202` with `missionId`, `missionUrl`, and `statusUrl`. The browser opens `/missions/<missionId>` without waiting for verification. Repeating a mission submission creates another run; PR retry deduplication does not deduplicate missions.
 
-- Existing verification: `E2B_API_KEY` and `OPENROUTER_API_KEY`; optional `AGENT_MODEL`.
-- Optional publication: `PATCHVERDICT_GITHUB_TOKEN` in the web server environment or `apps/web/.env.local`. It is required only when creating a PR. A missing token returns a safe publication-only error.
-- Fine-grained token scope: restrict to intended repositories; Contents read/write, Pull requests read/write, Issues read, Metadata read. No OAuth or GitHub App is introduced.
-- Git must be installed on the web server. No additional npm dependencies were added.
+The process bridge invokes the fixed backend entry point with separate arguments and `shell: false`. It generates the `web-<UUID>` mission ID and passes canonical issue metadata separately from the report text. It explicitly blanks `PATCHVERDICT_GITHUB_TOKEN` in the child environment, also preventing dotenv from restoring that token from a root environment file.
 
-GitHub REST references: [trees](https://docs.github.com/en/rest/git/trees), [commits](https://docs.github.com/en/rest/git/commits), [pull requests](https://docs.github.com/en/rest/pulls/pulls).
+Live status lives in `output/.runs/`; completed proof lives in `output/<missionId>/`. Mission Control polls real recorded progress and refreshes into the saved dashboard when proof is available. Issue-backed bundles include `mission.source.githubIssue`; manual and older bundles remain readable without it. New patches record `patch.sha256`, calculated from the exact saved `patch.diff` bytes. The dashboard displays recorded evidence and verdicts; it does not create a replacement verdict.
 
-## Verification results
+Sources: [input parser](../apps/web/lib/mission-input.ts), [mission route](../apps/web/app/api/missions/route.ts), [process bridge](../apps/web/lib/run-backend-mission.ts), [proof writer](../src/proof/bundle.ts). See [System design](SYSTEM_DESIGN.md) for process lifetime and failures.
 
-PowerShell blocks the local `pnpm.ps1` shim, so commands used the equivalent `pnpm.cmd` executable.
+## Enable publication separately
 
-| Required command                   | Result                              |
-| ---------------------------------- | ----------------------------------- |
-| Root `pnpm typecheck`              | PASS                                |
-| Root `pnpm test`                   | PASS — 76 tests, 11 files           |
-| Web `node --test tests/*.test.mjs` | PASS — 108 tests, no failures/skips |
-| Web `pnpm exec tsc --noEmit`       | PASS                                |
-| Web `pnpm lint`                    | PASS                                |
-| Web `pnpm build`                   | PASS                                |
+Public issue loading and verification do not require a GitHub token. Publication requires Git on the web server and `PATCHVERDICT_GITHUB_TOKEN` in the web server environment or `apps/web/.env.local`. Merely placing it in the root CLI `.env` is not the documented web configuration.
 
-Targeted tests exercised strict URL parsing, safe/unauthenticated issue fetching, fresh canonical submission, both advanced fields, manual validation, proof compatibility, token exclusion, Windows metadata bounds, PR policy, actual Git patch application and object hashes, immutable evidence, unsupported patches, concurrency, recovery, metadata tampering, and containment. UI tests use real React rendering and component callbacks with a narrow state/ref harness; they cover modes, preview escaping/cancellation, submissions, title/links, loading locks, draft policy, errors, and persisted View PR links. Retention tests confirm PR metadata follows its mission's lifetime.
+Use the configuration in [the web environment example](../apps/web/.env.example): a fine-grained token restricted to intended repositories, with Contents read/write, Pull requests read/write, Issues read, and Metadata read. GitHub enforces repository access and permissions. Never prefix a credential with `NEXT_PUBLIC_`.
 
-Additional commands included targeted Node test files, the proof-writer Vitest file, `git diff --check`, and a production HTTP smoke test. The production server returned the issue-first form and a safe invalid-URL error. A real unauthenticated request for `prahans/patchverdict-divide-by-zero#1` returned HTTP 200 and title `division by zero returns Infinity`. Temporary smoke servers were stopped.
+The publisher sends the token in GitHub API authorization headers. It does not place it in Git command arguments, browser responses, or proof metadata. A missing token produces a publication-only configuration error; it does not change the saved verdict.
 
-The first sandboxed production build could not download the existing Google Fonts; the network-enabled build passed without a font or layout change. One concurrent lint invocation raced test-fixture cleanup; rerunning lint after the tests passed.
+The branch is created in the proof's repository. There is no fork-creation workflow: a public issue may be verifiable while publication remains unavailable because the configured account lacks write access.
 
-## Remaining limitations
+## Eligibility and human action
 
-Public issue reads are subject to unauthenticated GitHub rate limits. Issue context retains the 10,000-character limit, with an additional 24,000-character serialized metadata bound for Windows. Text is rejected when oversized, never silently truncated for verification.
+| Recorded result | Available action, subject to evidence validation |
+| --- | --- |
+| Completed `VERIFIED` mission | **Create pull request** |
+| Completed `REVIEW_REQUIRED` mission | **Create draft PR** |
+| `FAILED` verdict, execution failure, or ineligible evidence | No publication |
 
-Publication supports bounded UTF-8 regular files, including executable modes, additions, and deletions. Changed binary files, symlinks, submodules, unsupported modes, unsafe/ambiguous paths, or oversized/truncated repository trees are rejected. Current bounds include 200 changed files, a 2 MiB patch, 2 MiB per affected file, 8 MiB total fetched base blobs, and 20,000 tree entries.
+Publication is never automatic, and PatchVerdict does not merge PRs. A publication error leaves the original proof and verdict unchanged.
 
-No live E2B/AI mission or real GitHub PR was created during this implementation. PR network writes were tested against a deterministic mock GitHub API backed by real Git objects. No connected browser was available for visual inspection; UI rendering/callback tests and production HTTP checks passed.
+`POST /api/missions/<missionId>/pull-request` accepts an empty body. The browser cannot supply a repository, diff, base commit, branch, or verdict. The server reloads the saved proof and requires:
 
-## File inventory
+1. A valid mission ID, readable canonical artifacts, completed execution, and an allowed verdict. If live status exists, it must also say completed with proof ready.
+2. An applied, nonempty patch and nonempty changed-file set, with matching source and patch base commits.
+3. A recorded SHA-256 digest matching the exact diff bytes and loaded diff text.
+4. No corrupt-artifact warnings or contradictory recorded failures. Failing recorded tests or compromised integrity cannot be overridden by a `VERIFIED` label.
 
-Configuration/documentation: `.env.example`, `apps/web/.env.example`, `apps/web/.gitignore`, `apps/web/README.md`, and this report.
+Older proofs without a digest remain viewable but need a new verification mission to become publishable. Some legacy evidence fields are optional; eligibility rejects contradictions in recorded fields without requiring every optional field to exist.
 
-API routes: `apps/web/app/api/github/issue/route.ts`, `apps/web/app/api/missions/route.ts`, `apps/web/app/api/missions/[missionId]/pull-request/route.ts`.
+The route rejects a supplied foreign `Origin` or `Sec-Fetch-Site: cross-site`. This is browser cross-site request protection, **not user authentication**. There is no account login or per-mission ownership check, and requests without those headers are not rejected on origin grounds. Keep a token-enabled instance under operator-controlled access. See [Security and limitations](SECURITY_AND_LIMITATIONS.md#application-access).
 
-UI: `apps/web/app/globals.css`, `apps/web/app/missions/[missionId]/page.tsx`, `apps/web/components/landing/issue-preview.tsx`, `apps/web/components/landing/mission-launcher.tsx`, `apps/web/components/mission/live-mission.tsx`, `apps/web/components/mission/mission-summary.tsx`, `apps/web/components/mission/pull-request-action.tsx`.
+Sources: [eligibility rules](../apps/web/lib/pull-request-types.ts), [publication route](../apps/web/app/api/missions/[missionId]/pull-request/route.ts), [publisher](../apps/web/lib/github-pull-request.ts).
 
-Web libraries: `apps/web/lib/github-issue-url.ts`, `apps/web/lib/github-issue.ts`, `apps/web/lib/github-pull-request.ts`, `apps/web/lib/exact-verified-patch.ts`, `apps/web/lib/pull-request-types.ts`, `apps/web/lib/load-proof-bundle.ts`, `apps/web/lib/mission-input.ts`, `apps/web/lib/mission-live-status.ts`, `apps/web/lib/mission-live-types.ts`, `apps/web/lib/mission-types.ts`, `apps/web/lib/run-backend-mission.ts`.
+## Publish the exact recorded patch
 
-Backend: `src/real-mission-demo.ts`, `src/proof/bundle.ts`.
+The publisher validates identity and contents before constructing the GitHub commit:
 
-Tests: `src/proof/bundle.test.ts`, `apps/web/tests/github-issue.test.mjs`, `apps/web/tests/github-pull-request.test.mjs`, `apps/web/tests/issue-pr-ui.test.mjs`, `apps/web/tests/load-proof-bundle.test.mjs`, `apps/web/tests/run-backend-mission.test.mjs`, `apps/web/tests/mission-retention.test.mjs`, `apps/web/tests/helpers/ui-harness.mjs`, `apps/web/tests/helpers/ui-loader.mjs`.
+1. Read the proof's exact base commit and recursive tree through GitHub REST.
+2. Reconstruct the base tree in a temporary bare Git repository and index, and check its tree hash. Fetch only affected base blobs and verify their hashes.
+3. Run `git apply --cached --check` and `git apply --cached` with the exact diff. Validate the resulting changed-file set, modes, contents, and tree hash.
+4. Create GitHub blobs and a tree, checking the returned hashes. Create a commit with the recorded base commit as its sole parent.
+5. Use branch `patchverdict/<missionId>`, recheck the local proof, then open or recover the matching PR targeting the repository's current default branch.
+
+This uses an index and object database without checking out or executing repository code. The Git subprocess has an isolated environment/configuration and disabled hooks. Publication does not ask the model for another repair.
+
+The patch is not rebased, regenerated, or reverified against an advanced default branch. The PR may conflict with newer work, and maintainers must review integration separately. An incompatible existing mission branch is rejected rather than force-updated.
+
+The PR description includes recorded checks, base commit, changed files, integrity status, and review reasons. `REVIEW_REQUIRED` always requests a draft. `Fixes #N` is added only for validated issue metadata from the same repository. Creating the PR does not itself close the issue.
+
+Source: [exact patch reconstruction](../apps/web/lib/exact-verified-patch.ts) and [publisher](../apps/web/lib/github-pull-request.ts).
+
+### Publication bounds
+
+Publication supports changes to UTF-8 regular text files, including executable files, additions, and deletions. Changed binary files, symlinks, submodules, invalid paths, and unsupported modes are rejected. Unaffected symlink/submodule entries can remain in the reconstructed base tree.
+
+| Bound | Current limit |
+| --- | --- |
+| Changed files | 200, with no duplicate paths |
+| Saved diff | 2 MiB |
+| Affected file contents | 2 MiB per file |
+| Total downloaded affected base blobs | 8 MiB |
+| Recursive repository tree | 20,000 entries; truncated responses rejected |
+| GitHub JSON response | 12 MiB |
+| Individual Git command | 20 seconds, with bounded combined output |
+
+Tree validation also rejects unsafe or case-ambiguous paths. These are publication constraints; a readable mission does not necessarily satisfy them.
+
+## Retry, recovery, and persistence
+
+Concurrent requests share an in-process operation and a per-mission filesystem lock. Locks older than ten minutes can be removed on retry. GitHub API calls share a two-minute deadline, with individual requests limited to at most 20 seconds; this is not a guaranteed two-minute total duration for all local Git work.
+
+Successful publication stores `output/<missionId>/pull-request.json` atomically, separately from `proof.json`. Metadata binds the repository, branch, PR URL/number, draft policy, base/head/tree hashes, diff digest, and full proof digest. A refresh can show **View PR** from valid local metadata without a token or GitHub request. That is a saved publication record, not a live PR-status monitor.
+
+If GitHub succeeds before local persistence fails, retry looks for the deterministic branch and existing PR. Recovery checks repository, branch, draft policy, commit parent, and expected tree before reuse. It can recover a matching closed PR even after its branch has been deleted. Conflicting state is rejected; recovery does not overwrite another repair. Partial failure can leave Git objects or a branch on GitHub; no general remote rollback service is implemented.
+
+PR metadata follows the mission directory's [retention policy](BENCHMARK_DASHBOARD.md). Back up required demonstrations privately with the rest of their proof bundles.
+
+## What the tests establish
+
+[Issue tests](../apps/web/tests/github-issue.test.mjs) cover strict parsing, public unauthenticated fetching, response limits, canonical resubmission, and unsafe metadata. [Process tests](../apps/web/tests/run-backend-mission.test.mjs) cover literal arguments, issue source propagation, and write-token exclusion. [PR tests](../apps/web/tests/github-pull-request.test.mjs) use real Git objects with a deterministic mock GitHub API to exercise exact publication, policy, integrity failures, concurrency, recovery, and containment. [UI tests](../apps/web/tests/issue-pr-ui.test.mjs) cover preview escaping, input modes, action availability, errors, and saved links.
+
+Those tests do not establish successful live GitHub publication or arbitrary-repository reliability. The earlier implementation report explicitly recorded that no real PR or live AI/E2B mission was created during that implementation. This documentation refresh does not claim an additional live publication. Follow the [demo guide](DEMO_GUIDE.md) to prepare an intentional demonstration with an authorized repository and inspect the actual result.

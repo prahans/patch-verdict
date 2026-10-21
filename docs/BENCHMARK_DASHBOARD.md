@@ -6,15 +6,19 @@ Explore how PatchVerdict investigated, repaired, and verified bugs across contro
 
 Results reflect selected controlled test scenarios, not general-purpose repair accuracy.
 
+This document is for reviewers interpreting the saved results and maintainers preserving their evidence. For local setup, see [Getting Started](GETTING_STARTED.md); for the engine's verdict rules, see [Verification](VERIFICATION.md).
+
 The read-only dashboard at `/benchmarks` presents recorded PatchVerdict proof bundles: the saved verdict, events, and available supporting artifacts for each mission. It uses the existing version 2 proof loader and the existing Mission Control evidence pages. Opening or refreshing the dashboard does not launch a mission, execute a test, change a verdict, or write proof artifacts. A selected run without readable, valid evidence remains unavailable.
 
 ## Evidence and fixed benchmark selection
 
 Evidence comes from the repository-level `output/<missionId>/` directory. The application resolves the same checkout whether Next.js starts from the repository root or `apps/web`. A finalized bundle has `proof.json` and `events.json`; the existing writer publishes `proof.json` last. Temporary manifests, live run metadata, and directories without a finalized manifest do not become discovered recorded results.
 
+`output/` is [ignored by Git](../.gitignore). A fresh clone contains the catalog but not the historical proof bundles or dashboard history described here. The observations below were checked against evidence present in the documentation author's local checkout; other checkouts may correctly show unavailable results.
+
 The tracked configuration is [`apps/web/lib/benchmarks/catalog.ts`](../apps/web/lib/benchmarks/catalog.ts). Each entry identifies one exact recorded run and the repository expected for that scenario. The dashboard validates the saved bundle with the existing loader and compares its recorded repository identity with the catalog. GitHub repository identity comparison is case-insensitive and accepts equivalent URLs with a trailing slash or `.git` suffix.
 
-The catalog selects seven scenarios, each linked to one specific completed run. New attempts do not change the selected benchmark results or replace these mission IDs automatically. All seven selections remain unchanged in this wording update.
+The catalog selects seven scenarios, each linked to one specific completed run. New attempts do not change the selected benchmark results or replace these mission IDs automatically. All seven selections are retained in this documentation overhaul.
 
 **Selection provenance requires review.** Earlier documentation attributed the historical run choices to explicit user approval on 2026-10-20, including the choice of `debug-normalization-01` and the latest completed candidates for three repositories. The available repository record does not independently substantiate that approval or selection rationale. Saved proofs establish the recorded outcomes, not who approved the selection. The existing IDs are retained without asserting an unverified historical decision.
 
@@ -33,6 +37,8 @@ At inspection on 2026-10-21, the existing dashboard reader accepted all seven se
 These counts, percentages, and durations describe the inspected evidence. The application computes them from valid saved bundles on every refresh; they are not hardcoded outcomes or promises that evidence will remain available. The seven selected scenarios remain the denominator even if a bundle becomes unreadable or unavailable.
 
 The discovery inventory at this inspection contained 22 finalized manifests: 14 validated v2 records (10 VERIFIED, 2 REVIEW_REQUIRED, and 2 failed executions with null verdicts) plus 8 unsupported v3 records. This describes the inspected checkout, not a fixed history count. Unsupported records remain unavailable and are not reinterpreted or migrated.
+
+During the documentation audit on 2026-10-21, a read-only call to the actual dashboard aggregator revalidated the same seven selections and 22 discovered records, with no discovery truncation or availability notices. The command-duration total remained 26,986 ms. This was an inspection of existing artifacts, not a new mission or test execution; it does not authenticate the origin of locally editable evidence.
 
 The selected Test State Leak run requires human review because its repair changed the shared test setup in `setupTests.js`. The saved diff replaces the shared `return templateUser` with `return { ...templateUser }`, giving each test a fresh object. The bug was reproduced and both the post-repair test and full test suite passed, but the change also affects how tests verify behavior. Passing tests alone does not resolve that review requirement.
 
@@ -162,6 +168,7 @@ pnpm test
 And these commands from `apps/web`:
 
 ```powershell
+pnpm exec next typegen
 pnpm exec tsc --noEmit
 pnpm lint
 pnpm build
@@ -170,6 +177,16 @@ pnpm build
 Check actual command results in the implementation report. This document lists the required commands without asserting that any particular environment has passed them.
 
 On Windows with PowerShell script execution disabled, use `pnpm.cmd` in place of `pnpm` to invoke the same package scripts.
+
+## Implementation references
+
+| Behavior | Source and automated coverage |
+| --- | --- |
+| Fixed scenario selection | [Catalog](../apps/web/lib/benchmarks/catalog.ts) and [types](../apps/web/lib/benchmarks/types.ts). |
+| Validated bundle loading, repository matching, metrics, timestamps, bounded history discovery | [Aggregator](../apps/web/lib/benchmarks/aggregate.ts), [proof loader](../apps/web/lib/load-proof-bundle.ts), and [dashboard data tests](../apps/web/tests/benchmarks.test.mjs). |
+| Read-only page rendering, visible-tab refresh, filters and labels | [Page](../apps/web/app/benchmarks/page.tsx), [refresh component](../apps/web/components/benchmarks/benchmark-refresh.tsx), [dashboard](../apps/web/components/benchmarks/benchmark-dashboard.tsx), and [UI tests](../apps/web/tests/benchmarks-ui.test.mjs). |
+| Final manifest publication | [Proof writer](../src/proof/bundle.ts) and [bundle tests](../src/proof/bundle.test.ts). |
+| Web mission retention | [Retention implementation](../apps/web/lib/mission-retention.ts) and [retention tests](../apps/web/tests/mission-retention.test.mjs). |
 
 ## Deployment and interpretation limits
 
