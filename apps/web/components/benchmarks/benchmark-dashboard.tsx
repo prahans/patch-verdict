@@ -56,12 +56,12 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
         >
           <div>
             <p className="eyebrow amber">
-              Recorded outcomes. Inspectable evidence.
+              Every result backed by recorded evidence.
             </p>
             <h1 id="benchmark-title">Benchmark Dashboard</h1>
             <p className="benchmark-subtitle">
-              Measured outcomes from recorded PatchVerdict verification
-              missions.
+              Explore how PatchVerdict investigated, repaired, and verified bugs
+              across controlled test repositories.
             </p>
           </div>
           <span className="benchmark-read-only">
@@ -70,8 +70,8 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
         </section>
         <p className="benchmark-scope-note">
           <Icon name="warning" width="15" height="15" />
-          Controlled benchmark results. Not a measure of general-purpose repair
-          accuracy.
+          Results reflect selected controlled test scenarios, not general-purpose
+          repair accuracy.
         </p>
 
         {data.notices.length > 0 && (
@@ -100,11 +100,11 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
         >
           <div className="benchmark-results-heading">
             <div>
-              <p className="eyebrow">Controlled cohort</p>
+              <p className="eyebrow">Selected test scenarios</p>
               <h2 id="benchmark-results-title">Controlled Benchmarks</h2>
               <p>
-                Pinned missions with their recorded verdicts and verification
-                checks. New attempts do not replace these selections.
+                These results are linked to specific completed runs. New attempts
+                do not change the selected benchmark results.
               </p>
             </div>
             <span className="benchmark-count-label">
@@ -116,10 +116,10 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
               <div className="benchmark-setup-icon">
                 <Icon name="branch" width="28" height="28" />
               </div>
-              <h3>Your controlled cohort starts here</h3>
+              <h3>Your controlled benchmarks start here</h3>
               <p>
                 No benchmark scenarios are configured. Register your saved
-                missions to show their measured outcomes.
+                missions to show their recorded outcomes.
               </p>
               <ol>
                 <li>
@@ -170,17 +170,27 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
           <div className="benchmark-results-heading">
             <div>
               <p className="eyebrow">Saved attempt history</p>
-              <h2 id="recorded-missions-title">All Recorded Missions</h2>
-              <p>Every discovered attempt, including pinned benchmark missions.</p>
+              <h2 id="recorded-missions-title">Recorded Mission History</h2>
+              <p>
+                Browse saved mission attempts, including successful repairs,
+                unsuccessful attempts, and results requiring human review.
+              </p>
             </div>
             <span className="benchmark-count-label">
               {data.recordedMissions.length} missions
             </span>
           </div>
           <div className="benchmark-other-intro">
-            Refreshes every 30 seconds while this page is visible. New missions
-            appear here without changing controlled benchmark metrics. Multiple
-            runs for a repository remain separate records.
+            New completed missions appear automatically while this page is open.
+            Benchmark totals remain based on the{" "}
+            {data.summary.configured === 7 ? "seven" : data.summary.configured}{" "}
+            selected runs. Refreshes every 30 seconds while this page is visible.
+            Multiple runs for a repository remain separate records.
+          </div>
+          <div className="benchmark-other-intro">
+            History shows up to 100 saved attempts from a scan of up to 500
+            directory entries and may be incomplete. Active filters can hide
+            results.
           </div>
           <BenchmarkTable rows={data.recordedMissions} cohort="recorded" />
         </section>

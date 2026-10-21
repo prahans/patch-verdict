@@ -51,44 +51,64 @@ const dashboardData = (overrides = {}) => ({
   notices: [], outputState: "available", discoveryTruncated: false, ...overrides,
 });
 
-test("dashboard states its controlled scope and exposes separate complete recorded history", () => {
+test("dashboard explains its controlled scope, selected results and separate recorded history", () => {
   const html = render(BenchmarkDashboard, { data: dashboardData() });
   assert.match(html, /<h1[^>]*>Benchmark Dashboard<\/h1>/);
-  assert.ok(html.includes("Measured outcomes from recorded PatchVerdict verification missions."));
-  assert.ok(html.includes("Controlled benchmark results. Not a measure of general-purpose repair accuracy."));
+  assert.ok(html.includes("Explore how PatchVerdict investigated, repaired, and verified bugs across controlled test repositories."));
+  assert.ok(html.includes("Every result backed by recorded evidence."));
+  assert.ok(html.includes("Results reflect selected controlled test scenarios, not general-purpose repair accuracy."));
   assert.match(html, /Controlled Benchmarks/);
   assert.match(html, /<section[^>]*aria-labelledby="recorded-missions-title"/);
-  assert.match(html, /All Recorded Missions/);
-  assert.match(html, /Every discovered attempt, including pinned benchmark missions/);
-  assert.match(html, /New attempts do not replace these selections/);
+  assert.match(html, /Recorded Mission History/);
+  assert.ok(html.includes("Browse saved mission attempts, including successful repairs, unsuccessful attempts, and results requiring human review."));
+  assert.ok(html.includes("These results are linked to specific completed runs. New attempts do not change the selected benchmark results."));
+  assert.ok(html.includes("New completed missions appear automatically while this page is open."));
   assert.match(html, /Refreshes every 30 seconds while this page is visible/);
-  assert.match(html, /without changing controlled benchmark metrics/);
+  assert.match(html, /Benchmark totals remain based on the 5 selected runs/);
+  assert.ok(html.includes("History shows up to 100 saved attempts from a scan of up to 500 directory entries and may be incomplete. Active filters can hide results."));
   const currentPageLink = nodes(BenchmarkDashboard({ data: dashboardData() }), (node) => node.props.href === "/benchmarks")[0];
   assert.equal(currentPageLink.props["aria-current"], "page");
   assert.match(html, /href="\/#verify"/);
-  assert.match(html, /Measured test execution/);
-  assert.match(html, /do not measure total AI mission runtime/);
+  assert.match(html, /Recorded Test Execution Time/);
+  assert.match(html, /does not measure total mission duration/);
   assert.match(html, /Overall mission duration/);
   assert.match(html, /1\/3 commands/);
-  assert.match(html, /<th scope="col">Execution status<\/th>/);
-  assert.match(html, /<th scope="col">Verdict<\/th>/);
-  assert.match(html, /<caption[^>]*>Configured benchmark evidence/);
+  for (const label of ["Scenario / Repository", "Mission Status", "Repair Verdict", "Bug Reproduced", "Post-Repair Test", "Full Test Suite", "Test Integrity", "Recorded Test Time", "Evidence"]) {
+    assert.ok(html.includes(`<th scope="col">${label}</th>`));
+  }
+  assert.match(html, /<summary>Technical Details<\/summary>/);
+  assert.match(html, /<caption[^>]*>Selected benchmark evidence/);
+  assert.doesNotMatch(html, /\bcohort\b|\bpinned\b|All Recorded Missions|Recorded details/i);
 });
 
 test("summary rate and distribution share the configured denominator, including unavailable rows", () => {
   const html = render(BenchmarkSummary, { summary });
-  assert.match(html, /1 VERIFIED \/ 5 configured scenarios/);
+  assert.match(html, /Benchmark Overview/);
+  for (const label of ["Selected Test Scenarios", "Readable Proof Bundles", "VERIFIED", "REVIEW_REQUIRED", "FAILED", "No Decision / Missing Evidence", "Verified Outcomes", "Recorded Test Execution Time"]) {
+    assert.ok(html.includes(`<dt>${label}</dt>`));
+  }
+  for (const explanation of [
+    "The bug was reproduced, the patch was applied, and the required tests passed without detected verification-integrity violations.",
+    "The repair requires human inspection because it changed verification-related files or triggered an integrity review flag.",
+    "The completed verification process did not meet the requirements for an approved repair.",
+  ]) {
+    assert.ok(html.includes(explanation));
+  }
+  assert.match(html, /1 VERIFIED \/ 5 selected scenarios/);
   assert.match(html, />20(?:\.0)?%</);
   assert.match(html, /1 without a verdict/);
   assert.match(html, /1 unavailable/);
   assert.match(html, /unaffected by filters/);
   const chart = VerdictDistribution({ summary });
   const image = nodes(chart, (node) => node.props.role === "img")[0];
-  assert.match(image.props["aria-label"], /5 configured scenarios: 1 VERIFIED, 1 REVIEW_REQUIRED, 1 FAILED, 2 No recorded verdict/);
+  assert.match(image.props["aria-label"], /5 selected scenarios: 1 VERIFIED, 1 REVIEW_REQUIRED, 1 FAILED, 2 No Decision \/ Missing Evidence/);
   assert.deepEqual(nodes(image, (node) => node.props.style?.width).map((node) => node.props.style.width), ["20%", "20%", "20%", "40%"]);
   const distributionHtml = renderToStaticMarkup(chart);
   assert.match(distributionHtml, />40(?:\.0)?%</);
+  assert.match(distributionHtml, /VERIFIED.*divided by all selected scenarios/);
   assert.match(distributionHtml, /Missing evidence and missions without a verdict remain in that denominator/);
+  assert.ok(distributionHtml.includes("The mission ended before a final repair verdict could be produced, or its verdict is unavailable."));
+  assert.ok(distributionHtml.includes("VERIFIED applies only to the tests performed; it does not guarantee correctness beyond those tests."));
 });
 
 test("empty catalog and missing output show setup guidance and unavailable rate instead of invented success", () => {
@@ -116,7 +136,7 @@ test("table callbacks filter by verdict and search scenario/repository without c
   assert.deepEqual(displayedScenarios(view.render()), ["Bravo"]);
   change(view, "benchmarks-search", "not-a-repository");
   assert.match(textContent(view.render()), /No matching results/);
-  assert.match(textContent(view.render()), /Showing 0 of 5 configured scenarios/);
+  assert.match(textContent(view.render()), /Showing 0 of 5 selected scenarios/);
   const clear = nodes(view.render(), (node) => node.type === "button" && textContent(node) === "Clear filters")[0];
   clear.props.onClick();
   assert.equal(displayedScenarios(view.render()).length, 5);
@@ -130,7 +150,7 @@ test("no-verdict filter includes failed executions and unavailable proofs withou
   const view = createHarness(BenchmarkTable, { rows });
   change(view, "benchmarks-verdict", "none");
   assert.deepEqual(displayedScenarios(view.render()), ["Charlie", "Delta"]);
-  assert.match(renderToStaticMarkup(view.render()), /No recorded verdict/);
+  assert.match(renderToStaticMarkup(view.render()), /No Verdict Recorded/);
   change(view, "benchmarks-verdict", "FAILED");
   assert.deepEqual(displayedScenarios(view.render()), ["Alpha"]);
   change(view, "benchmarks-verdict", "VERIFIED");
@@ -192,7 +212,7 @@ test("recorded-mission controls use unique accessible labels and announce filter
   assert.match(textContent(nodes(tree, (node) => node.props.role === "status")[0]), /5 of 5 recorded missions/);
   const region = nodes(tree, (node) => node.props.role === "region")[0];
   assert.equal(region.props.tabIndex, 0);
-  assert.equal(region.props["aria-label"], "All recorded mission results");
+  assert.equal(region.props["aria-label"], "Recorded mission history");
 });
 
 test("duration and rate formatting retain missing data and genuine zero without mis-scaling percentages", () => {

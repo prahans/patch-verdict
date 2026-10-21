@@ -5,7 +5,8 @@ import { aggregateBenchmarks } from "@/lib/benchmarks/aggregate";
 
 export const metadata: Metadata = {
   title: "Benchmark Dashboard | PatchVerdict",
-  description: "Measured outcomes from recorded PatchVerdict verification missions.",
+  description:
+    "Explore how PatchVerdict investigated, repaired, and verified bugs across controlled test repositories.",
 };
 
 export const runtime = "nodejs";

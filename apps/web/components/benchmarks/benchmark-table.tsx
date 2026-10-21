@@ -54,7 +54,7 @@ function CheckResult({
 function RecordedFacts({ row }: { row: BenchmarkRow }) {
   return (
     <details className="benchmark-record-facts">
-      <summary>Recorded details</summary>
+      <summary>Technical Details</summary>
       <dl>
         <div>
           <dt>Mission ID</dt>
@@ -77,15 +77,15 @@ function RecordedFacts({ row }: { row: BenchmarkRow }) {
           <dd>{row.iterations ?? "Unavailable"}</dd>
         </div>
         <div>
-          <dt>Baseline duration</dt>
+          <dt>Bug reproduction test time</dt>
           <dd>{formatDuration(row.commandDurations.baseline)}</dd>
         </div>
         <div>
-          <dt>Post-patch duration</dt>
+          <dt>Post-repair test time</dt>
           <dd>{formatDuration(row.commandDurations.postPatch)}</dd>
         </div>
         <div>
-          <dt>Full-suite duration</dt>
+          <dt>Full test suite time</dt>
           <dd>{formatDuration(row.commandDurations.fullSuite)}</dd>
         </div>
         <div>
@@ -128,7 +128,7 @@ export function BenchmarkTable({
           />
         </div>
         <div>
-          <label htmlFor={`${cohort}-verdict`}>Verdict</label>
+          <label htmlFor={`${cohort}-verdict`}>Repair Verdict</label>
           <select
             id={`${cohort}-verdict`}
             value={verdict}
@@ -140,7 +140,7 @@ export function BenchmarkTable({
             <option value="VERIFIED">VERIFIED</option>
             <option value="REVIEW_REQUIRED">REVIEW_REQUIRED</option>
             <option value="FAILED">FAILED</option>
-            <option value="none">No recorded verdict</option>
+            <option value="none">No Verdict Recorded</option>
           </select>
         </div>
         <div>
@@ -154,8 +154,8 @@ export function BenchmarkTable({
             <option value="recorded-asc">Recorded · oldest first</option>
             <option value="scenario-asc">Scenario · A–Z</option>
             <option value="scenario-desc">Scenario · Z–A</option>
-            <option value="duration-asc">Measured duration · shortest</option>
-            <option value="duration-desc">Measured duration · longest</option>
+            <option value="duration-asc">Recorded test time · shortest</option>
+            <option value="duration-desc">Recorded test time · longest</option>
             <option value="verdict-asc">Verdict · verified first</option>
           </select>
         </div>
@@ -164,7 +164,7 @@ export function BenchmarkTable({
         <p role="status">
           Showing {filteredRows.length} of {rows.length}{" "}
           {cohort === "benchmarks"
-            ? "configured scenarios"
+            ? "selected scenarios"
             : "recorded missions"}
         </p>
         {hasFilters && (
@@ -178,7 +178,7 @@ export function BenchmarkTable({
             Clear filters
           </button>
         )}
-        <span>Execution status and verdict are recorded separately</span>
+        <span>Mission status and repair verdict are recorded separately</span>
       </div>
       {filteredRows.length === 0 ? (
         <div className="benchmark-no-matches">
@@ -201,28 +201,28 @@ export function BenchmarkTable({
           aria-label={
             cohort === "benchmarks"
               ? "Controlled benchmark results"
-              : "All recorded mission results"
+              : "Recorded mission history"
           }
           tabIndex={0}
         >
           <table className="benchmark-table">
             <caption className="benchmark-sr-only">
               {cohort === "benchmarks"
-                ? "Configured benchmark evidence"
-                : "All saved mission attempts; new runs do not change benchmark metrics"}
-              . Measured duration is the sum of available baseline, post-patch
-              and full-suite command durations.
+                ? "Selected benchmark evidence"
+                : "Available saved mission attempts; new runs do not change benchmark totals"}
+              . Recorded test time is the sum of available bug reproduction,
+              post-repair and full test suite command durations.
             </caption>
             <thead>
               <tr>
-                <th scope="col">Scenario / repository</th>
-                <th scope="col">Execution status</th>
-                <th scope="col">Verdict</th>
-                <th scope="col">Reproduction result</th>
-                <th scope="col">Post-patch test</th>
-                <th scope="col">Full suite</th>
-                <th scope="col">Integrity</th>
-                <th scope="col">Measured duration</th>
+                <th scope="col">Scenario / Repository</th>
+                <th scope="col">Mission Status</th>
+                <th scope="col">Repair Verdict</th>
+                <th scope="col">Bug Reproduced</th>
+                <th scope="col">Post-Repair Test</th>
+                <th scope="col">Full Test Suite</th>
+                <th scope="col">Test Integrity</th>
+                <th scope="col">Recorded Test Time</th>
                 <th scope="col">Evidence</th>
               </tr>
             </thead>
@@ -293,7 +293,7 @@ export function BenchmarkTable({
                       <span
                         className={`benchmark-badge benchmark-tone-${verdictTone}`}
                       >
-                        {row.verdict ?? "No recorded verdict"}
+                        {row.verdict ?? "No Verdict Recorded"}
                       </span>
                     </td>
                     <td>
@@ -344,9 +344,9 @@ export function BenchmarkTable({
         </div>
       )}
       <p className="benchmark-table-footnote">
-        Measured test execution sums only available saved commands (up to 3 per
+        Recorded test time sums only available saved test commands (up to 3 per
         mission). Partial timing is shown as recorded. Overall mission duration
-        is listed in Recorded details when available.
+        is listed separately in Technical Details when available.
       </p>
     </div>
   );

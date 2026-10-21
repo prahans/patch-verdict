@@ -4,49 +4,49 @@ import type { BenchmarkSummary as Summary } from "@/lib/benchmarks/types";
 export function BenchmarkSummary({ summary }: { summary: Summary }) {
   const metrics = [
     {
-      label: "Configured benchmark scenarios",
+      label: "Selected Test Scenarios",
       value: summary.configured,
-      note: "Explicitly selected in the catalog",
+      note: "One selected run per scenario",
       tone: "neutral",
     },
     {
-      label: "Valid recorded evidence",
+      label: "Readable Proof Bundles",
       value: summary.valid,
-      note: `${summary.valid} of ${summary.configured} configured scenarios`,
+      note: `${summary.valid} of ${summary.configured} selected scenarios have valid, matching evidence`,
       tone: "neutral",
     },
     {
       label: "VERIFIED",
       value: summary.verified,
-      note: "Recorded verification verdict",
+      note: "The bug was reproduced, the patch was applied, and the required tests passed without detected verification-integrity violations.",
       tone: "verified",
     },
     {
       label: "REVIEW_REQUIRED",
       value: summary.reviewRequired,
-      note: "Recorded verdict requires human review",
+      note: "The repair requires human inspection because it changed verification-related files or triggered an integrity review flag.",
       tone: "review",
     },
     {
       label: "FAILED",
       value: summary.failed,
-      note: "Recorded repair verdict",
+      note: "The completed verification process did not meet the requirements for an approved repair.",
       tone: "failed",
     },
     {
-      label: "No-verdict / unavailable",
+      label: "No Decision / Missing Evidence",
       value: summary.noVerdict,
       note: `${summary.validWithoutVerdict} without a verdict · ${summary.unavailable} unavailable`,
       tone: "neutral",
     },
     {
-      label: "Controlled benchmark verification rate",
+      label: "Verified Outcomes",
       value: formatRate(summary.verificationRate),
-      note: `${summary.verified} VERIFIED / ${summary.configured} configured scenarios`,
+      note: `${summary.verified} VERIFIED / ${summary.configured} selected scenarios`,
       tone: "rate",
     },
     {
-      label: "Measured test execution",
+      label: "Recorded Test Execution Time",
       value: formatDuration(summary.testDurationMs),
       note: `${summary.timedCommandCount} saved commands across ${summary.timedMissionCount} scenarios`,
       tone: "neutral",
@@ -59,8 +59,8 @@ export function BenchmarkSummary({ summary }: { summary: Summary }) {
       className="benchmark-overview"
     >
       <div className="benchmark-section-kicker">
-        <h2 id="benchmark-summary-title">Cohort overview</h2>
-        <span>All configured scenarios · unaffected by filters</span>
+        <h2 id="benchmark-summary-title">Benchmark Overview</h2>
+        <span>All selected scenarios · unaffected by filters</span>
       </div>
       <dl className="benchmark-metrics">
         {metrics.map((metric) => (

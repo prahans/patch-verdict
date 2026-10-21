@@ -11,7 +11,7 @@ export function VerdictDistribution({
     { label: "REVIEW_REQUIRED", count: summary.reviewRequired, tone: "review" },
     { label: "FAILED", count: summary.failed, tone: "failed" },
     {
-      label: "No recorded verdict",
+      label: "No Decision / Missing Evidence",
       count: summary.noVerdict,
       tone: "unavailable",
     },
@@ -24,8 +24,8 @@ export function VerdictDistribution({
     >
       <div className="benchmark-distribution-main">
         <div className="benchmark-panel-heading">
-          <h2 id="benchmark-distribution-title">Verdict distribution</h2>
-          <span>{summary.configured} configured</span>
+          <h2 id="benchmark-distribution-title">Verdict Distribution</h2>
+          <span>{summary.configured} selected scenarios</span>
         </div>
         <div
           className="benchmark-distribution-bar"
@@ -33,7 +33,7 @@ export function VerdictDistribution({
           aria-label={
             summary.configured === 0
               ? "Verdict distribution unavailable: no benchmark scenarios configured."
-              : `Verdict distribution across ${summary.configured} configured scenarios: ${segments.map((segment) => `${segment.count} ${segment.label}`).join(", ")}.`
+              : `Verdict distribution across ${summary.configured} selected scenarios: ${segments.map((segment) => `${segment.count} ${segment.label}`).join(", ")}.`
           }
         >
           {summary.configured > 0 &&
@@ -76,13 +76,21 @@ export function VerdictDistribution({
         <p className="eyebrow">Reading the evidence</p>
         <h3>One selected mission per scenario.</h3>
         <p>
-          The verification rate is VERIFIED divided by all configured scenarios.
-          Missing evidence and missions without a verdict remain in that
-          denominator.
+          Verified Outcomes is VERIFIED results divided by all selected
+          scenarios, expressed as a percentage. Missing evidence and missions
+          without a verdict remain in that denominator.
         </p>
         <p>
-          Durations add available saved test commands. They do not measure total
-          AI mission runtime.
+          Recorded Test Execution Time adds available saved test command
+          durations. It does not measure total mission duration.
+        </p>
+        <p>
+          <strong>No Verdict Recorded:</strong> The mission ended before a final
+          repair verdict could be produced, or its verdict is unavailable.
+        </p>
+        <p>
+          VERIFIED applies only to the tests performed; it does not guarantee
+          correctness beyond those tests.
         </p>
       </div>
     </section>
