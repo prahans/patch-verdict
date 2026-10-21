@@ -34,7 +34,7 @@ registerHooks({
       return {
         format: "module",
         shortCircuit: true,
-        source: `import { navigation } from ${JSON.stringify(harness)}; export const useRouter = () => navigation;`,
+        source: `import { navigation } from ${JSON.stringify(harness)}; export const useRouter = () => navigation; export const usePathname = () => navigation.pathname;`,
       };
     }
     if (url === "patchverdict:test-hooks") {

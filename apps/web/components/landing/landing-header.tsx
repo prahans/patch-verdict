@@ -17,6 +17,7 @@ export function LandingHeader() {
             <a href="#how-it-works">How it works</a>
             <a href="#verdicts">Verdicts</a>
             <a href="#evidence">Evidence</a>
+            <Link href="/benchmarks" prefetch={false}>Benchmarks</Link>
           </nav>
           <a className="landing-button landing-button-small" href="#verify">Verify a patch <span aria-hidden="true">↗</span></a>
         </div>
