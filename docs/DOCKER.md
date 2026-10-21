@@ -20,10 +20,10 @@ demonstrations, **not** as a hardened public multi-tenant deployment.
 From the repository root:
 
 ```bash
-cp .env.example .env
+test -f .env || cp .env.example .env
 ```
 
-Edit `.env` and set your own `OPENROUTER_API_KEY` and `E2B_API_KEY`. Do
+Keep your existing `.env` unchanged if you already have one. Otherwise, edit `.env` and set your own `OPENROUTER_API_KEY` and `E2B_API_KEY`. Do
 not commit this file. Optional PR publishing requires
 `PATCHVERDICT_GITHUB_TOKEN` in this same root `.env`; it is only supplied
 to the server and is not necessary for verifying public issues.
