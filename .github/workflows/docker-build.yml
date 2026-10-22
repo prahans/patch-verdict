@@ -1,0 +1,56 @@
+name: Docker build
+
+on:
+  push:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - docs/DOCKER.md
+      - .github/workflows/docker-build.yml
+  pull_request:
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - docs/DOCKER.md
+      - .github/workflows/docker-build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build local runtime image
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image without credentials
+        run: docker build --tag patchverdict:ci .
+
+      - name: Smoke test web and benchmark pages
+        run: |
+          docker run --detach --name patchverdict-smoke -p 127.0.0.1:3000:3000 patchverdict:ci
+          trap 'docker rm --force patchverdict-smoke >/dev/null 2>&1 || true' EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --output /dev/null http://127.0.0.1:3000/ &&
+               curl --fail --silent --output /dev/null http://127.0.0.1:3000/benchmarks; then
+              echo "Docker startup and both routes passed."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs patchverdict-smoke
+          exit 1
+
+      # No credentials, published images, or paid AI/E2B missions.
