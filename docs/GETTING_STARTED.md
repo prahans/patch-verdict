@@ -173,6 +173,7 @@ The mission route declares a five-minute maximum, and the backend bridge enforce
 | Frontend typecheck cannot find generated route types | Run `pnpm exec next typegen` in `apps/web`, then rerun `pnpm exec tsc --noEmit`. |
 | Production build cannot fetch Geist fonts | The existing Next.js layout downloads Geist and Geist Mono through Google Fonts during the build. Check permitted network access to Google Fonts; this is independent of OpenRouter and E2B credentials. |
 | Provider authentication or startup failure | Check root/server `OPENROUTER_API_KEY`, `E2B_API_KEY`, provider access, and network connectivity. Keep secret values out of screenshots and reports. |
+| OpenRouter 429 or temporary provider failure | Model requests have bounded retries for HTTP 429/502/503/504, subject to the mission deadline. See [OpenRouter recovery](OPENROUTER_RELIABILITY.md) for routing constraints, safe error categories, and validation limits. |
 | Issue preview is rejected | Use the exact issue URL format above. Check repository visibility, issue size, and GitHub's unauthenticated rate limit; manual input is available when appropriate. |
 | Repository preparation fails | Check the root manifest, test script, supported lockfile, and dependency installation. Current support does not cover every public repository. |
 | Failure is not reproduced | Verify that the command fails for the reported reason with the expected exit code and optional literal marker. An unrelated startup error is not accepted as reproduction. |

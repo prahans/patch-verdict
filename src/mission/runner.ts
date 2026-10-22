@@ -14,6 +14,7 @@ import { getGitEvidence } from "../tools/git-evidence.js";
 import { classifyReproduction } from "../verification/reproduction.js";
 import { analyzeVerificationIntegrity } from "../verification/integrity.js";
 import { createInvestigationBaselineContext } from "../agent/investigation-context.js";
+import { DEFAULT_MISSION_TIMEOUT_MS, withMissionDeadline } from "./deadline.js";
 
 import type {
   MissionEvent,
@@ -23,6 +24,17 @@ import type {
 } from "./types.js";
 
 export async function runMission(
+  sandbox: Sandbox,
+  input: MissionInput,
+  options: { onEvent?: (event: MissionEvent) => void; deadlineAtMs?: number } = {},
+): Promise<MissionResult> {
+  return withMissionDeadline(
+    options.deadlineAtMs ?? Date.now() + DEFAULT_MISSION_TIMEOUT_MS,
+    () => executeMission(sandbox, input, options),
+  );
+}
+
+async function executeMission(
   sandbox: Sandbox,
   input: MissionInput,
   options: { onEvent?: (event: MissionEvent) => void } = {},

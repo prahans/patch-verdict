@@ -69,6 +69,8 @@ function execute(
 ) {
   return new Promise<{ timedOut: boolean; persistenceFailed: boolean }>(
     (resolve) => {
+      // Give provider requests the same budget as the supervising process.
+      const missionDeadlineMs = Date.now() + timeoutMs;
       const child = spawn(
         process.execPath,
         [
@@ -87,6 +89,7 @@ function execute(
             // server's write token inside the verification child process.
             PATCHVERDICT_GITHUB_TOKEN: "",
             PATCHVERDICT_MISSION_ID: missionId,
+            PATCHVERDICT_MISSION_DEADLINE_MS: String(missionDeadlineMs),
             PATCHVERDICT_GITHUB_ISSUE: input.githubIssue ? JSON.stringify(input.githubIssue) : "",
           },
           shell: false,

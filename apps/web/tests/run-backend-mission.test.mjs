@@ -52,6 +52,7 @@ const testsDirectory = path.dirname(fileURLToPath(import.meta.url));
 const originalCwd = process.cwd();
 const originalFetch = globalThis.fetch;
 const originalGitHubToken = process.env.PATCHVERDICT_GITHUB_TOKEN;
+const originalMissionDeadline = process.env.PATCHVERDICT_MISSION_DEADLINE_MS;
 let fixtureRoot;
 let completions;
 
@@ -71,7 +72,7 @@ import path from "node:path";
 const [script, repositoryUrl, issue, suppliedCommand, requiredOutput] = process.argv.slice(2);
 const id = process.env.PATCHVERDICT_MISSION_ID;
 const command = suppliedCommand || "npm test";
-await writeFile("received.json", JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), id, inherited: process.env.PATCHVERDICT_BRIDGE_TEST_VALUE, githubToken: process.env.PATCHVERDICT_GITHUB_TOKEN, githubIssue: process.env.PATCHVERDICT_GITHUB_ISSUE }));
+await writeFile("received.json", JSON.stringify({ args: process.argv.slice(2), cwd: process.cwd(), id, inherited: process.env.PATCHVERDICT_BRIDGE_TEST_VALUE, githubToken: process.env.PATCHVERDICT_GITHUB_TOKEN, githubIssue: process.env.PATCHVERDICT_GITHUB_ISSUE, deadline: process.env.PATCHVERDICT_MISSION_DEADLINE_MS }));
 if (issue.startsWith("crash:")) { console.error("SECRET_CREDENTIAL_DO_NOT_RETURN /private/server/path"); process.exit(7); }
 if (issue.startsWith("timeout:")) {
   const descendant = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "inherit" });
@@ -152,6 +153,8 @@ afterEach(async () => {
   globalThis.fetch = originalFetch;
   if (originalGitHubToken === undefined) delete process.env.PATCHVERDICT_GITHUB_TOKEN;
   else process.env.PATCHVERDICT_GITHUB_TOKEN = originalGitHubToken;
+  if (originalMissionDeadline === undefined) delete process.env.PATCHVERDICT_MISSION_DEADLINE_MS;
+  else process.env.PATCHVERDICT_MISSION_DEADLINE_MS = originalMissionDeadline;
   delete process.env.PATCHVERDICT_BRIDGE_TEST_VALUE;
   // Verify the resolved target before recursively deleting this disposable fixture.
   assert.equal(path.dirname(path.resolve(fixtureRoot)), testsDirectory);
@@ -359,6 +362,22 @@ test("omitted reproduction keeps its positional slot before the optional failure
     "marker",
   ]);
   assert.equal((await readMissionLiveStatus(run.missionId)).proofReady, true);
+});
+
+test("child receives the current mission deadline from the custom timeout, overriding inherited state", async () => {
+  process.env.PATCHVERDICT_MISSION_DEADLINE_MS = "1";
+  const timeoutMs = 5000;
+  const beforeLaunch = Date.now();
+  const run = await launch(validInput, { timeoutMs });
+  const afterLaunch = Date.now();
+  await run.completion;
+  const received = JSON.parse(
+    await readFile(path.join(fixtureRoot, "received.json"), "utf8"),
+  );
+  const deadline = Number(received.deadline);
+  assert.ok(Number.isSafeInteger(deadline));
+  assert.ok(deadline >= beforeLaunch + timeoutMs);
+  assert.ok(deadline <= afterLaunch + timeoutMs);
 });
 
 test("only allowlisted events bearing the server mission ID are persisted in stdout order", async () => {

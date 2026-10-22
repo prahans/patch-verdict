@@ -1,6 +1,7 @@
 import "dotenv/config";
 
 import { OpenRouter } from "@openrouter/sdk";
+import { createReliableChat } from "./chat-recovery.js";
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -12,6 +13,9 @@ if (!apiKey) {
 
 export const AGENT_MODEL = process.env.AGENT_MODEL ?? "qwen/qwen3-coder-next";
 
-export const openRouter = new OpenRouter({
+const client = new OpenRouter({
   apiKey,
+  retryConfig: { strategy: "none" },
 });
+
+export const openRouter = { chat: createReliableChat(client.chat) };
