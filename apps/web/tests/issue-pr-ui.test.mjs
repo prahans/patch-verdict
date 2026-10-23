@@ -86,12 +86,12 @@ test("resolved issue preview appears after fetching and renders untrusted text w
   await settle();
   const html = renderToStaticMarkup(view.render());
   assert.equal(requested, `/api/github/issue?url=${encodeURIComponent(issueUrl)}`);
-  assert.match(html, /ISSUE DETECTED/);
+  assert.match(html, /ISSUE LOADED/);
   assert.match(html, /owner\/repository/);
   assert.match(html, /&lt;script&gt;/);
   assert.match(html, /&lt;img/);
   assert.doesNotMatch(html, /<script>|<img/);
-  assert.match(render(IssuePreview, { issue: { ...preview, bodyPreview: "" } }), /This issue has no body/);
+  assert.match(render(IssuePreview, { issue: { ...preview, bodyPreview: "" } }), /This issue has no description/);
 });
 
 test("preview validates its origin, bounds, and exact requested URL", () => {
@@ -110,7 +110,7 @@ test("preview normalizes a mixed-case GitHub origin and caches the resolved URL"
   byId(view.render(), "issue-url").props.onChange({ target: { value: "HTTPS://GITHUB.COM/owner/repository/issues/12" } });
   byId(view.render(), "issue-url").props.onBlur();
   await settle();
-  assert.match(renderToStaticMarkup(view.render()), /ISSUE DETECTED/);
+  assert.match(renderToStaticMarkup(view.render()), /ISSUE LOADED/);
   assert.deepEqual(calls, [`/api/github/issue?url=${encodeURIComponent(issueUrl)}`]);
   button(view.render(), "Load issue preview").props.onClick();
   await settle();
@@ -129,7 +129,7 @@ test("switching to manual mode aborts a pending preview without showing its resu
   pending.resolve(response(preview));
   await settle();
   button(view.render(), "Use a GitHub issue instead").props.onClick();
-  assert.doesNotMatch(renderToStaticMarkup(view.render()), /ISSUE DETECTED|Loading issue/);
+  assert.doesNotMatch(renderToStaticMarkup(view.render()), /ISSUE LOADED|Loading issue/);
 });
 
 test("invalid issue preview never fetches; changing the URL aborts and hides an earlier response", async (t) => {
@@ -148,7 +148,7 @@ test("invalid issue preview never fetches; changing the URL aborts and hides an 
   assert.equal(calls[0].options.signal.aborted, true);
   pending.resolve(response(preview));
   await settle();
-  assert.doesNotMatch(renderToStaticMarkup(view.render()), /ISSUE DETECTED/);
+  assert.doesNotMatch(renderToStaticMarkup(view.render()), /ISSUE LOADED/);
 });
 
 test("issue submission sends only canonical input fields and locks synchronous repeated submissions", async (t) => {
@@ -199,7 +199,7 @@ test("MissionSummary uses issue title/body, safe issue/repository links, and exi
   assert.match(html, new RegExp(`<h1 id="mission-title">${preview.title}</h1>`));
   assert.match(html, new RegExp(preview.bodyPreview));
   assert.match(html, /href="https:\/\/github.com\/owner\/repository\/issues\/12" target="_blank" rel="noopener noreferrer"/);
-  for (const label of ["Repository", "Mission status", "Base commit", "Changed files", "Investigation", "Export evidence"]) assert.ok(html.includes(label));
+  for (const label of ["Repository", "Execution status", "Base commit", "Changed files", "Investigation", "Export result JSON"]) assert.ok(html.includes(label));
   assert.match(html, /Create pull request/);
 });
 
@@ -210,8 +210,8 @@ test("manual and old proof summaries preserve their display and explain missing 
   assert.doesNotMatch(manualHtml, /View original issue/);
   const oldProof = { ...mission, patch: { ...mission.patch, sha256: undefined } };
   const legacyHtml = render(MissionSummary, { mission: oldProof, details });
-  assert.match(legacyHtml, /Export evidence/);
-  assert.match(legacyHtml, /no verified patch digest/);
+  assert.match(legacyHtml, /Export result JSON/);
+  assert.match(legacyHtml, /no recorded patch digest/);
   assert.doesNotMatch(legacyHtml, /Create pull request|Create draft PR/);
 });
 
@@ -219,7 +219,7 @@ test("verdict and execution state control normal, draft, and absent PR actions",
   assert.match(render(MissionSummary, { mission, details }), /Create pull request/);
   const draft = render(MissionSummary, { mission: { ...mission, verdict: "REVIEW_REQUIRED" }, details });
   assert.match(draft, /Create draft PR/);
-  assert.match(draft, /Human review is required/);
+  assert.match(draft, /Human review is still required/);
   for (const result of [{ ...mission, verdict: "FAILED" }, { ...mission, status: "FAILED" }, { ...mission, patch: undefined }]) {
     assert.doesNotMatch(render(MissionSummary, { mission: result, details }), /Create pull request|Create draft PR/);
   }

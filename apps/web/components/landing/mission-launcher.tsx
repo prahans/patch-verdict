@@ -121,12 +121,12 @@ export function MissionLauncher() {
         return;
       } else {
         setError(
-          "The server did not return a valid mission ID. Check Recorded Mission History before starting another mission.",
+          "The server did not return a valid mission ID. A mission may already be running. Recorded Mission History lists only saved attempts.",
         );
       }
     } catch {
       setError(
-        "The connection to PatchVerdict was interrupted. Your inputs remain in this form. Check Recorded Mission History before starting another mission.",
+        "The connection to PatchVerdict was interrupted. Your inputs remain in this form. A mission may already be running; Recorded Mission History lists only saved attempts.",
       );
     }
     inFlight.current = false;
@@ -278,7 +278,7 @@ export function MissionLauncher() {
                   aria-describedby="marker-hint"
                 />
                 <p id="marker-hint" className="launch-hint">
-                  Literal, case-sensitive text required in the baseline output.
+                  If supplied, this literal, case-sensitive text must appear in the baseline output.
                   Choose a distinctive symptom; a match alone does not prove its cause.
                 </p>
               </div>
