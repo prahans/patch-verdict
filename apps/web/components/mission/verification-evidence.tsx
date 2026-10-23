@@ -59,15 +59,15 @@ export function VerificationEvidence({ evidence, bugReproducedBeforePatch }: {
         <div className="panel-heading">
           <span className="eyebrow">Execution evidence</span>
           <h2 id="evidence-heading">Verification evidence</h2>
-          <p className="panel-description">Raw command results. Expand a run to inspect its output.</p>
+          <p className="panel-description">Recorded command results. Expand a run to inspect its output.</p>
         </div>
       </div>
       <div className="evidence-list">
         <EvidenceRow title="Baseline reproduction" evidence={evidence?.baselineTest} baseline bugReproducedBeforePatch={bugReproducedBeforePatch} />
         <EvidenceRow title="Post-patch reproduction" evidence={evidence?.postPatchTest} />
-        <EvidenceRow title="Full test suite" evidence={evidence?.fullSuite} />
+        <EvidenceRow title="Repository test script" evidence={evidence?.fullSuite} />
       </div>
-      <p className="panel-footer">Baseline labels use the saved reproduction check. Both post-patch checks must pass for verification.</p>
+      <p className="panel-footer">Baseline labels reflect the configured failure expectation. Post-patch success uses exit code zero; the verdict also depends on patch and integrity checks.</p>
     </section>
   );
 }

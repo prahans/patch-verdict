@@ -10,7 +10,7 @@ export function LandingHeader() {
             <span className="brand-symbol"><Icon name="shield" width="25" height="25" /></span>
             <span>PATCH<span className="brand-secondary">VERDICT</span><span className="brand-period">.</span></span>
           </Link>
-          <span className="brand-tagline">Every patch earns its verdict.</span>
+          <span className="brand-tagline">Candidate repairs. Recorded evidence.</span>
         </div>
         <div className="landing-nav-group">
           <nav className="landing-nav" aria-label="Main navigation">
@@ -19,7 +19,7 @@ export function LandingHeader() {
             <a href="#evidence">Evidence</a>
             <Link href="/benchmarks" prefetch={false}>Benchmarks</Link>
           </nav>
-          <a className="landing-button landing-button-small" href="#verify">Verify a patch <span aria-hidden="true">↗</span></a>
+          <a className="landing-button landing-button-small" href="#verify">Start verification <span aria-hidden="true">↗</span></a>
         </div>
       </div>
     </header>

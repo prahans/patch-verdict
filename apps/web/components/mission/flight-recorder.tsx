@@ -63,7 +63,7 @@ export function FlightRecorder({
       <p className="live-event-empty">
         <span className={`status-dot ${activePhase ? "live-pulse" : ""}`} aria-hidden="true" />
         <span>
-          {activePhase ? "Waiting for backend evidence..." : "No execution events were recorded."}
+          {activePhase ? "Waiting for recorded progress..." : "No execution events were recorded."}
           {activePhase && <span className="live-terminal-cursor" aria-hidden="true" />}
         </span>
       </p>
@@ -107,7 +107,7 @@ export function FlightRecorder({
           {eventList}
         </div>
       ) : eventList}
-      <div className="panel-footer"><span className={`status-dot ${footerTone}`} />Chronological execution record<span className="ml-auto font-mono">SAVED EVENTS</span></div>
+      <div className="panel-footer"><span className={`status-dot ${footerTone}`} />Recorded execution events<span className="ml-auto font-mono">SAVED EVENTS</span></div>
     </section>
   );
 }

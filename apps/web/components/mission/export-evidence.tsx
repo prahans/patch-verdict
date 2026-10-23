@@ -15,5 +15,5 @@ export function ExportEvidence({ mission, missionId }: { mission: MissionResult;
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  return <button className="action-button" type="button" onClick={download}><Icon name="download" width="15" height="15" />Export evidence</button>;
+  return <button className="action-button" type="button" onClick={download} title="Download the loaded mission result as JSON. This is not the complete proof bundle."><Icon name="download" width="15" height="15" />Export result JSON</button>;
 }

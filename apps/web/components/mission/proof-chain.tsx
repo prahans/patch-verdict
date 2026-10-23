@@ -25,13 +25,13 @@ function booleanState(value: boolean | undefined): ProofCheckState {
 export function ProofChain({ mission }: { mission: MissionResult }) {
   const reviewFlags = mission.verificationIntegrity?.reviewFlags.filter((flag) => flag.trim()) ?? [];
   const reviewReason = reviewFlags.join(" · ") ||
-    "Verification independence requires human review; no specific reason was recorded.";
+    "Verification integrity requires human review; no specific reason was recorded.";
   const testsPassed =
     mission.checks?.reproductionPassesAfterPatch === true &&
     mission.checks?.fullSuitePassesAfterPatch === true;
   const checks: { label: string; state: ProofCheckState; detail: string }[] = [
     {
-      label: "Bug reproduced before patch",
+      label: "Configured failure reproduced",
 
       state: booleanState(mission.checks?.bugReproducedBeforePatch),
 
@@ -68,7 +68,7 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
     },
 
     {
-      label: "Verification integrity",
+      label: "Integrity checks",
 
       state:
         mission.verificationIntegrity?.status === "PRESERVED"
@@ -83,9 +83,9 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
         mission.verificationIntegrity?.status === "REVIEW_REQUIRED"
           ? reviewReason
           : mission.verificationIntegrity?.status === "COMPROMISED"
-            ? mission.verificationIntegrity.violations.join(" · ") || "Verification independence was compromised"
+            ? mission.verificationIntegrity.violations.join(" · ") || "An integrity violation was recorded"
             : mission.verificationIntegrity?.status === "PRESERVED"
-              ? "Verification remained independent"
+              ? "No recognized integrity concerns detected"
               : "Integrity analysis unavailable",
     },
 
@@ -95,18 +95,18 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
       state: booleanState(mission.checks?.reproductionPassesAfterPatch),
 
       detail: mission.evidence?.postPatchTest
-        ? `Targeted test · exit ${mission.evidence.postPatchTest.exitCode}`
+        ? `Configured reproduction · exit ${mission.evidence.postPatchTest.exitCode}`
         : "Post-patch evidence unavailable",
     },
 
     {
-      label: "Full test suite passes",
+      label: "Repository test script passes",
 
       state: booleanState(mission.checks?.fullSuitePassesAfterPatch),
 
       detail: mission.evidence?.fullSuite
-        ? `Full suite · exit ${mission.evidence.fullSuite.exitCode}`
-        : "Full suite evidence unavailable",
+        ? `Repository tests · exit ${mission.evidence.fullSuite.exitCode}`
+        : "Repository test evidence unavailable",
     },
   ];
   const outcomes = (["passed", "review", "failed", "unavailable"] as const)
@@ -137,7 +137,7 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
           <Icon name="shield" />
           <h2 id="proof-title">Proof Chain</h2>
         </div>
-        <span className="layer-label">DETERMINISTIC</span>
+        <span className="layer-label">RECORDED CHECKS</span>
       </div>
       <div className="proof-body">
         <div className="proof-count">
@@ -179,7 +179,7 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
           <div className="verdict-heading">
             <Icon name={verdictIcon} width="40" height="40" />
             <div className="verdict-title">
-              <span className="eyebrow">VERDICT</span>
+              <span className="eyebrow">REPAIR VERDICT</span>
               <strong>{mission.verdict ?? "UNAVAILABLE"}</strong>
             </div>
             <span className="verdict-seal">
@@ -191,9 +191,9 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
               <p className="verdict-review-title">Human review required</p>
               <p>
                 {testsPassed
-                  ? "Tests passed, but automatic verification was withheld."
-                  : "Automatic verification was withheld."}
-                {" "}Review the evidence before approving this patch.
+                  ? "The reproduction and repository tests passed; integrity review is required."
+                  : "The saved verdict requires human review of verification integrity."}
+                {" "}Inspect the recorded reasons and candidate patch.
               </p>
               {reviewFlags.length > 0 ? (
                 <ul className="verdict-reasons" aria-label="Recorded review reasons">
@@ -206,9 +206,9 @@ export function ProofChain({ mission }: { mission: MissionResult }) {
           )}
         </div>
         <p className="proof-note">
-          The saved verdict is reported by PatchVerdict.
+          Repair verdicts apply to the recorded requirements and execution.
           <br />
-          AI proposes. Tools execute. Tests verify. Humans approve.
+          Integrity checks detect recognized risks; they do not guarantee correctness.
         </p>
       </div>
     </section>

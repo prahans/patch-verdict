@@ -121,12 +121,12 @@ export function MissionLauncher() {
         return;
       } else {
         setError(
-          "The server did not return a valid mission ID. Please try again.",
+          "The server did not return a valid mission ID. Check Recorded Mission History before starting another mission.",
         );
       }
     } catch {
       setError(
-        "The connection to PatchVerdict was interrupted. Your inputs are saved here; check the connection and try again.",
+        "The connection to PatchVerdict was interrupted. Your inputs remain in this form. Check Recorded Mission History before starting another mission.",
       );
     }
     inFlight.current = false;
@@ -144,8 +144,8 @@ export function MissionLauncher() {
         <p className="eyebrow amber">
           <Icon name="terminal" width="14" height="14" /> MISSION INPUT
         </p>
-        <h2 id="launch-title">Start verification mission</h2>
-        <p>A repository. A reported bug. A verdict backed by evidence.</p>
+        <h2 id="launch-title">Start a verification mission</h2>
+        <p>For public JavaScript/TypeScript repositories with a root package.json, a test script, and a matching npm or pnpm lockfile.</p>
       </div>
       <form
         className="launch-form"
@@ -180,7 +180,7 @@ export function MissionLauncher() {
                   onBlur={() => void resolvePreview()}
                 />
                 <p id="github-issue-hint" className="launch-hint">
-                  Paste a public GitHub issue. PatchVerdict will load the repository and reported bug automatically.
+                  Paste a public GitHub issue URL to load its repository, title, and description. The issue is fetched again when you submit.
                 </p>
                 <div className="launch-mode-actions">
                   <button className="launch-mode-switch" type="button" onClick={() => void resolvePreview()} disabled={previewLoading || !issueUrl.trim()}>
@@ -259,7 +259,7 @@ export function MissionLauncher() {
                   aria-describedby="command-hint"
                 />
                 <p id="command-hint" className="launch-hint">
-                  Auto-detected from the repository when omitted.
+                  Defaults to npm test or pnpm test. The baseline must exit with code 1, and the same command must pass after repair.
                 </p>
               </div>
               <div className="launch-field">
@@ -278,8 +278,8 @@ export function MissionLauncher() {
                   aria-describedby="marker-hint"
                 />
                 <p id="marker-hint" className="launch-hint">
-                  Optional text expected in the baseline failure. Useful for
-                  confirming a specific reported symptom.
+                  Literal, case-sensitive text required in the baseline output.
+                  Choose a distinctive symptom; a match alone does not prove its cause.
                 </p>
               </div>
             </div>
@@ -308,7 +308,7 @@ export function MissionLauncher() {
             : ""}
         </p>
         <p className="launch-footnote">
-          AI proposes. Tools execute. Tests verify. Humans approve.
+          AI proposes. Tools execute. Evidence informs review.
         </p>
       </form>
     </section>

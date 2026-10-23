@@ -26,7 +26,7 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
               </span>
             </Link>
             <span className="brand-tagline">
-              Every patch earns its verdict.
+              Candidate repairs. Recorded evidence.
             </span>
           </div>
           <nav className="benchmark-header-nav" aria-label="Main navigation">
@@ -34,7 +34,7 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
               Benchmarks
             </Link>
             <Link href="/#verify">
-              Verify a patch <span aria-hidden="true">↗</span>
+              Start verification <span aria-hidden="true">↗</span>
             </Link>
           </nav>
         </div>
@@ -56,12 +56,12 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
         >
           <div>
             <p className="eyebrow amber">
-              Every result backed by recorded evidence.
+              Selected runs. Available evidence.
             </p>
             <h1 id="benchmark-title">Benchmark Dashboard</h1>
             <p className="benchmark-subtitle">
-              Explore how PatchVerdict investigated, repaired, and verified bugs
-              across controlled test repositories.
+              Inspect recorded candidate repairs, checks, and verdicts from
+              selected controlled scenarios.
             </p>
           </div>
           <span className="benchmark-read-only">
@@ -70,8 +70,8 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
         </section>
         <p className="benchmark-scope-note">
           <Icon name="warning" width="15" height="15" />
-          Results reflect selected controlled test scenarios, not general-purpose
-          repair accuracy.
+          These selected historical runs do not measure general repair accuracy
+          or predict rerun outcomes.
         </p>
 
         {data.notices.length > 0 && (
@@ -103,8 +103,8 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
               <p className="eyebrow">Selected test scenarios</p>
               <h2 id="benchmark-results-title">Controlled Benchmarks</h2>
               <p>
-                These results are linked to specific completed runs. New attempts
-                do not change the selected benchmark results.
+                Each scenario links to one specific historical run. New attempts
+                do not replace these selections; unavailable evidence stays listed.
               </p>
             </div>
             <span className="benchmark-count-label">
@@ -116,10 +116,10 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
               <div className="benchmark-setup-icon">
                 <Icon name="branch" width="28" height="28" />
               </div>
-              <h3>Your controlled benchmarks start here</h3>
+              <h3>No controlled scenarios selected</h3>
               <p>
-                No benchmark scenarios are configured. Register your saved
-                missions to show their recorded outcomes.
+                Add saved missions to the benchmark catalog to display their
+                recorded outcomes here.
               </p>
               <ol>
                 <li>
@@ -147,8 +147,8 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
                   <div>
                     <strong>Reload this dashboard</strong>
                     <p>
-                      The saved proof is validated and its repository matched
-                      before it counts as evidence.
+                      The saved proof must pass format checks and match the
+                      expected repository before its recorded outcome is shown.
                     </p>
                   </div>
                 </li>
@@ -172,8 +172,8 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
               <p className="eyebrow">Saved attempt history</p>
               <h2 id="recorded-missions-title">Recorded Mission History</h2>
               <p>
-                Browse saved mission attempts, including successful repairs,
-                unsuccessful attempts, and results requiring human review.
+                Browse saved mission attempts, including recorded verdicts,
+                failed executions, and unavailable evidence.
               </p>
             </div>
             <span className="benchmark-count-label">
@@ -181,10 +181,10 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
             </span>
           </div>
           <div className="benchmark-other-intro">
-            New completed missions appear automatically while this page is open.
+            This page checks for newly saved records while it is open.
             Benchmark totals remain based on the{" "}
             {data.summary.configured === 7 ? "seven" : data.summary.configured}{" "}
-            selected runs. Refreshes every 30 seconds while this page is visible.
+            selected runs. Records refresh every 30 seconds while this page is visible.
             Multiple runs for a repository remain separate records.
           </div>
           <div className="benchmark-other-intro">
@@ -198,7 +198,7 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
         <footer className="benchmark-footer">
           <p>
             <span className="footer-mark">PV</span> AI proposes. Tools execute.
-            Tests verify. Humans approve.
+            Evidence informs review.
           </p>
           <span>RECORDED EVIDENCE · CONTROLLED SCOPE</span>
         </footer>

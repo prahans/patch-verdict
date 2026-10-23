@@ -58,7 +58,7 @@ export default async function MissionPage({ params }: MissionPageProps) {
             <p className="eyebrow amber">PROOF BUNDLE UNAVAILABLE</p>
 
             <h1 id="bundle-error-title">
-              Mission artifacts could not be loaded
+              Saved mission evidence could not be loaded
             </h1>
 
             <p>
@@ -69,7 +69,8 @@ export default async function MissionPage({ params }: MissionPageProps) {
 
             <p>
               Check the backend-generated files in{" "}
-              <code>output/{missionId}</code>, then reload this page.
+              <code>output/{missionId}</code>, then reload this page. Unavailable
+              evidence does not establish a failed repair.
             </p>
           </section>
         </main>
@@ -115,13 +116,13 @@ export default async function MissionPage({ params }: MissionPageProps) {
         {mission.status === "FAILED" && (
           <section
             className="panel bundle-notice is-failed"
-            aria-label="Mission failure"
+            aria-label="Mission execution failure"
           >
-            <h2>Mission failed</h2>
+            <h2>Mission execution failed</h2>
 
             <p>
               {mission.error ??
-                "The backend recorded a failed mission without an error description."}
+                "Execution stopped without a recorded error description. A final repair verdict may be unavailable."}
             </p>
           </section>
         )}
@@ -172,10 +173,10 @@ export default async function MissionPage({ params }: MissionPageProps) {
         <footer className="mission-footer">
           <p>
             <span className="footer-mark">PV</span> AI proposes. Tools execute.
-            Tests verify. Humans approve.
+            Evidence informs review.
           </p>
 
-          <span>PROOF BUNDLE · DETERMINISTIC EVIDENCE</span>
+          <span>PROOF BUNDLE · RECORDED EVIDENCE</span>
         </footer>
       </main>
     </>

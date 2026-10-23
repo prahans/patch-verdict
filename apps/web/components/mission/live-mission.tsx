@@ -14,14 +14,14 @@ import { Icon } from "./icon";
 import { parsePersistedGitHubIssue } from "@/lib/github-issue-url";
 
 const phaseCopy = {
-  PREPARING: "Preparing isolated repository…",
-  BASELINE: "Reproducing the reported failure…",
+  PREPARING: "Preparing the repository in a sandbox…",
+  BASELINE: "Checking the configured failure expectation…",
   INVESTIGATING: "AI is inspecting repository evidence…",
-  PATCHING: "Producing a bounded candidate patch…",
-  VERIFYING: "Running trusted verification…",
+  PATCHING: "Attempting a bounded candidate repair…",
+  VERIFYING: "Running the configured verification commands…",
   VERDICT: "Calculating deterministic verdict…",
   COMPLETED: "Recording the proof bundle…",
-  FAILED: "Recording available proof after the backend reported a failure…",
+  FAILED: "Recording available evidence after execution stopped…",
 } as const;
 
 const proofIcons: Record<
@@ -111,7 +111,7 @@ export function LiveMission({
         if (stopped) return;
         if (response.status === 404 || response.status === 400) {
           setPollError(
-            "Live mission status is unavailable. Reload this page to check for saved proof.",
+            "Live mission status is unavailable. Reload this page to check for a saved result.",
           );
           keepPolling = false;
           return;
@@ -132,7 +132,7 @@ export function LiveMission({
       } catch {
         if (!stopped)
           setPollError(
-            "Live updates are temporarily unavailable. Retrying; the last saved evidence remains visible.",
+            "Live updates are temporarily unavailable. Retrying automatically; the last received progress remains visible.",
           );
       } finally {
         clearTimeout(requestTimer);
@@ -206,10 +206,10 @@ export function LiveMission({
           ) : (
             <p className="live-summary-copy">
               {failed
-                ? "The backend stopped before it could record a usable proof bundle."
+                ? "Execution stopped without a saved proof bundle. A repair verdict is not available."
                 : status.proofReady
                   ? "Opening the saved proof dashboard…"
-                  : "PatchVerdict is building the evidence chain."}
+                  : "PatchVerdict is recording progress through the verification workflow."}
             </p>
           )}
           {status.githubIssue ? (
@@ -282,9 +282,9 @@ export function LiveMission({
               </p>
 
               <p>
-                PatchVerdict is reproducing the bug, investigating evidence,
-                applying a candidate repair, and rerunning trusted tests. This
-                may take a few minutes.
+                The mission checks a configured failure, investigates it,
+                attempts a repair, and runs repository tests. It may take a few
+                minutes or stop before completion.
               </p>
             </div>
             <button
@@ -332,7 +332,7 @@ export function LiveMission({
                 <Icon name="shield" />
                 <h2 id="live-proof-title">Proof Chain</h2>
               </div>
-              <span className="panel-meta">EVIDENCE DRIVEN</span>
+              <span className="panel-meta">RECORDED PROGRESS</span>
             </div>
             <ol className="live-proof-list">
               {chain.map((step, index) => (
@@ -360,14 +360,14 @@ export function LiveMission({
               ))}
             </ol>
             <div className="panel-footer">
-              Checks change only when backend evidence is recorded.
+              Progress reflects recognized backend events.
             </div>
           </section>
         </div>
         <footer className="mission-footer">
           <p>
             <span className="footer-mark">PV</span>AI proposes. Tools execute.
-            Tests verify. Humans approve.
+            Evidence informs review.
           </p>
           <span>
             LAST SAVED{" "}

@@ -20,10 +20,10 @@ export function getPullRequestEligibility(mission: MissionResult, details: Missi
   if (!mission.patch?.applied || !mission.patch.changedFiles.length || !mission.patch.diff ||
     !details.source?.repositoryUrl || !/^[a-f0-9]{40}$/i.test(details.source.baseCommit) ||
     mission.patch.baseCommit.toLowerCase() !== details.source.baseCommit.toLowerCase()) {
-    return { allowed: false, draft, reason: "The canonical proof is missing the patch or its repository and base commit." };
+    return { allowed: false, draft, reason: "The saved proof is missing the patch or its repository and base commit." };
   }
   if (!mission.patch.sha256 || !/^[a-f0-9]{64}$/.test(mission.patch.sha256)) {
-    return { allowed: false, draft, reason: "This proof has no verified patch digest. Run a new mission to enable pull request creation." };
+    return { allowed: false, draft, reason: "This proof has no recorded patch digest. Run a new mission to enable pull request creation." };
   }
   // Refuse contradictory persisted evidence without recomputing or changing the
   // recorded verdict. Older bundles may omit these optional evidence fields.

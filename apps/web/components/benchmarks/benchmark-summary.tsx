@@ -4,7 +4,7 @@ import type { BenchmarkSummary as Summary } from "@/lib/benchmarks/types";
 export function BenchmarkSummary({ summary }: { summary: Summary }) {
   const metrics = [
     {
-      label: "Selected Test Scenarios",
+      label: "Selected Controlled Scenarios",
       value: summary.configured,
       note: "One selected run per scenario",
       tone: "neutral",
@@ -12,29 +12,29 @@ export function BenchmarkSummary({ summary }: { summary: Summary }) {
     {
       label: "Readable Proof Bundles",
       value: summary.valid,
-      note: `${summary.valid} of ${summary.configured} selected scenarios have valid, matching evidence`,
+      note: `${summary.valid} of ${summary.configured} selected scenarios have readable evidence matching the expected repository`,
       tone: "neutral",
     },
     {
       label: "VERIFIED",
       value: summary.verified,
-      note: "The bug was reproduced, the patch was applied, and the required tests passed without detected verification-integrity violations.",
+      note: "Recorded functional requirements passed, with no recognized verification-integrity review flags or violations detected.",
       tone: "verified",
     },
     {
       label: "REVIEW_REQUIRED",
       value: summary.reviewRequired,
-      note: "The repair requires human inspection because it changed verification-related files or triggered an integrity review flag.",
+      note: "Functional requirements passed, but recorded verification-integrity concerns require human review.",
       tone: "review",
     },
     {
       label: "FAILED",
       value: summary.failed,
-      note: "The completed verification process did not meet the requirements for an approved repair.",
+      note: "Completed verification did not meet the recorded acceptance conditions.",
       tone: "failed",
     },
     {
-      label: "No Decision / Missing Evidence",
+      label: "No Verdict / Unavailable Evidence",
       value: summary.noVerdict,
       note: `${summary.validWithoutVerdict} without a verdict · ${summary.unavailable} unavailable`,
       tone: "neutral",
@@ -48,7 +48,7 @@ export function BenchmarkSummary({ summary }: { summary: Summary }) {
     {
       label: "Recorded Test Execution Time",
       value: formatDuration(summary.testDurationMs),
-      note: `${summary.timedCommandCount} saved commands across ${summary.timedMissionCount} scenarios`,
+      note: `${summary.timedCommandCount} recorded command durations across ${summary.timedMissionCount} scenarios; excludes untimed stages`,
       tone: "neutral",
     },
   ];

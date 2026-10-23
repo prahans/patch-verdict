@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PatchVerdict — Mission Control",
   description:
-    "Every patch earns its verdict. Inspect the reasoning, candidate patch, and deterministic execution evidence for a PatchVerdict mission.",
+    "Inspect AI investigation reports, candidate repairs, recorded checks, and available verdicts for PatchVerdict missions.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

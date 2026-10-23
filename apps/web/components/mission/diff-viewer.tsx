@@ -69,7 +69,7 @@ export function DiffViewer({ patch }: { patch: MissionResult["patch"] }) {
         <div className="panel-heading">
           <span className="eyebrow">Git evidence</span>
           <h2 id="patch-heading">Candidate patch</h2>
-          <p className="panel-description">The proposed change, captured from the working tree.</p>
+          <p className="panel-description">The candidate change captured from the sandbox working tree.</p>
         </div>
         {hasDiff && <button className="copy-button" type="button" onClick={copyDiff} aria-label="Copy complete patch diff">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
@@ -80,7 +80,7 @@ export function DiffViewer({ patch }: { patch: MissionResult["patch"] }) {
         </button>}
       </div>
       {copyStatus === "failed" && <p className="panel-description" role="status">Clipboard access is unavailable. Select the diff below to copy it.</p>}
-      {!hasDiff || !patch ? <p className="artifact-unavailable">{!patch ? "No candidate patch was produced." : diff === undefined ? "The candidate patch diff is unavailable in this proof bundle." : "The saved patch diff contains no changes."}</p> : <>
+      {!hasDiff || !patch ? <p className="artifact-unavailable">{!patch ? "No candidate patch is recorded in this proof bundle." : diff === undefined ? "The candidate patch diff is unavailable in this proof bundle." : "The saved patch diff contains no changes."}</p> : <>
       <div className="diff-toolbar">
         <div className="diff-file">
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">

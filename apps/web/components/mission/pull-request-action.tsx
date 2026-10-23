@@ -30,7 +30,7 @@ export function PullRequestAction({
       if (!response.ok) {
         setError(result && typeof result === "object" && "error" in result &&
           typeof result.error === "string" && result.error.length <= 500
-          ? result.error : "Pull request creation failed. Please try again.");
+          ? result.error : "The pull request could not be created. You can retry; the saved verdict is unchanged.");
       } else if (isPullRequestResult(result)) {
         setPullRequest(result);
       } else {
@@ -55,12 +55,12 @@ export function PullRequestAction({
 
   return (
     <div className="pull-request-action" aria-busy={creating}>
-      <button className="action-button" type="button" disabled={creating} onClick={() => void createPullRequest()}>
+      <button className="action-button" type="button" disabled={creating} onClick={() => void createPullRequest()} title="Publish the recorded patch to GitHub. Requires configured credentials and repository write access. This does not merge the pull request.">
         <Icon name={creating ? "activity" : "branch"} width="15" height="15" />
         {creating ? "Creating PR..." : eligibility.draft ? "Create draft PR" : "Create pull request"}
       </button>
       {eligibility.draft && (
-        <p className="pull-request-note amber">Human review is required. This repair will be published as a draft.</p>
+        <p className="pull-request-note amber">This action publishes the candidate repair as a draft. Human review is still required.</p>
       )}
       {error && <p className="pull-request-error" role="alert">{error}</p>}
       <span className="sr-only" role="status" aria-live="polite">{creating ? "Creating pull request from the recorded patch..." : ""}</span>
