@@ -12,7 +12,7 @@ export function Hero({ proofExampleId }: { proofExampleId: string | null }) {
         records the Git diff, and calculates a verdict when verification completes.
       </p>
       <div className="hero-actions">
-        <a className="landing-button" href="#verify">Start verification <span aria-hidden="true">↗</span></a>
+        <Link className="landing-button" href="/benchmarks" prefetch={false}>Explore Benchmarks <span aria-hidden="true">↗</span></Link>
         {proofExampleId && (
           <Link className="landing-text-link" href={`/missions/${proofExampleId}`} prefetch={false}>
             View saved evidence <span aria-hidden="true">→</span>

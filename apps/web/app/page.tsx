@@ -4,7 +4,7 @@ import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { Hero } from "@/components/landing/hero";
-import { MissionLauncher } from "@/components/landing/mission-launcher";
+import { PublicShowcase } from "@/components/landing/public-showcase";
 import { Workflow } from "@/components/landing/workflow";
 import { VerdictCards } from "@/components/landing/verdict-cards";
 import { EvidencePreview } from "@/components/landing/evidence-preview";
@@ -57,14 +57,14 @@ export default async function Home() {
 
   return (
     <div id="top" className="landing-page">
-      <a className="skip-link" href="#verify">
-        Skip to verification form
+      <a className="skip-link" href="#showcase">
+        Skip to recorded evidence
       </a>
       <LandingHeader />
       <main className="landing-shell">
         <div className="landing-intro">
           <Hero proofExampleId={proofExampleId} />
-          <MissionLauncher />
+          <PublicShowcase />
         </div>
         <div className="landing-pipeline" aria-label="Verification process">
           {["REPRODUCE", "INVESTIGATE", "PATCH", "VERIFY", "VERDICT"].map(
