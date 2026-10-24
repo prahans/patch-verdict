@@ -73,6 +73,8 @@ Local saved bundles inspected on **2026-10-21** supported:
 
 This is **6/7 selected outcomes (85.7%)**, not a real-world bug-fixing success rate. In the Test State Leak scenario, tests passed but the patch changed `setupTests.js`, triggering human review.
 
+On **2026-10-24**, the catalog expanded to nine selected scenarios while retaining all seven above: six VERIFIED, two REVIEW_REQUIRED, and one completed FAILED verdict (**6/9 = 66.7%**). See the [current selection and negative-control explanation](docs/BENCHMARK_DASHBOARD.md#current-nine-scenario-selection-2026-10-24). The table above remains the earlier dated snapshot.
+
 The dashboard derives its values from available saved proofs. Ignored `output/` artifacts do **not** ship with a GitHub clone, so a fresh checkout will not reproduce this history without the corresponding bundles. See [benchmark identities, methodology, and preservation guidance](docs/BENCHMARK_DASHBOARD.md).
 
 ## Run locally

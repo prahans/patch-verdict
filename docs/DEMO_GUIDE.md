@@ -20,7 +20,7 @@ The existing benchmark catalog provides two useful contrasting records. These ou
 | --- | --- | --- |
 | Show a recorded `VERIFIED` result | Division by Zero | `/missions/web-42a66b12-7219-4d6e-a799-c49f797aa13d` |
 | Explain review despite passing tests | Test State Leak | `/missions/web-d59e040c-e511-4d9e-bd6b-7cb6bfdd645d` |
-| Explain the selection and denominator | Seven selected scenarios | `/benchmarks` |
+| Explain the selection and denominator | Current selected scenarios (nine as of 2026-10-24) | `/benchmarks` |
 
 The source repositories are [patchverdict-divide-by-zero](https://github.com/prahans/patchverdict-divide-by-zero) and [patchverdict-test-state-leak](https://github.com/prahans/patchverdict-test-state-leak). The issue example already used by the application documentation is [division-by-zero issue #1](https://github.com/prahans/patchverdict-divide-by-zero/issues/1). Check that it is still readable before relying on a live preview.
 
@@ -36,7 +36,7 @@ Saved `output/` bundles are ignored by Git and are not included in a fresh clone
 | 0:25–0:55 | Issue input and **Advanced verification settings** | Paste the prepared public issue URL and show the plain-text preview. Briefly reveal the manual-report option and optional reproduction command/failure marker. Say that submission re-fetches the canonical issue on the server. |
 | 0:55–1:55 | The saved Division by Zero mission | Announce that this is a recorded run. Show the base commit, **Flight Recorder**, **Investigation Report**, **Candidate patch**, and **Verification evidence**. Point to baseline failure followed by post-repair and suite success in the actual record. |
 | 1:55–2:40 | The saved Test State Leak mission | Show the `REVIEW_REQUIRED` result, passing test evidence, and the `setupTests.js` change. Explain why a test-setup change still needs a person to inspect it. |
-| 2:40–3:20 | **Benchmark Dashboard** | Show seven selected scenarios, six recorded `VERIFIED` results and one `REVIEW_REQUIRED`, if the same evidence remains available. Explain that new history entries do not replace these selections. |
+| 2:40–3:20 | **Benchmark Dashboard** | Show the current nine selected scenarios: six recorded `VERIFIED`, two `REVIEW_REQUIRED`, and one completed `FAILED` verdict, if the same evidence remains available. Explain that new history entries do not replace these selections and that Conflicting Contract is an artificial negative control. |
 | 3:20–4:00 | PR action and architecture | Explain the eligible normal/draft PR choices and the exact recorded patch boundary. Finish by stating what the tests establish and what they cannot guarantee. |
 
 For a three-minute slot, shorten the input preview and architecture explanation. For five minutes, spend the additional time on the patch, review flag, or a judge's question. Do not spend the entire slot waiting for a provider.
@@ -59,7 +59,7 @@ You can show input without submitting it. This is preferable when provider crede
 
 **Review case:** The Test State Leak diff replaces `return templateUser` with `return { ...templateUser }` in `setupTests.js`. Its recorded baseline, post-repair, and suite exit codes are 1, 0, and 0. The integrity record has a test-infrastructure review flag and an empty violations list. The right explanation is “tests passed, but the repair changed verification-related setup,” not “the tests failed” or “a malicious patch was detected.”
 
-**Benchmark totals:** The inspected 6/7 ratio is 85.7% of selected scenarios. It is neither an independently sampled real-world success rate nor a prediction for unseen repositories. The recorded 26,986 ms total covers available test-command durations only; it excludes investigation and preparation. The selected traces do not establish total mission duration.
+**Benchmark totals:** The 2026-10-21 inspection recorded 6/7 selected outcomes (85.7%) and 26,986 ms of available test-command durations. That historical snapshot excludes the two additions registered on 2026-10-24. The current nine-scenario selection records six VERIFIED, two REVIEW_REQUIRED, and one completed FAILED verdict (6/9 = 66.7%) when all selected evidence is available; see the [current selection](BENCHMARK_DASHBOARD.md#current-nine-scenario-selection-2026-10-24). Neither ratio is an independently sampled real-world success rate or a prediction for unseen repositories. Command durations exclude investigation and preparation; the earlier seven traces do not establish total mission duration.
 
 **Export:** **Export evidence** downloads the displayed mission data as JSON. It is useful for inspecting that record, but is not a full backup of the original artifact directory. Preserve the complete bundle separately.
 
@@ -83,7 +83,7 @@ The publisher builds from the recorded base and exact diff. It does not regenera
 | How do AI and E2B interact? | The Node backend calls OpenRouter and executes requested repository operations through E2B APIs. The model proposes tool calls and a candidate; code executes operations and evaluates checks. |
 | Are experiments or counterfactual tests implemented? | The investigation can request targeted Vitest executions to examine hypotheses. There is no separate counterfactual planner or general experimental-proof system. |
 | What happens if a mission fails? | A runner failure can save partial evidence with execution `FAILED` and no verdict. Preparation/provider/process failures can occur before a proof exists; the web bridge records a safe execution-failure state. |
-| Does 85.7% mean it fixes most GitHub bugs? | No. It describes six verified outcomes among seven specifically selected controlled runs, backed by the inspected local proofs. |
+| Does 85.7% mean it fixes most GitHub bugs? | No. That was six verified outcomes among the seven controlled runs inspected on 2026-10-21. The current nine-scenario selection is separately documented; neither selection estimates general repair accuracy. |
 | What repository types are supported? | Preparation expects a root JavaScript/TypeScript package with an npm/pnpm lockfile and test script. Targeted investigation is Vitest-specific. Detection of a project is not proof it can be repaired successfully. |
 | Can a test or patch fool the system? | Integrity checks are heuristics, and local artifacts are not signed attestations. The implementation also captures the patch before final tests without a post-test recapture. These limits prevent a universal correctness claim. |
 | How was AI used during development? | AI coding tools assisted project development. Separately, the application uses models through OpenRouter at runtime. No exact authorship percentage is established. |

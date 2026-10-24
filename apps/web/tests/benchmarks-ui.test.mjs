@@ -50,6 +50,31 @@ const dashboardData = (overrides = {}) => ({
   benchmarks: rows, recordedMissions: [...rows, row("unselected")], summary,
   notices: [], outputState: "available", discoveryTruncated: false, ...overrides,
 });
+const nineScenarioRows = Object.freeze([
+  ...Array.from({ length: 6 }, (_, index) => row(`Verified ${index + 1}`, {
+    missionId: `fixture-verified-${index + 1}`, evidenceUrl: `/missions/fixture-verified-${index + 1}`,
+    repository: `fixture/verified-${index + 1}`, testDurationMs: (index + 1) * 100,
+  })),
+  row("Review Control", {
+    verdict: "REVIEW_REQUIRED", integrity: "REVIEW_REQUIRED", testDurationMs: 700,
+    missionId: "fixture-review", evidenceUrl: "/missions/fixture-review",
+  }),
+  row("Subscription Clock Fixture", {
+    verdict: "REVIEW_REQUIRED", integrity: "REVIEW_REQUIRED", repository: "fixture/clock-fixture",
+    missionId: "fixture-clock", evidenceUrl: "/missions/fixture-clock", testDurationMs: 800,
+  }),
+  row("Conflicting Contract", {
+    verdict: "FAILED", repository: "fixture/conflicting-contract", fullSuitePassed: false,
+    missionId: "fixture-conflicting", evidenceUrl: "/missions/fixture-conflicting", testDurationMs: 900,
+  }),
+].map((value) => Object.freeze({
+  ...value, commandDurations: { baseline: value.testDurationMs, postPatch: null, fullSuite: null },
+})));
+const nineScenarioSummary = Object.freeze({
+  configured: 9, valid: 9, verified: 6, reviewRequired: 2, failed: 1, noVerdict: 0,
+  unavailable: 0, validWithoutVerdict: 0, verificationRate: 6 / 9 * 100,
+  testDurationMs: 4500, timedCommandCount: 9, timedMissionCount: 9,
+});
 
 test("dashboard explains its controlled scope, selected results and separate recorded history", () => {
   const html = render(BenchmarkDashboard, { data: dashboardData() });
@@ -109,6 +134,83 @@ test("summary rate and distribution share the configured denominator, including 
   assert.match(distributionHtml, /Missing evidence and missions without a verdict remain in that denominator/);
   assert.ok(distributionHtml.includes("No saved verdict is available. The mission may have stopped early, or its evidence may be unreadable. Unavailable evidence is not a FAILED verdict."));
   assert.ok(distributionHtml.includes("VERIFIED applies to the recorded requirements and integrity checks. It does not guarantee correctness beyond that scope or human approval."));
+});
+
+test("nine-scenario summary and distribution show six VERIFIED, two REVIEW_REQUIRED and one FAILED over nine selections", () => {
+  const html = render(BenchmarkDashboard, { data: dashboardData({
+    benchmarks: nineScenarioRows, recordedMissions: nineScenarioRows, summary: nineScenarioSummary,
+  }) });
+  assert.match(html, /6 VERIFIED \/ 9 selected scenarios/);
+  assert.match(html, />66\.7%</);
+  assert.match(html, /Benchmark totals remain based on the 9 selected runs/);
+  const distribution = VerdictDistribution({ summary: nineScenarioSummary });
+  const chart = nodes(distribution, (node) => node.props.role === "img")[0];
+  assert.match(chart.props["aria-label"], /9 selected scenarios: 6 VERIFIED, 2 REVIEW_REQUIRED, 1 FAILED, 0 No Verdict \/ Unavailable Evidence/);
+  assert.deepEqual(nodes(chart, (node) => node.props.style?.width).map((node) => node.props.style.width),
+    [6 / 9 * 100, 2 / 9 * 100, 1 / 9 * 100].map((value) => `${value}%`));
+});
+
+test("nine-scenario table filters, sorts and links each selected outcome without changing the cohort", (t) => {
+  const network = t.mock.method(globalThis, "fetch", () => { throw new Error("Dashboard must not execute a mission"); });
+  const before = JSON.stringify(nineScenarioRows);
+  const view = createHarness(BenchmarkTable, { rows: nineScenarioRows });
+  const evidenceLinks = (tree) => nodes(tree, (node) => node.props.className === "benchmark-evidence-link");
+  assert.equal(displayedScenarios(view.render()).length, 9);
+  assert.deepEqual(evidenceLinks(view.render()).map((node) => node.props.href).sort(),
+    nineScenarioRows.map((value) => value.evidenceUrl).sort());
+  for (const [verdict, expected] of [
+    ["VERIFIED", ["Verified 1", "Verified 2", "Verified 3", "Verified 4", "Verified 5", "Verified 6"]],
+    ["REVIEW_REQUIRED", ["Review Control", "Subscription Clock Fixture"]],
+    ["FAILED", ["Conflicting Contract"]],
+  ]) {
+    change(view, "benchmarks-verdict", verdict);
+    assert.deepEqual(displayedScenarios(view.render()), expected);
+    assert.match(textContent(view.render()), new RegExp(`Showing ${expected.length} of 9 selected scenarios`));
+  }
+  assert.equal(evidenceLinks(view.render())[0].props.href, "/missions/fixture-conflicting");
+  change(view, "benchmarks-verdict", "REVIEW_REQUIRED");
+  change(view, "benchmarks-search", " CLOCK-FIXTURE ");
+  assert.deepEqual(displayedScenarios(view.render()), ["Subscription Clock Fixture"]);
+  assert.equal(evidenceLinks(view.render())[0].props.href, "/missions/fixture-clock");
+  change(view, "benchmarks-search", "fixture-review");
+  assert.deepEqual(displayedScenarios(view.render()), ["Review Control"]);
+  change(view, "benchmarks-search", "");
+  change(view, "benchmarks-verdict", "all");
+  change(view, "benchmarks-sort", "duration-desc");
+  assert.deepEqual(displayedScenarios(view.render()), [
+    "Conflicting Contract", "Subscription Clock Fixture", "Review Control",
+    "Verified 6", "Verified 5", "Verified 4", "Verified 3", "Verified 2", "Verified 1",
+  ]);
+  change(view, "benchmarks-sort", "verdict-asc");
+  assert.deepEqual(displayedScenarios(view.render()), [
+    "Verified 1", "Verified 2", "Verified 3", "Verified 4", "Verified 5", "Verified 6",
+    "Review Control", "Subscription Clock Fixture", "Conflicting Contract",
+  ]);
+  assert.equal(JSON.stringify(nineScenarioRows), before);
+  assert.equal(network.mock.callCount(), 0);
+});
+
+test("nine-scenario table distinguishes a completed FAILED verdict from failed execution and unavailable evidence", () => {
+  const mixed = nineScenarioRows.map((value) => value.missionId === "fixture-verified-6"
+    ? { ...value, executionStatus: "FAILED", verdict: null }
+    : value.missionId === "fixture-clock"
+      ? { ...value, availability: "unavailable", executionStatus: null, verdict: null,
+        evidenceUrl: null, unavailableReason: "The configured mission was not found in local output." }
+      : value);
+  const view = createHarness(BenchmarkTable, { rows: mixed });
+  change(view, "benchmarks-verdict", "FAILED");
+  assert.deepEqual(displayedScenarios(view.render()), ["Conflicting Contract"]);
+  assert.match(renderToStaticMarkup(view.render()), /class="benchmark-execution">COMPLETED<\/span>/);
+  assert.match(renderToStaticMarkup(view.render()), /href="\/missions\/fixture-conflicting"/);
+  change(view, "benchmarks-verdict", "none");
+  assert.deepEqual(displayedScenarios(view.render()), ["Subscription Clock Fixture", "Verified 6"]);
+  const html = renderToStaticMarkup(view.render());
+  assert.match(html, /class="benchmark-execution benchmark-tone-failed">FAILED<\/span>/);
+  assert.match(html, /class="benchmark-execution">Unavailable<\/span>/);
+  assert.equal((html.match(/class="benchmark-badge benchmark-tone-unavailable">No Verdict Recorded/g) ?? []).length, 2);
+  assert.match(html, /href="\/missions\/fixture-verified-6"/);
+  assert.doesNotMatch(html, /href="\/missions\/fixture-clock"/);
+  assert.match(textContent(view.render()), /Showing 2 of 9 selected scenarios/);
 });
 
 test("empty catalog and missing output show setup guidance and unavailable rate instead of invented success", () => {

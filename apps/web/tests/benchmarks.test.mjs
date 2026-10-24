@@ -62,6 +62,40 @@ async function bundle(missionId = "controlled-run", overrides = {}, events = com
     artifact(missionId, "events.json", events),
   ]);
 }
+// Synthetic records live only under fixtureRoot; these are not saved mission IDs.
+function nineScenarioCatalog() {
+  return [
+    ...Array.from({ length: 6 }, (_, index) => `verified-${index + 1}`),
+    "review-control", "clock-fixture", "conflicting-contract",
+  ].map((id) => scenario(`fixture-${id}`, {
+    id, name: id, repositoryUrl: `https://github.com/fixture/${id}`,
+  }));
+}
+async function nineScenarioBundles(catalog, { missing = [], executionFailures = [] } = {}) {
+  await Promise.all(catalog.filter((entry) => !missing.includes(entry.id)).map((entry) => {
+    const executionFailed = executionFailures.includes(entry.id);
+    const verdict = executionFailed ? null
+      : entry.id === "conflicting-contract" ? "FAILED"
+        : ["review-control", "clock-fixture"].includes(entry.id) ? "REVIEW_REQUIRED" : "VERIFIED";
+    return bundle(entry.missionId, {
+      mission: { ...proof(entry.missionId).mission, source: { repositoryUrl: entry.repositoryUrl, baseCommit } },
+      status: executionFailed ? "FAILED" : "COMPLETED", verdict,
+      checks: executionFailed ? null : {
+        bugReproducedBeforePatch: true,
+        reproductionPassesAfterPatch: true,
+        fullSuitePassesAfterPatch: verdict !== "FAILED",
+      },
+      verificationIntegrity: executionFailed ? null : {
+        status: verdict === "REVIEW_REQUIRED" ? "REVIEW_REQUIRED" : "PRESERVED",
+        preserved: verdict !== "REVIEW_REQUIRED", violations: [],
+        reviewFlags: verdict === "REVIEW_REQUIRED" ? ["PRIVATE_REVIEW_REASON"] : [],
+        protectedChangedFiles: [],
+      },
+    }, executionFailed
+      ? [completeEvents[0], event("FAILED", "2026-10-01T00:00:05.000Z")]
+      : completeEvents);
+  }));
+}
 async function artifactTime(missionId, timestamp) {
   const date = new Date(timestamp);
   await utimes(path.join(fixtureRoot, "output", missionId, "proof.json"), date, date);
@@ -223,6 +257,61 @@ test("seven distinct controlled repositories report six VERIFIED and one saved R
   assert.equal(review.evidenceUrl, "/missions/controlled-7");
   assert.equal(result.recordedMissions.length, 7);
   assert.doesNotMatch(JSON.stringify(result), /PRIVATE_REVIEW_REASON/);
+});
+
+test("nine distinct controlled scenarios retain six VERIFIED, two REVIEW_REQUIRED and one completed FAILED verdict", async () => {
+  const catalog = nineScenarioCatalog();
+  await nineScenarioBundles(catalog);
+  const before = await snapshot(path.join(fixtureRoot, "output"));
+  const result = await aggregateBenchmarks(catalog);
+  assert.equal(result.outputState, "available");
+  assert.equal(result.benchmarks.length, 9);
+  for (const field of ["id", "missionId", "repository"]) {
+    assert.equal(new Set(result.benchmarks.map((row) => row[field])).size, 9);
+  }
+  assert.deepEqual(result.summary, {
+    configured: 9, valid: 9, verified: 6, reviewRequired: 2, failed: 1,
+    noVerdict: 0, unavailable: 0, validWithoutVerdict: 0, verificationRate: 6 / 9 * 100,
+    testDurationMs: null, timedCommandCount: 0, timedMissionCount: 0,
+  });
+  assert.equal(formatRate(result.summary.verificationRate), "66.7%");
+  assert.deepEqual(result.benchmarks.map((row) => [row.missionId, row.executionStatus, row.evidenceUrl]),
+    catalog.map((entry) => [entry.missionId, "COMPLETED", `/missions/${entry.missionId}`]));
+  assert.deepEqual(result.benchmarks.map((row) => row.repository),
+    catalog.map((entry) => `fixture/${entry.id}`));
+  const clock = result.benchmarks.find((row) => row.scenario === "clock-fixture");
+  assert.equal(clock.verdict, "REVIEW_REQUIRED");
+  assert.equal(clock.integrity, "REVIEW_REQUIRED");
+  assert.equal(clock.fullSuitePassed, true);
+  const negativeControl = result.benchmarks.find((row) => row.scenario === "conflicting-contract");
+  assert.equal(negativeControl.verdict, "FAILED");
+  assert.equal(negativeControl.executionStatus, "COMPLETED");
+  assert.equal(negativeControl.fullSuitePassed, false);
+  assert.equal(result.recordedMissions.length, 9);
+  assert.doesNotMatch(JSON.stringify(result), /PRIVATE_/);
+  assert.deepEqual(await snapshot(path.join(fixtureRoot, "output")), before);
+});
+
+test("nine-scenario metrics keep failed executions and unavailable evidence in the denominator without inventing verdicts", async () => {
+  const catalog = nineScenarioCatalog();
+  await nineScenarioBundles(catalog, { missing: ["clock-fixture"], executionFailures: ["verified-6"] });
+  const result = await aggregateBenchmarks(catalog);
+  assert.deepEqual(result.summary, {
+    configured: 9, valid: 8, verified: 5, reviewRequired: 1, failed: 1,
+    noVerdict: 2, unavailable: 1, validWithoutVerdict: 1, verificationRate: 5 / 9 * 100,
+    testDurationMs: null, timedCommandCount: 0, timedMissionCount: 0,
+  });
+  assert.equal(formatRate(result.summary.verificationRate), "55.6%");
+  const failedExecution = result.benchmarks[5];
+  assert.equal(failedExecution.availability, "valid");
+  assert.equal(failedExecution.executionStatus, "FAILED");
+  assert.equal(failedExecution.verdict, null);
+  assert.equal(failedExecution.evidenceUrl, "/missions/fixture-verified-6");
+  assertUnavailable(result, 7);
+  assert.equal(result.benchmarks[8].executionStatus, "COMPLETED");
+  assert.equal(result.benchmarks[8].verdict, "FAILED");
+  assert.equal(result.benchmarks[8].evidenceUrl, "/missions/fixture-conflicting-contract");
+  assert.equal(result.recordedMissions.length, 8);
 });
 
 test("failed execution with null verdict is valid evidence, not a FAILED repair verdict", async () => {

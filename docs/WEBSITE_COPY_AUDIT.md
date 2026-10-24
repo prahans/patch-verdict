@@ -183,3 +183,64 @@ is described as evaluated with passing functional checks rather than implicitly
 VERIFIED. Any backend event terminology migration should be planned with its
 parsers, tests, and compatibility for historical records. Public read-only demo
 controls remain a distinct implementation task.
+
+## Follow-up: nine controlled benchmarks (2026-10-24)
+
+After the wording audit, the benchmark owner requested two additional saved
+selections on `chore/website-copy-accuracy-audit`. The seven original catalog
+entries remain unchanged. The catalog now also selects Subscription Clock
+Fixture (`web-77de52c4-47aa-4480-955c-760a7c28b270`, COMPLETED / REVIEW_REQUIRED)
+and Conflicting Contract (`web-2ccc4208-f66c-4526-9abf-78470c206b5f`, COMPLETED /
+FAILED). Their exact repositories, base commits, recorded checks, and the
+negative-control interpretation are documented in the
+[current benchmark selection](BENCHMARK_DASHBOARD.md#current-nine-scenario-selection-2026-10-24).
+The original audit findings and validation history above remain unchanged.
+
+A read-only call to the existing default aggregator and proof loader accepted
+all nine genuine local version 2 bundles, matched their repositories, and
+confirmed nine unique scenario IDs and mission IDs. It reported **6 VERIFIED,
+2 REVIEW_REQUIRED, 1 FAILED, 0 unavailable, and 0 without a verdict**. Verified
+Outcomes is **6/9 = 66.7%**; 27 saved command durations total **32,838 ms**.
+All nine executions are COMPLETED. The clock record's review flag identifies
+`setupTests.js`; the selected Conflicting Contract record fails the repository
+test script after passing post-repair reproduction. Earlier failed executions
+with null verdicts were not substituted. EC2 was not accessed or verified, and
+no transfer was needed for local validation.
+
+This follow-up changes only `catalog.ts`, the two benchmark test files, and
+benchmark-related documentation in `BENCHMARK_DASHBOARD.md`, this report,
+`README.md`, and `DEMO_GUIDE.md`. Five tests add nine-scenario aggregation and UI
+coverage while preserving the seven-scenario regression and existing behavior
+tests. The earlier dated seven-scenario documentation remains historical.
+
+| Working directory | Command | Result |
+| --- | --- | --- |
+| Repository root | `pnpm.cmd typecheck` | Passed. |
+| Repository root | `pnpm.cmd test` | 129 tests passed in 14 files. |
+| `apps/web` | `node --test tests/benchmarks.test.mjs tests/benchmarks-ui.test.mjs` | 51/51 passed. |
+| `apps/web` | `node --test tests/*.test.mjs` | 160/160 passed. |
+| `apps/web` | `pnpm.cmd exec next typegen` | Passed. |
+| `apps/web` | `pnpm.cmd exec tsc --noEmit` | Passed. |
+| `apps/web` | `pnpm.cmd lint` | Passed. |
+| `apps/web` | `pnpm.cmd build` | Passed; all routes built. |
+| Repository root | `git -c core.whitespace=cr-at-eol diff main --check` | Passed with existing CRLF endings preserved. |
+
+The actual-data check used Node's existing test import shim to invoke the
+unchanged aggregator against local `output/`; it did not use synthetic fixtures
+as evidence of availability. Node emitted its existing
+`MODULE_TYPELESS_PACKAGE_JSON` warning; no package configuration was changed.
+No required validation command failed during this follow-up.
+
+SHA-256 checks matched **all 164 existing output files**, with no additions,
+deletions, or changed bytes. Engine logic, runtime behavior, aggregation,
+loaders, retention, API/GitHub behavior, AWS/Caddy configuration, Docker,
+dependencies, and stored evidence remain unchanged. No paid mission, retention
+cleanup, publication, deployment, staging, commit, push, or merge was performed.
+Private output, environment files, and local logs remain ignored and unstaged.
+
+The full branch diff against local `main` contains the prior copy audit plus
+the catalog, tests, and documentation described here. Local `main` and the
+existing `origin/main` tracking ref both remain at `efd0743`, an ancestor of
+this branch; the remote was not fetched. The branch is ready for review and a
+pull request after the owner approves and commits these follow-up changes.
+It has not been merged.
