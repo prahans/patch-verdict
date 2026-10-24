@@ -1,9 +1,10 @@
 import type { BenchmarkScenario } from "./types";
 
-// Fixed selections retained from the reviewed dashboard implementation.
-// Who selected these historical runs and why remains unconfirmed; see the
-// provenance review note in docs/BENCHMARK_DASHBOARD.md. New runs never replace
-// these selections. The document also describes the private backup procedure.
+// The first seven selections are retained from the reviewed dashboard; their
+// historical selection provenance remains unconfirmed. The two additions were
+// requested and checked against saved evidence on 2026-10-24. New runs never
+// replace these selections. See docs/BENCHMARK_DASHBOARD.md for provenance and
+// the private backup procedure.
 
 export const benchmarkCatalog: readonly BenchmarkScenario[] = [
   {
@@ -48,5 +49,17 @@ export const benchmarkCatalog: readonly BenchmarkScenario[] = [
     name: "Test State Leak",
     repositoryUrl: "https://github.com/prahans/patchverdict-test-state-leak",
     missionId: "web-d59e040c-e511-4d9e-bd6b-7cb6bfdd645d",
+  },
+  {
+    id: "clock-fixture",
+    name: "Subscription Clock Fixture",
+    repositoryUrl: "https://github.com/prahans/patchverdict-clock-fixture",
+    missionId: "web-77de52c4-47aa-4480-955c-760a7c28b270",
+  },
+  {
+    id: "conflicting-contract",
+    name: "Conflicting Contract",
+    repositoryUrl: "https://github.com/prahans/patchverdict-conflicting-contract",
+    missionId: "web-2ccc4208-f66c-4526-9abf-78470c206b5f",
   },
 ];

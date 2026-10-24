@@ -18,10 +18,10 @@ const definitions = [
   ["investigation", "Repository investigation"],
   ["patch", "Candidate patch"],
   ["diff", "Git diff"],
-  ["integrity", "Verification integrity"],
+  ["integrity", "Integrity checks"],
   ["reproduction", "Post-patch reproduction"],
-  ["suite", "Full test suite"],
-  ["verdict", "Final verdict"],
+  ["suite", "Repository test script"],
+  ["verdict", "Repair verdict"],
 ] as const;
 
 // Replay persisted events in order. Neither time nor a later phase implies that

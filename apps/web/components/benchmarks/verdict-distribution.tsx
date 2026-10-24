@@ -11,7 +11,7 @@ export function VerdictDistribution({
     { label: "REVIEW_REQUIRED", count: summary.reviewRequired, tone: "review" },
     { label: "FAILED", count: summary.failed, tone: "failed" },
     {
-      label: "No Decision / Missing Evidence",
+      label: "No Verdict / Unavailable Evidence",
       count: summary.noVerdict,
       tone: "unavailable",
     },
@@ -51,7 +51,7 @@ export function VerdictDistribution({
         </div>
         <ul
           className="benchmark-distribution-legend"
-          aria-label="Recorded verdict counts"
+          aria-label="Recorded verdict and unavailable evidence counts"
         >
           {segments.map((segment) => (
             <li key={segment.label}>
@@ -85,12 +85,13 @@ export function VerdictDistribution({
           durations. It does not measure total mission duration.
         </p>
         <p>
-          <strong>No Verdict Recorded:</strong> The mission ended before a final
-          repair verdict could be produced, or its verdict is unavailable.
+          <strong>No Verdict Recorded:</strong> No saved verdict is available.
+          The mission may have stopped early, or its evidence may be unreadable.
+          Unavailable evidence is not a FAILED verdict.
         </p>
         <p>
-          VERIFIED applies only to the tests performed; it does not guarantee
-          correctness beyond those tests.
+          VERIFIED applies to the recorded requirements and integrity checks.
+          It does not guarantee correctness beyond that scope or human approval.
         </p>
       </div>
     </section>

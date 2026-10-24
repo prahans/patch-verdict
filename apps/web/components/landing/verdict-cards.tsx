@@ -5,22 +5,22 @@ const verdicts = [
     title: "VERIFIED",
     className: "is-verified",
     icon: "shield",
-    description: "The reported bug was reproduced, the repository changed, verification integrity was preserved, the reproduction passed, and the full suite passed.",
-    note: "Evidence satisfies every requirement.",
+    description: "The configured failure was reproduced, a patch was applied, and required tests passed. No recognized verification-integrity flags or violations were detected.",
+    note: "Applies to the recorded checks.",
   },
   {
     title: "REVIEW_REQUIRED",
     className: "is-review",
     icon: "warning",
-    description: "The patch passed verification, but touched sensitive test or verification infrastructure and should be reviewed by a human.",
-    note: "Passing evidence. Human judgment needed.",
+    description: "Required functional checks passed, but verification-related changes triggered integrity review flags that need human inspection.",
+    note: "Passing checks. Human review needed.",
   },
   {
     title: "FAILED",
     className: "is-failed",
     icon: "x",
-    description: "The candidate did not satisfy PatchVerdict's verification requirements.",
-    note: "The evidence does not support approval.",
+    description: "Completed verification did not satisfy the required functional or verification-integrity conditions.",
+    note: "A failed execution may have no verdict.",
   },
 ] as const;
 

@@ -31,7 +31,7 @@ export function MissionHeader({ verdict, executionStatus }: {
             <span className="brand-symbol"><Icon name="shield" width="25" height="25" /></span>
             <span>PATCH<span className="brand-secondary">VERDICT</span><span className="brand-period">.</span></span>
           </Link>
-          <span className="brand-tagline">Every patch earns its verdict.</span>
+          <span className="brand-tagline">Candidate repairs. Recorded evidence.</span>
         </div>
         <div className="mission-header-actions">
           <Link href="/#verify" className="new-mission-link">New mission <span aria-hidden="true">↗</span></Link>
@@ -43,7 +43,7 @@ export function MissionHeader({ verdict, executionStatus }: {
             {executionStatus === "FAILED" ? "EXECUTION FAILED" : executionStatus}
           </span> : <span
             className={`verdict-badge ${verdictClass}`}
-            aria-label={`Verdict: ${verdict === "REVIEW_REQUIRED" ? "Human review required" : verdict ?? "Unavailable"}`}
+            aria-label={`Recorded repair verdict: ${verdict === "REVIEW_REQUIRED" ? "Human review required" : verdict ?? "Unavailable"}`}
           >
             <Icon name={verdictIcon} width="15" height="15" />{verdict ?? "UNAVAILABLE"}
           </span>}

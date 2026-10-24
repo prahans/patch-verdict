@@ -14,9 +14,9 @@ import { loadProofBundle } from "@/lib/load-proof-bundle";
 import { resolveRepositoryRoot } from "@/lib/repository-root";
 
 export const metadata: Metadata = {
-  title: "PatchVerdict — Every patch earns its verdict.",
+  title: "PatchVerdict — Candidate repairs. Recorded evidence.",
   description:
-    "Reproduce the bug, investigate a bounded repair, and verify the evidence. Every AI patch earns a deterministic verdict backed by a saved proof bundle.",
+    "Use AI to investigate bugs and propose candidate repairs. Inspect recorded reproduction checks, repository test results, patch evidence, and available verdicts.",
 };
 
 // Only offer a real, readable mission on this installation. Never link a fixture

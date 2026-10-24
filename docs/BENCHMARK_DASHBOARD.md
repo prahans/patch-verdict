@@ -1,8 +1,8 @@
 # Benchmark Dashboard
 
-Explore how PatchVerdict investigated, repaired, and verified bugs across controlled test repositories.
+Inspect recorded candidate repairs, checks, and verdicts from selected controlled scenarios.
 
-**Every result backed by recorded evidence.**
+**Selected runs. Available evidence.**
 
 Results reflect selected controlled test scenarios, not general-purpose repair accuracy.
 
@@ -18,9 +18,11 @@ Evidence comes from the repository-level `output/<missionId>/` directory. The ap
 
 The tracked configuration is [`apps/web/lib/benchmarks/catalog.ts`](../apps/web/lib/benchmarks/catalog.ts). Each entry identifies one exact recorded run and the repository expected for that scenario. The dashboard validates the saved bundle with the existing loader and compares its recorded repository identity with the catalog. GitHub repository identity comparison is case-insensitive and accepts equivalent URLs with a trailing slash or `.git` suffix.
 
-The catalog selects seven scenarios, each linked to one specific completed run. New attempts do not change the selected benchmark results or replace these mission IDs automatically. All seven selections are retained in this documentation overhaul.
+The catalog selects nine scenarios, each linked to one specific completed run. The original seven selections are retained unchanged; Subscription Clock Fixture and Conflicting Contract were appended on 2026-10-24 at the benchmark owner's request. New attempts do not change the selected benchmark results or replace these mission IDs automatically.
 
-**Selection provenance requires review.** Earlier documentation attributed the historical run choices to explicit user approval on 2026-10-20, including the choice of `debug-normalization-01` and the latest completed candidates for three repositories. The available repository record does not independently substantiate that approval or selection rationale. Saved proofs establish the recorded outcomes, not who approved the selection. The existing IDs are retained without asserting an unverified historical decision.
+**Original selection provenance requires review.** Earlier documentation attributed the original seven run choices to explicit user approval on 2026-10-20, including the choice of `debug-normalization-01` and the latest completed candidates for three repositories. The available repository record does not independently substantiate that approval or selection rationale. Saved proofs establish the recorded outcomes, not who approved the selection. Those seven IDs are retained without asserting an unverified historical decision. The two additions below are separately documented registrations from genuine saved evidence.
+
+### Current nine-scenario selection (2026-10-24)
 
 | Scenario | Selected mission ID | Saved verdict at inspection |
 | --- | --- | --- |
@@ -31,10 +33,29 @@ The catalog selects seven scenarios, each linked to one specific completed run. 
 | Off-by-One Range | `web-4ac3cf2d-4bdd-4c96-b73b-dabca9c82109` | VERIFIED |
 | Average Calculation | `web-69465de5-6600-42b8-96ec-8fb49fe24c72` | VERIFIED |
 | Test State Leak | `web-d59e040c-e511-4d9e-bd6b-7cb6bfdd645d` | REVIEW_REQUIRED |
+| Subscription Clock Fixture | `web-77de52c4-47aa-4480-955c-760a7c28b270` | REVIEW_REQUIRED |
+| Conflicting Contract | `web-2ccc4208-f66c-4526-9abf-78470c206b5f` | FAILED |
+
+The two appended selections have version 2 manifests and execution status `COMPLETED`:
+
+| Scenario ID | Repository recorded in the proof | Recorded base commit | Recorded repair verdict |
+| --- | --- | --- | --- |
+| `clock-fixture` | `https://github.com/prahans/patchverdict-clock-fixture.git` | `68a52230ac80c8b551e800144cf84f90975fdc0c` | REVIEW_REQUIRED |
+| `conflicting-contract` | `https://github.com/prahans/patchverdict-conflicting-contract.git` | `900ca0718666d7e3328cdae9dddd563cbdc76885` | FAILED |
+
+The catalog uses the equivalent repository URLs without the `.git` suffix. On 2026-10-24, the existing read-only proof loader and default dashboard aggregator accepted all nine local selections with matching repository identities and no warnings. The nine scenario IDs and nine mission IDs were unique. The resulting saved outcomes were **six VERIFIED, two REVIEW_REQUIRED, and one FAILED**, with **zero unavailable records and zero records without a verdict**: **6 / 9 = 66.7% Verified Outcomes**. All 27 command durations were available, totaling **32,838 ms of recorded test execution time**. No mission or test command was rerun to obtain these observations.
+
+These are selected controlled outcomes, not a general repair-accuracy estimate or a guarantee that evidence will remain available. Evidence availability on EC2 was not verified during this registration; a catalog change does not transfer ignored proof bundles to a deployment.
+
+Subscription Clock Fixture records baseline, post-repair, and repository-test exit codes of **1, 0, and 0**. Its integrity result requires review with the saved flag `Candidate modified test infrastructure: setupTests.js`; the patch changes only `setupTests.js`. The review reason comes from the saved integrity record, not the scenario's name.
+
+Conflicting Contract is an **artificial negative-control fixture**. Its selected run completed verification with baseline, post-repair, and repository-test exit codes of **1, 0, and 1**. The candidate changes only `src/total.js`, and integrity is recorded as `PRESERVED`, but the repository test script failed. Its saved `FAILED` repair verdict therefore applies to the configured verification conditions. It does not establish general real-world repair accuracy or prove that the repository is impossible to repair. Earlier failed executions for this repository have no recorded repair verdict and are not the selected negative-control result.
+
+### Historical seven-scenario inspection (2026-10-21)
 
 At inspection on 2026-10-21, the existing dashboard reader accepted all seven selected bundles and matched their saved repository identities to their catalog entries. All seven had the required proof/events and all three command evidence artifacts. Six had matching structured GitHub issue #1 metadata; `debug-normalization-01` had no structured issue metadata. These valid saved proofs reported **six VERIFIED, one REVIEW_REQUIRED, and zero FAILED** verdicts, giving **6 / 7 = 85.7% Verified Outcomes**. The 21 available command durations summed to **26,986 ms of recorded test execution time**.
 
-These counts, percentages, and durations describe the inspected evidence. The application computes them from valid saved bundles on every refresh; they are not hardcoded outcomes or promises that evidence will remain available. The seven selected scenarios remain the denominator even if a bundle becomes unreadable or unavailable.
+These counts, percentages, and durations describe the seven-scenario selection inspected on that date. The application computes metrics from valid saved bundles on every refresh; they are not hardcoded outcomes or promises that evidence will remain available. All entries in the current catalog remain in the denominator even if a bundle becomes unreadable or unavailable.
 
 The discovery inventory at this inspection contained 22 finalized manifests: 14 validated v2 records (10 VERIFIED, 2 REVIEW_REQUIRED, and 2 failed executions with null verdicts) plus 8 unsupported v3 records. This describes the inspected checkout, not a fixed history count. Unsupported records remain unavailable and are not reinterpreted or migrated.
 
@@ -44,7 +65,9 @@ The selected Test State Leak run requires human review because its repair change
 
 Its saved proof records `REVIEW_REQUIRED` with integrity `REVIEW_REQUIRED`, `preserved: false`, and review flag `Candidate modified test infrastructure: setupTests.js`; its recorded violations list is empty. The only changed file is `setupTests.js`. The baseline, post-repair, and full-suite command exits are 1, 0, and 0; durations are 787, 742, and 778 ms. These are saved observations, not a newly calculated verdict.
 
-**Controlled Benchmarks** presents the seven selected runs: "These results are linked to specific completed runs. New attempts do not change the selected benchmark results."
+## Selected results and recorded history
+
+**Controlled Benchmarks** presents the nine selected runs: "Each scenario links to one specific historical run. New attempts do not replace these selections; unavailable evidence stays listed."
 
 **Recorded Mission History** lets viewers browse saved mission attempts, including successful repairs, unsuccessful attempts, and results requiring human review. It includes selected and other discovered attempts within the display limits below. Multiple runs for a repository remain separate, including failed attempts and later reruns. Unsupported or invalid discovered bundles remain unavailable. History does not determine benchmark totals or choose replacement runs, and it is not guaranteed to include every mission ever executed.
 
@@ -75,10 +98,10 @@ A missing run stays configured and unavailable. Do not remove a missing or unsuc
 
 | Metric | Definition |
 | --- | --- |
-| Selected Test Scenarios | Number of catalog entries; currently seven. |
+| Selected Controlled Scenarios | Number of catalog entries; currently nine. |
 | Readable Proof Bundles | Selected entries whose saved bundle passes validation and repository matching. Missing optional artifacts do not invalidate an otherwise valid manifest; readable does not mean every supporting artifact is present. |
 | VERIFIED, REVIEW_REQUIRED, FAILED | Counts of the unchanged recorded verdicts on valid configured entries. |
-| No Decision / Missing Evidence | Valid entries with a null verdict plus entries without valid, matching recorded evidence. The underlying data keeps those groups separate as `validWithoutVerdict` and `unavailable`. |
+| No Verdict / Unavailable Evidence | Valid entries with a null verdict plus entries without valid, matching recorded evidence. The underlying data keeps those groups separate as `validWithoutVerdict` and `unavailable`. |
 | Verified Outcomes | Valid selected entries with recorded verdict VERIFIED, divided by **all selected scenarios**, including unavailable entries and valid entries without a verdict. An empty catalog has an unavailable percentage, not 0% or 100%. |
 | Recorded Test Execution Time | Sum of available validated baseline, post-repair, and full-suite command durations for valid selected entries. Coverage accompanies this value. It is not total mission duration. |
 
@@ -88,10 +111,10 @@ The dashboard explains the recorded verdicts using these descriptions; they do n
 
 | Label | Explanation |
 | --- | --- |
-| VERIFIED | The bug was reproduced, the patch was applied, and the required tests passed without detected verification-integrity violations. |
-| REVIEW_REQUIRED | The repair requires human inspection because it changed verification-related files or triggered an integrity review flag. |
-| FAILED | The completed verification process did not meet the requirements for an approved repair. |
-| No Verdict Recorded | The mission ended before a final repair verdict could be produced, or its verdict is unavailable. |
+| VERIFIED | Recorded functional requirements passed, with no recognized verification-integrity review flags or violations detected. |
+| REVIEW_REQUIRED | Functional requirements passed, but recorded verification-integrity concerns require human review. |
+| FAILED | Completed verification did not meet the recorded acceptance conditions. |
+| No Verdict Recorded | No saved verdict is available. The mission may have stopped early, or its evidence may be unreadable. Unavailable evidence is not a FAILED verdict. |
 
 VERIFIED describes the checks performed for that recorded run. It does not guarantee correctness beyond those tests. No Verdict Recorded is a display label for an absent verdict, not a new enum value.
 
@@ -99,13 +122,13 @@ Execution status and verdict are separate: a mission can have execution status `
 
 Baseline reproduction, post-patch results, full-suite results, integrity status, changed-file count, base commit, and investigation iterations are projected from validated saved fields where available. Missing values stay unavailable. In particular, an absent patch does not become zero changed files, and missing integrity is not inferred from a verdict.
 
-The table uses **Scenario / Repository**, **Mission Status**, **Repair Verdict**, **Bug Reproduced**, **Post-Repair Test**, **Full Test Suite**, **Test Integrity**, **Recorded Test Time**, and **Evidence** to distinguish the scenario, execution state, verification observations, and supporting records. **Technical Details** contains the additional recorded metadata.
+The table uses **Scenario / Repository**, **Execution Status**, **Repair Verdict**, **Baseline Match**, **Post-Repair Check**, **Repository Tests**, **Integrity Status**, **Recorded Test Time**, and **Evidence** to distinguish the scenario, execution state, verification observations, and supporting records. **Technical Details** contains the additional recorded metadata.
 
 Search, verdict filters, and scenario/date/duration/verdict sorting change the displayed rows only. They do not rewrite evidence or change the benchmark summary. **View Evidence** links are offered only for validated records and use the existing `/missions/<missionId>` route. Missing, unsupported, invalid, or repository-mismatched proofs show unavailable evidence without a misleading link. A valid failed execution with a null verdict still has inspectable evidence and displays No Verdict Recorded. Missing values never stand in for a passing or failing check.
 
 ## Automatic history updates and ordering
 
-New completed missions appear automatically while this page is open. Benchmark totals remain based on the seven selected runs. Updates depend on saved evidence being discoverable within the history limits and visible under the active filters.
+This page checks for newly saved records while it is open. Benchmark totals remain based on the nine selected runs. Updates depend on saved evidence being discoverable within the history limits and visible under the active filters.
 
 The page is rendered on demand with `connection()`. A small client component calls `router.refresh()` approximately every 30 seconds only while `/benchmarks` is active and the document is visible. Hiding the tab stops the timer; showing it starts a fresh interval. Route departure and unmount remove both the timer and visibility listener. There is no background refresh on other pages, backend mission polling, AI invocation, WebSocket, file watcher, or database.
 
@@ -156,7 +179,7 @@ node --test tests/benchmarks.test.mjs tests/benchmarks-ui.test.mjs
 node --test tests/*.test.mjs
 ```
 
-Tests use disposable fixtures and do not modify real saved proof bundles. They cover seven configured repositories with fixture results of six VERIFIED and one REVIEW_REQUIRED, fixed denominators and integrity, new finalized runs without replacing selected attempts, recorded verdicts and execution failures, missing and malformed evidence, identity matching, date/duration provenance, filtering/sorting across refreshed data, valid-only evidence URLs, refresh visibility/route/unmount lifecycle, filesystem limits, path traversal, symlink protection, and read-only behavior. Fixture results are test inputs, not evidence of real benchmark outcomes. The existing engine and web tests remain part of validation.
+Tests use disposable fixtures and do not modify real saved proof bundles. The original seven-scenario fixture with six VERIFIED and one REVIEW_REQUIRED is retained. Additional nine-scenario coverage includes six VERIFIED, two REVIEW_REQUIRED, and one completed FAILED verdict, its denominator and percentage, filtering, sorting, evidence links, unavailable evidence, and the distinction between a failed execution and a FAILED repair verdict. Existing tests also cover integrity, new finalized runs without replacing selected attempts, missing and malformed evidence, identity matching, date/duration provenance, refreshed data, refresh visibility/route/unmount lifecycle, filesystem limits, path traversal, symlink protection, and read-only behavior. Fixture results are test inputs, not evidence of real benchmark outcomes. The existing engine and web tests remain part of validation.
 
 The complete requested project validation also includes these commands from the repository root:
 
@@ -202,7 +225,7 @@ The dashboard does not perform backups automatically. Make a private backup befo
 
 1. Wait until the selected runs have finalized and pause launching new missions during the copy so cleanup cannot remove a source halfway through. Do not edit any source artifacts.
 2. Choose an access-controlled backup directory **outside this checkout and outside `output/`**. Create a new empty dated subfolder for this backup; do not reuse or overwrite an earlier backup. Do not put it under a public repository or automatically shared folder: proofs, logs, issue text, and diffs may contain sensitive data.
-3. Using the seven exact IDs in the table above, locate each `output/<missionId>` directory. Verify the manifest exists and reject any source directory or descendant that is a symbolic link/junction. Copy each entire directory, preserving its exact mission ID as the destination folder name. Use **Copy**, never Move, and refuse any overwrite prompt. Include `proof.json`, `events.json`, optional reports/diffs, and the complete `evidence` directory.
+3. Using the nine exact IDs in the current selection table above, locate each `output/<missionId>` directory. Verify the manifest exists and reject any source directory or descendant that is a symbolic link/junction. Copy each entire directory, preserving its exact mission ID as the destination folder name. Use **Copy**, never Move, and refuse any overwrite prompt. Include `proof.json`, `events.json`, optional reports/diffs, and the complete `evidence` directory.
 4. Compare the source and copied file lists. For each corresponding file, compare SHA-256 values. PowerShell's `Get-FileHash -LiteralPath '<source file>' -Algorithm SHA256` and the same command for the copied file provide a read-only check. Repeat for all copied files, not only `proof.json`; any mismatch means the backup is incomplete. Also keep a copy of `catalog.ts` with the backup to preserve which runs were selected.
 5. Keep the original `output/` bundles untouched. Retain the private backup separately from source control and record when it was verified. If restoration is needed, stop mission launches and restore only a missing mission directory from the verified copy, with no overwrites or manifest edits. The directory name and recorded `mission.id` must stay identical. Refresh the dashboard to validate the restored bundle through the existing loader.
 

@@ -24,11 +24,11 @@ export function readIssuePreview(value: unknown, requestedUrl: string): Resolved
 
 export function IssuePreview({ issue }: { issue: ResolvedIssuePreview }) {
   return (
-    <section className="issue-preview" aria-label="Resolved GitHub issue" aria-live="polite">
-      <p className="eyebrow amber">ISSUE DETECTED</p>
+    <section className="issue-preview" aria-label="Loaded GitHub issue" aria-live="polite">
+      <p className="eyebrow amber">ISSUE LOADED</p>
       <p className="issue-preview-origin">{issue.owner}/{issue.repository} · #{issue.issueNumber}</p>
       <h3>{issue.title}</h3>
-      <p className="issue-preview-body">{issue.bodyPreview || "This issue has no body. Its title will be used as the reported bug."}</p>
+      <p className="issue-preview-body">{issue.bodyPreview || "This issue has no description. Its title will be used as the bug report."}</p>
     </section>
   );
 }

@@ -95,12 +95,12 @@ export function InvestigationReport({
       <div className="panel-header">
         <div className="panel-heading">
           <Icon name="spark" />
-          <h2 id="investigation-title">Investigation Report</h2>
+          <h2 id="investigation-title">AI investigation report</h2>
         </div>
         <span className="layer-label amber">AI REASONING</span>
       </div>
       <div className="investigation-body">
-        <p className="eyebrow">ROOT CAUSE ANALYSIS</p>
+        <p className="eyebrow">PROPOSED DIAGNOSIS</p>
         {investigation?.report?.trim() ? (
           <ReportContent report={investigation.report} />
         ) : (
@@ -110,7 +110,7 @@ export function InvestigationReport({
         )}
         <dl className="report-references">
           <div>
-            <dt>Source</dt>
+            <dt>Patch target</dt>
 
             <dd>
               <Icon name="file" width="14" height="14" />
@@ -130,7 +130,7 @@ export function InvestigationReport({
           </div>
 
           <div>
-            <dt>Test command</dt>
+            <dt>Reproduction command</dt>
 
             <dd>
               <Icon name="terminal" width="14" height="14" />

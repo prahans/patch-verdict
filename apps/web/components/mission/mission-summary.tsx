@@ -86,7 +86,7 @@ export function MissionSummary({
       </div>
       <dl className="mission-facts">
         <div>
-          <dt>Mission status</dt>
+          <dt>Execution status</dt>
           <dd
             className={mission.status === "COMPLETED" ? "green" : "is-failed"}
           >

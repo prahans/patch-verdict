@@ -26,8 +26,8 @@ function CheckResult({
       ? "Unavailable"
       : baseline
         ? value
-          ? "Reproduced"
-          : "Not reproduced"
+          ? "Matched"
+          : "Not matched"
         : value
           ? "Passed"
           : "Failed";
@@ -77,15 +77,15 @@ function RecordedFacts({ row }: { row: BenchmarkRow }) {
           <dd>{row.iterations ?? "Unavailable"}</dd>
         </div>
         <div>
-          <dt>Bug reproduction test time</dt>
+          <dt>Baseline command time</dt>
           <dd>{formatDuration(row.commandDurations.baseline)}</dd>
         </div>
         <div>
-          <dt>Post-repair test time</dt>
+          <dt>Post-repair command time</dt>
           <dd>{formatDuration(row.commandDurations.postPatch)}</dd>
         </div>
         <div>
-          <dt>Full test suite time</dt>
+          <dt>Repository test script time</dt>
           <dd>{formatDuration(row.commandDurations.fullSuite)}</dd>
         </div>
         <div>
@@ -117,12 +117,12 @@ export function BenchmarkTable({
       <div className="benchmark-table-controls">
         <div className="benchmark-search">
           <label htmlFor={`${cohort}-search`}>
-            Search scenario, repository or mission ID
+            Search scenario, repository, or mission ID
           </label>
           <input
             id={`${cohort}-search`}
             type="search"
-            placeholder="Find a scenario, repository or mission…"
+            placeholder="Find a scenario, repository, or mission…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -178,7 +178,7 @@ export function BenchmarkTable({
             Clear filters
           </button>
         )}
-        <span>Mission status and repair verdict are recorded separately</span>
+        <span>Execution status and repair verdict are separate; failed execution may have no verdict</span>
       </div>
       {filteredRows.length === 0 ? (
         <div className="benchmark-no-matches">
@@ -190,8 +190,8 @@ export function BenchmarkTable({
           </h3>
           <p>
             {rows.length === 0
-              ? "Finalized local proof bundles will appear here when available."
-              : "Try another scenario, repository, mission ID or verdict filter."}
+              ? "Saved proof bundles appear here when discovered."
+              : "Try another scenario, repository, mission ID, or verdict filter."}
           </p>
         </div>
       ) : (
@@ -208,20 +208,21 @@ export function BenchmarkTable({
           <table className="benchmark-table">
             <caption className="benchmark-sr-only">
               {cohort === "benchmarks"
-                ? "Selected benchmark evidence"
-                : "Available saved mission attempts; new runs do not change benchmark totals"}
-              . Recorded test time is the sum of available bug reproduction,
-              post-repair and full test suite command durations.
+                ? "Selected controlled scenarios and available evidence"
+                : "Saved mission attempts and unavailable records; new runs do not change benchmark totals"}
+              . Baseline Match means the configured failure expectations were met.
+              Recorded test time sums available baseline, post-repair, and
+              repository test script durations.
             </caption>
             <thead>
               <tr>
                 <th scope="col">Scenario / Repository</th>
-                <th scope="col">Mission Status</th>
+                <th scope="col">Execution Status</th>
                 <th scope="col">Repair Verdict</th>
-                <th scope="col">Bug Reproduced</th>
-                <th scope="col">Post-Repair Test</th>
-                <th scope="col">Full Test Suite</th>
-                <th scope="col">Test Integrity</th>
+                <th scope="col">Baseline Match</th>
+                <th scope="col">Post-Repair Check</th>
+                <th scope="col">Repository Tests</th>
+                <th scope="col">Integrity Status</th>
                 <th scope="col">Recorded Test Time</th>
                 <th scope="col">Evidence</th>
               </tr>
@@ -317,7 +318,7 @@ export function BenchmarkTable({
                         {formatDuration(row.testDurationMs)}
                       </span>
                       <span className="benchmark-duration-coverage">
-                        {row.timedCommandCount}/3 commands
+                        {row.timedCommandCount}/3 command durations
                       </span>
                     </td>
                     <td>
@@ -344,7 +345,9 @@ export function BenchmarkTable({
         </div>
       )}
       <p className="benchmark-table-footnote">
-        Recorded test time sums only available saved test commands (up to 3 per
+        Baseline Match checks configured failure expectations, not the cause of
+        failure. PRESERVED means no recognized integrity concerns were detected.
+        Recorded test time sums available command durations (up to 3 per
         mission). Partial timing is shown as recorded. Overall mission duration
         is listed separately in Technical Details when available.
       </p>
