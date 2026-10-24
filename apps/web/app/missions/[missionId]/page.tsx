@@ -111,7 +111,7 @@ export default async function MissionPage({ params }: MissionPageProps) {
           </span>
         </div>
 
-        <MissionSummary mission={mission} details={missionDetails} pullRequest={pullRequest} />
+        <MissionSummary mission={mission} details={missionDetails} pullRequest={pullRequest} hidePublicationAction />
 
         {mission.status === "FAILED" && (
           <section
