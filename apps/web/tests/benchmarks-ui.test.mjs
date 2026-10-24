@@ -93,7 +93,8 @@ test("dashboard explains its controlled scope, selected results and separate rec
   assert.ok(html.includes("History shows up to 100 saved attempts from a scan of up to 500 directory entries and may be incomplete. Active filters can hide results."));
   const currentPageLink = nodes(BenchmarkDashboard({ data: dashboardData() }), (node) => node.props.href === "/benchmarks")[0];
   assert.equal(currentPageLink.props["aria-current"], "page");
-  assert.match(html, /href="\/#verify"/);
+  assert.match(html, /View showcase/);
+  assert.doesNotMatch(html, /href="\/#verify"/);
   assert.match(html, /Recorded Test Execution Time/);
   assert.match(html, /does not measure total mission duration/);
   assert.match(html, /Overall mission duration/);
