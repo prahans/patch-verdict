@@ -23,10 +23,12 @@ export function MissionSummary({
   mission,
   details,
   pullRequest = null,
+  hidePublicationAction = false,
 }: {
   mission: MissionResult;
   details: MissionDetails;
   pullRequest?: PullRequestResult | null;
+  hidePublicationAction?: boolean;
 }) {
   const baseCommit = details.source?.baseCommit ?? mission.patch?.baseCommit;
   const githubIssue = details.source?.githubIssue;
@@ -50,8 +52,8 @@ export function MissionSummary({
         </div>
         <div className="mission-actions">
           <ExportEvidence mission={mission} missionId={details.id} />
-          <PullRequestAction missionId={details.id} eligibility={eligibility} initialPullRequest={pullRequest} />
-          {!eligibility.allowed && mission.status === "COMPLETED" &&
+          {!hidePublicationAction && <PullRequestAction missionId={details.id} eligibility={eligibility} initialPullRequest={pullRequest} />}
+          {!hidePublicationAction && !eligibility.allowed && mission.status === "COMPLETED" &&
             (mission.verdict === "VERIFIED" || mission.verdict === "REVIEW_REQUIRED") && (
             <p className="pull-request-note text-muted">{eligibility.reason}</p>
           )}
