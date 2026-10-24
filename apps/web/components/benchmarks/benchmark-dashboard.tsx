@@ -33,8 +33,8 @@ export function BenchmarkDashboard({ data }: { data: BenchmarkDashboardData }) {
             <Link href="/benchmarks" aria-current="page">
               Benchmarks
             </Link>
-            <Link href="/#verify">
-              Start verification <span aria-hidden="true">↗</span>
+            <Link href="/#showcase">
+              View showcase <span aria-hidden="true">↗</span>
             </Link>
           </nav>
         </div>
