@@ -34,7 +34,7 @@ export function MissionHeader({ verdict, executionStatus }: {
           <span className="brand-tagline">Candidate repairs. Recorded evidence.</span>
         </div>
         <div className="mission-header-actions">
-          <Link href="/#verify" className="new-mission-link">New mission <span aria-hidden="true">↗</span></Link>
+          <Link href="/benchmarks" className="new-mission-link">All benchmarks <span aria-hidden="true">↗</span></Link>
           {executionStatus ? <span
             className={`verdict-badge ${executionStatus === "RUNNING" ? "is-review" : executionStatus === "FAILED" ? "is-failed" : "is-verified"}`}
             aria-label={`Execution: ${executionStatus}`}
