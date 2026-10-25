@@ -12,17 +12,11 @@ Mission Control brings together the recorded base commit, AI investigation repor
 
 The public deployment is a **read-only showcase** of controlled benchmarks and available saved mission evidence. Live mission creation and GitHub pull request publication are disabled on the public website. The complete application supports those workflows in a separately configured local interactive instance; the public deployment restrictions do not remove those capabilities.
 
-<!-- Screenshot placeholder: PatchVerdict Mission Control dashboard
-Suggested asset: docs/images/patchverdict-mission-control.png
-Alt text: PatchVerdict Mission Control showing investigation and verification evidence
-Add the Markdown image only after the actual screenshot file exists.
--->
+![PatchVerdict Mission Control showing investigation and verification evidence](docs/images/patchverdict-mission-control.png)
 
-<!-- Optional screenshot placeholder: PatchVerdict Benchmark Dashboard
-Suggested asset: docs/images/patchverdict-benchmarks.png
-Alt text: PatchVerdict Benchmark Dashboard showing selected outcomes and evidence availability
-Add the Markdown image only after the actual screenshot file exists.
--->
+![PatchVerdict Benchmark Dashboard showing selected outcomes and evidence availability](docs/images/patchverdict-benchmarks.png)
+
+*The benchmark screenshot shows seven readable bundles out of nine selected scenarios. The two unavailable entries remain in the denominator; the dated local inspections below describe their own evidence availability.*
 
 ## Why evidence matters
 
