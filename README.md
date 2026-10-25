@@ -14,10 +14,6 @@ The public deployment is a **read-only showcase** of controlled benchmarks and a
 
 ![PatchVerdict Mission Control showing investigation and verification evidence](docs/images/patchverdict-mission-control.png)
 
-![PatchVerdict Benchmark Dashboard showing selected outcomes and evidence availability](docs/images/patchverdict-benchmarks.png)
-
-*The benchmark screenshot shows seven readable bundles out of nine selected scenarios. The two unavailable entries remain in the denominator; the dated local inspections below describe their own evidence availability.*
-
 ## Why evidence matters
 
 A plausible patch is only the beginning. A failing command might reflect a broken environment rather than the reported bug; a green test suite might follow a change to the tests themselves. Model confidence cannot resolve either problem.
@@ -85,6 +81,10 @@ The documented local evidence inspections recorded these two selections:
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | 2026-10-21 | 7 | 7 | 6 | 1 | 0 | 6/7 = 85.7% |
 | 2026-10-24 | 9 | 9 | 6 | 2 | 1 | 6/9 = 66.7% |
+
+![PatchVerdict Benchmark Dashboard showing selected outcomes and evidence availability](docs/images/patchverdict-benchmarks.png)
+
+*The benchmark screenshot shows seven readable bundles out of nine selected scenarios. The two unavailable entries remain in the denominator; the dated local inspections below describe their own evidence availability.*
 
 The current nine-scenario catalog retains the original seven and adds Subscription Clock Fixture (`REVIEW_REQUIRED`) and Conflicting Contract (`FAILED`). Conflicting Contract is an artificial negative-control fixture: its execution completed, but the candidate failed the configured repository test script. In the Test State Leak scenario, tests passed but the patch changed `setupTests.js`, triggering human review.
 
