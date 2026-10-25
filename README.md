@@ -1,10 +1,28 @@
 # PatchVerdict
 
-**Every patch earns its verdict.**
+**Candidate repairs. Recorded evidence.**
 
-PatchVerdict is an AI-assisted repository debugging and repair system built for **Leapfrog Frogtoberfest — Build with AI**. Give it a public GitHub issue or a repository and bug description. It attempts to reproduce the failure, investigates with an external model and repository tools, applies a candidate repair, and records the checks behind its verdict.
+PatchVerdict is an AI-assisted repository debugging and repair verification system built for **Leapfrog Frogtoberfest 2026 — Build with AI**. It investigates reported bugs, attempts candidate repairs, and evaluates them against configured reproduction, repository-test, and integrity checks.
 
-Inspect the recorded base commit, investigation report, patch diff, command evidence, and verdict. A human can request a pull request for an eligible repair.
+Mission Control brings together the recorded base commit, AI investigation report, candidate diff, command evidence, and verdict when available, so a person can inspect how the repair was evaluated.
+
+## Demo
+
+**[Live Demo](https://patchverdict.duckdns.org/)** · **[Demo Video](https://www.youtube.com/watch?v=QUMp2SZNrgE)**
+
+The public deployment is a **read-only showcase** of controlled benchmarks and available saved mission evidence. Live mission creation and GitHub pull request publication are disabled on the public website. The complete application supports those workflows in a separately configured local interactive instance; the public deployment restrictions do not remove those capabilities.
+
+<!-- Screenshot placeholder: PatchVerdict Mission Control dashboard
+Suggested asset: docs/images/patchverdict-mission-control.png
+Alt text: PatchVerdict Mission Control showing investigation and verification evidence
+Add the Markdown image only after the actual screenshot file exists.
+-->
+
+<!-- Optional screenshot placeholder: PatchVerdict Benchmark Dashboard
+Suggested asset: docs/images/patchverdict-benchmarks.png
+Alt text: PatchVerdict Benchmark Dashboard showing selected outcomes and evidence availability
+Add the Markdown image only after the actual screenshot file exists.
+-->
 
 ## Why evidence matters
 
@@ -14,25 +32,27 @@ PatchVerdict separates model proposals, observed execution, deterministic checks
 
 ## Follow a mission
 
+In a local interactive instance:
+
 1. **Describe the failure.** Submit a public GitHub issue URL, or switch to a repository URL and manual report. Optional advanced fields specify a reproduction command and expected failure text.
-2. **Prepare and reproduce.** The TypeScript CLI clones the repository into an E2B sandbox, installs dependencies, records its base commit, and checks the baseline failure against the configured expectation.
+2. **Prepare and reproduce.** The TypeScript CLI clones the repository into an E2B sandbox, installs dependencies, records its base commit, and checks the baseline against configured exit-code and output expectations. A match alone does not prove the reported bug caused the failure.
 3. **Investigate.** An OpenRouter model can list, read, and search files and request targeted tests. Structured diagnosis and source-reference checks constrain the result; generated explanations remain hypotheses, not proof of correctness.
 4. **Apply a candidate.** The patch phase makes text replacements and captures Git evidence. If the post-repair reproduction still fails, the runner permits one correction attempt.
-5. **Verify.** The runner checks the reproduction command and the repository's full test command, then combines those results with patch-integrity analysis to determine a verdict.
-6. **Inspect and decide.** Saved evidence appears in Mission Control. An eligible `VERIFIED` result can become a normal PR; `REVIEW_REQUIRED` can become a draft. Publication requires a human request and a configured server token.
+5. **Verify.** The runner reruns the reproduction command and the repository's existing test script, then combines those results with verification-integrity analysis to determine a verdict.
+6. **Inspect and decide.** Saved evidence appears in Mission Control. An eligible `VERIFIED` result can become a normal PR; `REVIEW_REQUIRED` can become a draft. Publication requires a separate user request, a configured server token, and repository write access. PatchVerdict does not merge PRs.
 
 Execution can stop before these stages finish. A failed mission may have partial evidence and no repair verdict.
 
 ## What is implemented
 
 - **AI-assisted investigation and repair:** bounded tool loops, structured diagnosis, source-reference validation, and a candidate correction path.
-- **Execution-based evidence:** baseline, post-repair, and full-suite command results from a remote E2B sandbox.
+- **Execution-based evidence:** baseline, post-repair, and repository test-script results from a remote E2B sandbox.
 - **Integrity-aware verdicts:** deterministic rules distinguish failed checks from changes that need human inspection.
 - **Live and saved Mission Control:** real progress events, a diff viewer, investigation report, verification evidence, and persisted proof bundles.
 - **GitHub workflow:** public issue ingestion and separate, user-initiated publication of the recorded patch.
 - **Controlled Benchmark Dashboard:** fixed selected runs, evidence-derived totals, and automatically refreshed local mission history.
 
-The controlled examples below demonstrate specific repairs; they do not establish arbitrary-repository reliability.
+The controlled scenarios below record candidate repairs and their outcomes; they do not establish arbitrary-repository reliability.
 
 ## Architecture
 
@@ -56,24 +76,25 @@ The web server launches the existing CLI and reads local files. There is no data
 
 | Result            | Meaning                                                                                                                                   |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `VERIFIED`        | Baseline reproduction, patch application, post-repair reproduction, and full-suite checks passed, with integrity classified as preserved. |
-| `REVIEW_REQUIRED` | Those functional checks passed, but verification-related changes triggered an integrity review flag.                                      |
+| `VERIFIED`        | The configured baseline failure matched, a candidate patch was applied, and post-repair reproduction and repository tests passed, with no recognized integrity review flags or violations detected. |
+| `REVIEW_REQUIRED` | Those functional checks passed, but recorded verification-integrity concerns require human review. |
 | `FAILED`          | A required functional check failed, or verification integrity was classified as compromised.                                              |
 | No verdict        | Execution ended before a final repair decision, or valid verdict evidence is unavailable.                                                 |
 
-Execution status and repair verdict are separate: a mission can finish with a `FAILED` repair verdict. **`VERIFIED` applies only to the checks performed.** Integrity detection uses file and diff heuristics; it is not a proof of universal correctness. [Verification](docs/VERIFICATION.md) explains the exact precedence and limitations.
+Execution status and repair verdict are separate: an execution can be `COMPLETED` with a `FAILED` repair verdict, or `FAILED` with no verdict. Unavailable evidence is not itself a failed repair. **`VERIFIED` applies only to the recorded checks**; it does not establish exhaustive coverage, security, or human approval. Integrity detection uses file and diff heuristics. [Verification](docs/VERIFICATION.md) explains the exact precedence and limitations.
 
 ## Recorded controlled results
 
-Local saved bundles inspected on **2026-10-21** supported:
+The documented local evidence inspections recorded these two selections:
 
-| Selected scenarios | Valid bundles | VERIFIED | REVIEW_REQUIRED |
-| -----------------: | ------------: | -------: | --------------: |
-|                  7 |             7 |        6 |               1 |
+| Inspection date | Selected scenarios | Valid bundles | VERIFIED | REVIEW_REQUIRED | FAILED | Verified Outcomes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 2026-10-21 | 7 | 7 | 6 | 1 | 0 | 6/7 = 85.7% |
+| 2026-10-24 | 9 | 9 | 6 | 2 | 1 | 6/9 = 66.7% |
 
-This is **6/7 selected outcomes (85.7%)**, not a real-world bug-fixing success rate. In the Test State Leak scenario, tests passed but the patch changed `setupTests.js`, triggering human review.
+The current nine-scenario catalog retains the original seven and adds Subscription Clock Fixture (`REVIEW_REQUIRED`) and Conflicting Contract (`FAILED`). Conflicting Contract is an artificial negative-control fixture: its execution completed, but the candidate failed the configured repository test script. In the Test State Leak scenario, tests passed but the patch changed `setupTests.js`, triggering human review.
 
-On **2026-10-24**, the catalog expanded to nine selected scenarios while retaining all seven above: six VERIFIED, two REVIEW_REQUIRED, and one completed FAILED verdict (**6/9 = 66.7%**). See the [current selection and negative-control explanation](docs/BENCHMARK_DASHBOARD.md#current-nine-scenario-selection-2026-10-24). The table above remains the earlier dated snapshot.
+These are selected historical outcomes, **not real-world bug-fixing success rates or predictions for reruns**. Verified Outcomes divides VERIFIED records by all selected scenarios, including entries whose evidence is unavailable. See the [current selection and negative-control explanation](docs/BENCHMARK_DASHBOARD.md#current-nine-scenario-selection-2026-10-24).
 
 The dashboard derives its values from available saved proofs. Ignored `output/` artifacts do **not** ship with a GitHub clone, so a fresh checkout will not reproduce this history without the corresponding bundles. See [benchmark identities, methodology, and preservation guidance](docs/BENCHMARK_DASHBOARD.md).
 
@@ -107,7 +128,8 @@ TypeScript, Node.js, Next.js, React, OpenRouter, E2B, GitHub REST, pnpm, Vitest,
 pnpm typecheck
 pnpm test
 
-# apps/web
+# Frontend (from the repository root)
+cd apps/web
 node --test tests/*.test.mjs
 pnpm exec next typegen
 pnpm exec tsc --noEmit
@@ -119,9 +141,14 @@ pnpm build
 
 ## Scope and AI disclosure
 
-Repository preparation currently expects a root `package.json`, an npm or pnpm lockfile, and a test script. Targeted investigation tests are Vitest-specific. Unreproducible bugs, unsupported projects, provider failures, and timeouts can stop a mission. The app has no built-in user authentication and is intended for a trusted local/demo environment, not arbitrary public multi-tenant use.
+The supported workflow targets public JavaScript/TypeScript repositories with a root `package.json`, a matching npm or pnpm lockfile, and a test script. Targeted investigation tests are Vitest-specific. Unreproducible bugs, unsupported projects, provider failures, and timeouts can stop a mission. The interactive application has no built-in user authentication; keep it under trusted operator access. See [Security and Limitations](docs/SECURITY_AND_LIMITATIONS.md) for tool, evidence, and hosting boundaries.
 
-AI coding tools assisted project development. At runtime, PatchVerdict calls models through OpenRouter for investigation and candidate patches; code evaluates the final checks. No authorship percentages or independent correctness guarantees are claimed.
+AI coding tools assisted project development. At runtime, PatchVerdict consumes OpenRouter model output programmatically:
+
+- [`src/agent/investigate.ts`](src/agent/investigate.ts): `investigateIssue()` processes model-generated tool requests and parses structured diagnosis output, validating references against observed repository evidence.
+- [`src/agent/patch.ts`](src/agent/patch.ts): `patchIssue()` checks requested tools against its patch-phase allowlist, parses model-generated JSON arguments, and invokes [`executeTool()`](src/tools/index.ts) for permitted repository operations.
+
+The [mission runner](src/mission/runner.ts) executes verification commands; programmatic integrity checks and [deterministic verdict rules](src/proof/verdict.ts) determine the recorded repair verdict from execution evidence. AI confidence does not select that verdict, and an AI-generated diagnosis is not independent proof of correctness.
 
 ## Documentation
 
