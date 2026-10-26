@@ -8,7 +8,7 @@ Mission Control brings together the recorded base commit, AI investigation repor
 
 ## Demo
 
-**[Live Demo](https://patchverdict.duckdns.org/)** · **[Demo Video](https://www.youtube.com/watch?v=QUMp2SZNrgE)**
+**[Live Demo](https://patchverdict.duckdns.org/)** · **[Demo Video](https://youtu.be/escDTfDGirs)**
 
 The public deployment is a **read-only showcase** of controlled benchmarks and available saved mission evidence. Live mission creation and GitHub pull request publication are disabled on the public website. The complete application supports those workflows in a separately configured local interactive instance; the public deployment restrictions do not remove those capabilities.
 
