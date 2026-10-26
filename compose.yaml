@@ -1,0 +1,16 @@
+services:
+  patchverdict:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: patchverdict:local
+    init: true
+    ports:
+      - "127.0.0.1:3000:3000"
+    # Compose loads these only when starting the container, not when building it.
+    env_file:
+      - .env
+    # Reuse existing saved evidence; never hide it in an ephemeral container.
+    volumes:
+      - ./output:/app/output
+    restart: unless-stopped
