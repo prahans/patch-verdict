@@ -1,5 +1,12 @@
 # Website copy and claim-accuracy audit
 
+**Historical record.** The findings, branch states, and validation results below
+describe the work on 2026-10-23 and its 2026-10-24 follow-up. That work was later
+merged into `main` in `f0fa10c`. Statements below that it was unmerged or that
+`main` remained at `efd0743` describe those earlier checkpoints, not the current
+checkout. The final documentation audit preserves those recorded results and
+does not claim to have rerun their validation commands.
+
 Reviewed on 2026-10-23 against local `main` at `efd0743`.
 Working branch: `chore/website-copy-accuracy-audit`.
 

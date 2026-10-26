@@ -4,6 +4,8 @@ This guide is for operators and reviewers deciding where PatchVerdict can run an
 
 The practical operating model is a controlled instance, trusted access to the application and its local evidence, and a narrowly scoped GitHub token only when publication is needed. [Getting started](GETTING_STARTED.md) covers configuration; [System design](SYSTEM_DESIGN.md) explains the components.
 
+The project's [public demo](https://patchverdict.duckdns.org/) is intended as a read-only showcase, with new mission creation and PR publication disabled at the deployment boundary. Those are deployment restrictions, not a built-in read-only mode or authentication system. The implementation described below applies to an interactive instance; source inspection alone does not verify the public deployment's enforcement.
+
 ## Trust boundaries
 
 | Boundary | What crosses it | Remaining limitation |
@@ -60,7 +62,7 @@ Sources: [proof loader](../apps/web/lib/load-proof-bundle.ts), [proof writer](..
 
 ### Application access
 
-There is no built-in account authentication, role model, per-mission ownership check, or tenant separation. Mission creation and evidence viewing are available to clients that can reach the application. The mission route has no application-level rate limiter or queue/concurrency admission control; repeated accepted submissions can start separate provider-backed runs.
+There is no built-in account authentication, role model, per-mission ownership check, or tenant separation. In an interactive instance, mission creation and evidence viewing are available to clients that can reach the application. The mission route has no application-level rate limiter or queue/concurrency admission control; repeated accepted submissions can start separate provider-backed runs.
 
 The PR route rejects a supplied foreign `Origin` or `Sec-Fetch-Site: cross-site`. Requests with neither header can proceed. These checks address a browser request pattern, not caller identity or authority. The explicit UI click is a workflow boundary, not authentication. Anyone able to call the endpoint with an eligible mission ID can attempt publication using the configured server token.
 

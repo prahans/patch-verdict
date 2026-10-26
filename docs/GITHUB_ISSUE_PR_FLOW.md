@@ -2,6 +2,8 @@
 
 PatchVerdict can turn a public GitHub issue into a verification mission and, after a separate user action, publish an eligible recorded repair. Issue loading, verification, and publication have different credentials and trust boundaries. This guide describes the checked-in implementation, replacing the earlier feature-branch implementation report.
 
+These workflows apply to a trusted interactive instance. The project's [public demo](https://patchverdict.duckdns.org/) is intended as a read-only showcase, with new missions and PR publication disabled at the deployment boundary. This is a deployment restriction, not built-in application authentication; source inspection alone does not verify its live enforcement.
+
 For installation, see [Getting started](GETTING_STARTED.md). For evidence semantics, see [Verification](VERIFICATION.md). For access-control limitations, see [Security and limitations](SECURITY_AND_LIMITATIONS.md).
 
 ## Public issue input
@@ -60,7 +62,7 @@ After initial status persistence and process launch, the server returns HTTP `20
 
 The process bridge invokes the fixed backend entry point with separate arguments and `shell: false`. It generates the `web-<UUID>` mission ID and passes canonical issue metadata separately from the report text. It explicitly blanks `PATCHVERDICT_GITHUB_TOKEN` in the child environment, also preventing dotenv from restoring that token from a root environment file.
 
-Live status lives in `output/.runs/`; completed proof lives in `output/<missionId>/`. Mission Control polls real recorded progress and refreshes into the saved dashboard when proof is available. Issue-backed bundles include `mission.source.githubIssue`; manual and older bundles remain readable without it. New patches record `patch.sha256`, calculated from the exact saved `patch.diff` bytes. The dashboard displays recorded evidence and verdicts; it does not create a replacement verdict.
+Live status lives in `output/.runs/`; saved proof bundles live in `output/<missionId>/`, including bundles from execution failures. Mission Control polls real recorded progress and refreshes into the saved dashboard when proof is available. Issue-backed bundles include `mission.source.githubIssue`; manual and older bundles remain readable without it. New patches record `patch.sha256`, calculated from the exact saved `patch.diff` bytes. The dashboard displays recorded evidence and verdicts; it does not create a replacement verdict.
 
 Sources: [input parser](../apps/web/lib/mission-input.ts), [mission route](../apps/web/app/api/missions/route.ts), [process bridge](../apps/web/lib/run-backend-mission.ts), [proof writer](../src/proof/bundle.ts). See [System design](SYSTEM_DESIGN.md) for process lifetime and failures.
 

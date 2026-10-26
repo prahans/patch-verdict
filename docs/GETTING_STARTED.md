@@ -2,6 +2,8 @@
 
 This guide takes a developer from a fresh checkout to a local PatchVerdict web server, then explains how to submit a mission and inspect its saved evidence. For the engineering behind the workflow, see [System Design](SYSTEM_DESIGN.md); for a presentation sequence, see the [Demo Guide](DEMO_GUIDE.md).
 
+The [public demonstration](https://patchverdict.duckdns.org/) is a read-only showcase: new mission creation and GitHub PR publication are disabled at its deployment boundary. The submission and publication instructions below apply to a separate, trusted local interactive instance. Public deployment restrictions are not built-in user authentication.
+
 ## Prerequisites
 
 - **Node.js 24:** the version used by [CI](../.github/workflows/ci.yml). The web tests use Node's native TypeScript loading and module hooks. Neither package manifest declares a broader supported Node range.
@@ -103,7 +105,7 @@ This is a suggested input, not a promise of a successful rerun. Switch between i
 
 ### Choose reproduction settings carefully
 
-**Reproduction command** is optional, up to 2,000 characters. If omitted, the backend uses the repository's detected full-suite command: `npm test` or `pnpm test`. An explicit command overrides the reproduction command only; full-suite verification still uses the detected test script. Commands execute in the remote repository context.
+**Reproduction command** is optional, up to 2,000 characters. If omitted, the backend uses the repository's detected test script: `npm test` or `pnpm test`. An explicit command overrides the reproduction command only; the full-suite stage still uses that detected script, whose coverage depends on the repository. Commands execute in the remote repository context.
 
 **Required failure marker** is optional, up to 1,000 characters. It is a literal, case-sensitive substring expected in combined baseline stdout/stderr, not a regular expression. Use it to identify the reported symptom; an incorrect marker can prevent baseline reproduction from being accepted. The CLI currently expects baseline exit code `1` and rejects output containing `Startup Error`. It does not invent a marker when the field is empty.
 
@@ -117,9 +119,9 @@ When a readable proof is ready, the page refreshes into the saved evidence dashb
 
 Finalized bundles live at the repository root under `output/<missionId>/`. The loader requires `proof.json` and `events.json`; investigation reports, diffs, and command evidence may be absent when a stage did not produce them. Live status lives separately in `output/.runs/`. Treat finalized artifacts as immutable while inspecting them.
 
-Open `/benchmarks` to see the configured controlled scenarios and discovered mission history. **A fresh Git clone does not contain historical proofs:** `output/` is ignored by Git. A configured scenario without its local evidence stays unavailable. The landing page's illustrative **EXAMPLE PROOF** is not a recorded mission; a link to an actual proof is offered only when an appropriate local bundle is readable.
+Open `/benchmarks` to see the configured controlled scenarios and discovered mission history. **A fresh Git clone does not contain historical proofs:** `output/` is ignored by Git. A configured scenario without its local evidence stays unavailable. The landing page's illustrative **EXAMPLE RECORD** is not a recorded mission; a link to an actual proof is offered only when an appropriate local bundle is readable.
 
-The web runner cleans up old output after missions: by default it retains the 30 newest finalized `web-` bundles, removes incomplete web mission directories older than 24 hours, and expires old live status files. Selected catalog entries are not exempt from cleanup. See [Benchmark Dashboard](BENCHMARK_DASHBOARD.md) for the exact selections, history limits, and private backup procedure.
+The web runner cleans up old output after missions: by default it retains the 30 newest finalized saved `web-` mission bundles, including failed executions, removes incomplete web mission directories older than 24 hours, and expires old live status files. Retention counts matching web mission directories with a regular `proof.json`; it does not require execution status `COMPLETED` or a passing verdict. Selected catalog entries are not exempt from cleanup. See [Benchmark Dashboard](BENCHMARK_DASHBOARD.md) for the exact selections, history limits, and private backup procedure.
 
 ## Run local quality checks
 
@@ -176,7 +178,7 @@ The mission route declares a five-minute maximum, and the backend bridge enforce
 | OpenRouter 429 or temporary provider failure | Model requests have bounded retries for HTTP 429/502/503/504, subject to the mission deadline. See [OpenRouter recovery](OPENROUTER_RELIABILITY.md) for routing constraints, safe error categories, and validation limits. |
 | Issue preview is rejected | Use the exact issue URL format above. Check repository visibility, issue size, and GitHub's unauthenticated rate limit; manual input is available when appropriate. |
 | Repository preparation fails | Check the root manifest, test script, supported lockfile, and dependency installation. Current support does not cover every public repository. |
-| Failure is not reproduced | Verify that the command fails for the reported reason with the expected exit code and optional literal marker. An unrelated startup error is not accepted as reproduction. |
+| Failure is not reproduced | Check the expected exit code and optional literal marker. The CLI rejects output containing the exact text `Startup Error`; other unrelated failures can still match the configured conditions. Inspect the command output to establish its relevance to the report. |
 | Mission exceeds its deadline | The bridge stops it after 270 seconds. Inspect saved status/evidence before choosing a smaller repository or narrower reproduction for a new run. |
 | Mission cannot be saved, or evidence is missing | Check write/read permissions and the checkout's `output/` location. Existing history may have been removed by retention or may never have existed in this clone. Do not invent or edit proofs to fill gaps. |
 | PR action reports configuration or eligibility error | Configure the optional token in the web environment and inspect the saved proof requirements in [GitHub Issue and PR Flow](GITHUB_ISSUE_PR_FLOW.md). Old proofs without a diff digest remain viewable but are ineligible. |

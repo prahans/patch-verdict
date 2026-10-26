@@ -4,6 +4,8 @@ PatchVerdict coordinates a repository debugging mission from a Next.js server. A
 
 This document is for engineers and technical reviewers. See [Getting started](GETTING_STARTED.md) for operation, [Verification](VERIFICATION.md) for the decision rules, and [Security and limitations](SECURITY_AND_LIMITATIONS.md) for trust boundaries.
 
+The architecture below describes the full interactive application for trusted local or private operation. The project's [public demo](https://patchverdict.duckdns.org/) is operated as a read-only showcase, with mission creation and PR publication disabled at the deployment boundary. That deployment restriction does not imply built-in authentication or an application-level demo guard in this branch.
+
 ## Runtime architecture
 
 ```mermaid
@@ -82,6 +84,8 @@ The investigation prompt asks the model to treat conclusions as hypotheses and c
 | `run_test` | A selected Vitest execution, including output and exit code |
 
 The implementation allows eight tool-enabled model turns, caches identical tool calls, and limits new successful `run_test` tool results to two. A failing test can still produce a successful tool result: its nonzero exit is evidence. Repeated calls can force finalization early. Exhausting the loop triggers a final model request without tools; malformed final JSON gets one formatting repair opportunity without tools. Eight turns is therefore not an absolute eight-request provider limit.
+
+Each non-streaming model request also has bounded [OpenRouter request recovery](OPENROUTER_RELIABILITY.md): at most four total attempts for HTTP 429, 502, 503, or 504, with server-requested minimum delays and exponential backoff with jitter inside the request and remaining mission budgets. Retries retain the same conversation and prior tool results; they do not replay repository tools or publication. Tool-enabled requests require provider support for the requested parameters, but an eligible fallback provider may not be available.
 
 The structured diagnosis contains a root-cause hypothesis, FILE/TEST/SEARCH observations, relevant files, recommended patch targets, patch-target analysis, and confidence. Deterministic validators require inspected source paths, executed test/search references, and consistent recommendations. If a direct test file is recommended after test infrastructure was inspected, the infrastructure candidate must be explicitly considered. They do not prove that the model interpreted those sources correctly.
 

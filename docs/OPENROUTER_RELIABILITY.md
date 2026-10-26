@@ -9,13 +9,13 @@ it does not establish an operating-system problem or a repair-engine failure.
 HTTP 429 can reflect rate limits or upstream capacity. The exact quota or capacity
 constraint cannot be determined from that status alone.
 
-The installed `@openrouter/sdk` **1.4.14** retries `5XX` and connection failures by
-default, but **does not retry 429**. Its generated `funcs/chatSend.js` and
+The `@openrouter/sdk` **1.4.14** inspected for the reliability change retries
+`5XX` and connection failures by default, but **does not retry 429**. Its generated `funcs/chatSend.js` and
 `lib/retries.js` allow a one-hour retry budget with no attempt cap. They understand
 `Retry-After`, but cap waits at 60 seconds and check elapsed time before waiting,
 so the SDK policy does not enforce PatchVerdict's mission deadline. The SDK's
-default backoff formula is polynomial (`500 * x^1.5 + jitter`). An unhandled 429
-therefore ends the investigation before patch generation.
+default backoff formula is polynomial (`500 * x^1.5 + jitter`). In the reported
+executions, an unhandled 429 ended the investigation before patch generation.
 
 On **2026-10-22**, the public [model endpoint API](https://openrouter.ai/api/v1/models/qwen/qwen3-coder-next/endpoints)
 advertised only Parasail for this model, including `tools` and `tool_choice`
@@ -80,16 +80,23 @@ payloads, and tool execution counts. The web process test checks deadline
 propagation. These checks do not establish live Parasail availability or prove a
 successful end-to-end mission on Windows or EC2.
 
-Validation on this branch: **129 backend tests** and **155 web tests** passed,
-including 38 transport tests, three agent recovery tests, and 12 deadline tests.
+Historical validation of the recovery implementation: **129 backend tests** and
+**155 web tests** passed, including 38 transport tests, three agent recovery tests,
+and 12 deadline tests.
 Backend and frontend typechecks, web lint, and the Next.js production build also
 passed. The production build required network access for the existing Google
 Fonts downloads. No paid provider request or real repair mission was run for
-this validation.
+this validation. These are the original implementation results, not a test run
+performed during the final documentation audit.
 
-For a live comparison, start a new mission with the same controlled issue, base
-commit, and reproduction settings. Keep the original failed artifacts. The web
-workflow generates a new mission ID; CLI users should supply a fresh
+For a live comparison, use a separately configured trusted interactive instance;
+the public read-only demo does not launch missions. Live runs require provider
+credentials and may incur charges. Use the same controlled issue and reproduction
+settings, and confirm that the new recorded base commit matches the original.
+The web form does not select a commit: it clones the repository's current default
+branch, so a rerun after that branch changes is not a same-base comparison.
+Keep the original failed artifacts. The web workflow generates a new mission ID;
+CLI users should supply a fresh
 `PATCHVERDICT_MISSION_ID` to avoid overwriting the deterministic default output
 path. Record the new execution outcome and safe status/attempt diagnostics before
 claiming that the observed live failure is resolved.

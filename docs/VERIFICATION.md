@@ -181,7 +181,7 @@ When a patch exists, `patch.sha256` hashes the exact UTF-8 bytes written to `pat
 
 The writer recreates its mission directory, writes supporting artifacts first, and publishes `proof.json` last through a temporary file and rename. Web submissions use unique IDs. Direct CLI IDs are derived from repository, base commit, and issue hash, so rerunning the same combination can replace that local directory. Preserve important evidence before rerunning or allowing retention to remove it.
 
-The web [loader](../apps/web/lib/load-proof-bundle.ts) requires readable version 2 `proof.json` and `events.json`, validates their shapes and mission identity, and uses fixed supporting filenames with path containment checks. Optional missing or malformed artifacts remain unavailable with warnings; they are not invented. It reads saved fields and does not rerun verification or recalculate the verdict.
+The web [loader](../apps/web/lib/load-proof-bundle.ts) requires readable version 2 `proof.json` and `events.json`, validates their shapes and mission identity, and uses fixed supporting filenames with path containment checks. Missing optional artifacts remain unavailable without a warning; malformed or otherwise unreadable optional artifacts add warnings. Neither case creates replacement evidence. It reads saved fields and does not rerun verification or recalculate the verdict.
 
 ### What is not preserved or established
 
